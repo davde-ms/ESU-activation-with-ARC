@@ -35,7 +35,7 @@ https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-
 -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -clientSecret "Zil8Q~i5xFbrg.N5ew_UvD1JRZcGgu66VA-DtaEL" `
 -licenseResourceGroupName "rg-arclicenses" `
--licenseName "Standard8vcores" `
+-licenseName "Standard8vcores"
 
 This example will create a license object that is Deactivated with a virtual cores count of 8 and of type Standard
 
