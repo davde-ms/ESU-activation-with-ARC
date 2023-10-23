@@ -162,9 +162,7 @@ function IngestDatafromCSV {
     Write-Host "CoreType: $CoreType"
     Write-Host "CoreCount: $CoreCount"
 
-    # Invoke your second script here using the provided arguments
-    # For example:
-    # & "Path\To\Your\SecondScript.ps1" -ServerName $ServerName -LicenseEdition $LicenseEdition -CoreType $CoreType -CoreCount $CoreCount
+    
 }
 
 # Path to the CSV file
@@ -225,15 +223,20 @@ function Get-AzureADBearerToken {
      }    
 }
 
-#######################################
-# End of Function(s) definition block #
-#######################################
-
-
-
-#####################
-# Main script block #
-#####################
+function CreateESULicense {
+    param (
+        [string]$appID,
+        [string]$clientSecret,
+        [string]$tenantId,
+        [string]$location,
+        [string]$state,
+        [string]$targetOS,
+        [string]$edition,
+        [string]$coreType,
+        [int]$coreCount,
+        [string]$creator
+    )
+    
 
 # Gets a bearer token from the App
 $bearerToken = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId 
@@ -270,6 +273,26 @@ $response = Invoke-RestMethod -Uri $apiEndpoint -Method $method -Headers $header
 
 # Sends the response to STDOUT, which would be captured by the calling script if any
 $response
+
+}
+
+#######################################
+# End of Function(s) definition block #
+#######################################
+
+
+
+#####################
+# Main script block #
+#####################
+
+# Invoke your second script here using the provided arguments
+    # For example:
+    # & "Path\To\Your\SecondScript.ps1" -ServerName $ServerName -LicenseEdition $LicenseEdition -CoreType $CoreType -CoreCount $CoreCount
+
+
+
+
 
 ############################
 # End of Main script block #
