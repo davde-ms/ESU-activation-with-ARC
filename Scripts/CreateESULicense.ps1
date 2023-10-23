@@ -208,7 +208,6 @@ $requestBody = @{
     }
     tags = @{
         CreatedBy = "$creator"
-        "ESU Usage" = “WS2012 MULTIPURPOSE”
     }
 }
 
