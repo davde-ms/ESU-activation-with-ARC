@@ -36,7 +36,6 @@ https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-
 -clientSecret "Zil8Q~i5xFbrg.N5ew_UvD1JRZcGgu66VA-DtaEL" `
 -licenseResourceGroupName "rg-arclicenses" `
 -licenseName "Standard8vcores" `
--location "EastUS"
 
 This example will create a license object that is Deactivated with a virtual cores count of 8 and of type Standard
 
