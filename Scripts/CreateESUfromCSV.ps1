@@ -7,18 +7,19 @@ YOU ARE FREE TO REUSE AND/OR MODIFY THE CODE TO FIT YOUR NEEDS
 //-----------------------------------------------------------------------
 
 .SYNOPSIS
-Creates (or updates) an ESU license to be used with Azure ARC.
+Creates ESU licenses to be used with Azure ARC in bulk, using a exported CSV from the Azure Portal.
 
 .DESCRIPTION
-This script will create (or modify) an ARC based ESU license that can later be assigned to your servers requiring ESU acvitation.
+This script will create ARC based ESU licenses that can later be assigned to your servers requiring ESU acvitation.
+Creation will fetch parameters information from a CSV file coming from an Azure Portal export of the ARC ESU Eligible resources.
 License assignment should be done with another script and so will be removal/unlinking of the license when/if required.
 
 .NOTES
-File Name : CreateESULicense.ps1
+File Name : CreateESUfromCSV.ps1
 Author    : David De Backer
-Version   : 1.9
-Date      : 09-October-2023
-Update    : 22-October-2023
+Version   : 0.5
+Date      : 23-October-2023
+Update    : 23-October-2023
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
@@ -48,6 +49,7 @@ Note that you can only change the NUMBER of cores associated to a license as wel
 You CAN NEITHER modify the EDITION nor can you modify the TYPE of the cores configured for the license.
 
 #>
+
 ##############################
 #Parameters definition block #
 ##############################
@@ -78,8 +80,8 @@ param(
     [Parameter(Mandatory=$true, HelpMessage="The name of the ESU license to be created.")]
     [ValidateNotNullOrEmpty()]
     [ValidatePattern('^(?!.*\.$)[a-zA-Z0-9_()\-.]{1,90}$', ErrorMessage="The resource group name '{0}' did not pass validation (1-90 alphanumeric characters)")]
-    [Alias("ln","lic","license")]
-    [string]$licenseName,
+    [Alias("lpn")]
+    [string]$licenseprefixName,
 
     [Parameter(Mandatory=$true, HelpMessage="The region where the license will be created.")]
     [ValidateNotNullOrEmpty()]
@@ -90,17 +92,17 @@ param(
     [ValidateSet("Activated", "Deactivated",ErrorMessage="Value '{0}' is invalid. Try one of: '{1}'")]
     [string]$state,
 
-    [Parameter(Mandatory=$true, HelpMessage="The target OS edition for the license. Valid values are Standard or Datacenter.")]
+    [Parameter(Mandatory=$false, HelpMessage="The target OS edition for the license. Valid values are Standard or Datacenter.")]
     [ValidateSet("Standard", "Datacenter",ErrorMessage="Value '{0}' is invalid. Try one of: '{1}'")]
     [Alias( "e", "ed")]
     [string]$edition,
 
-    [Parameter (Mandatory, HelpMessage="The type of license. Valid values are pCore for physical cores or vCore for virtual cores.")]
+    [Parameter (Mandatory=$false, HelpMessage="The type of license. Valid values are pCore for physical cores or vCore for virtual cores.")]
     [ValidateSet ("pCore", "vCore",ErrorMessage="Value '{0}' is invalid. Try one of: '{1}'")]
-    [Alias("t")]
+    [Alias("ct","type")]
     [string] $coreType,
 
-    [Parameter (Mandatory, HelpMessage="The number of cores to be licensed. Valid values are 16-256 for pCore and 8-128 for vCore.")]
+    [Parameter (Mandatory=$false, HelpMessage="The number of cores to be licensed. Valid values are 16-256 for pCore and 8-128 for vCore.")]
     # The MAX values can be changed in the param validation block below if you need to license more cores (unlikely)
     # Those values have been set as a precaution to avoid accidental licensing of too many cores
     # The minimum value shoud stay as is.
@@ -134,6 +136,8 @@ $apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resou
 $method = "PUT"
 $creator = $MyInvocation.MyCommand.Name
 
+$edition = "Standard"
+
 #########################################
 # End of the variables definition block #
 #########################################
@@ -143,6 +147,51 @@ $creator = $MyInvocation.MyCommand.Name
 ################################
 # Function(s) definition block #
 ################################
+
+function IngestDatafromCSV {
+    param (
+        [string]$ServerName,
+        [string]$LicenseEdition,
+        [string]$CoreType,
+        [int]$CoreCount
+    )
+
+    Write-Host "Running second script with the following arguments:"
+    Write-Host "ServerName: $ServerName"
+    Write-Host "LicenseEdition: $LicenseEdition"
+    Write-Host "CoreType: $CoreType"
+    Write-Host "CoreCount: $CoreCount"
+
+    # Invoke your second script here using the provided arguments
+    # For example:
+    # & "Path\To\Your\SecondScript.ps1" -ServerName $ServerName -LicenseEdition $LicenseEdition -CoreType $CoreType -CoreCount $CoreCount
+}
+
+# Path to the CSV file
+$csvFilePath = "Path\To\Your\CSV\File.csv"
+
+# Import the CSV data
+$data = Import-Csv -Path $csvFilePath
+
+# Define the script block for parallel execution
+$scriptBlock = {
+    param ($rowData)
+    RunSecondScript -ServerName $rowData.servername -LicenseEdition $rowData.licenseedition -CoreType $rowData.coretype -CoreCount $rowData.corecount
+}
+
+# Loop through the data and run the script block as a job
+foreach ($row in $data) {
+    $job = Start-Job -ScriptBlock $scriptBlock -ArgumentList $row
+}
+
+# Wait for all jobs to finish
+Get-Job | Wait-Job
+
+# Retrieve the job results if necessary
+Get-Job | Receive-Job
+
+# Remove the jobs
+Get-Job | Remove-Job
 
 function Get-AzureADBearerToken {
     param(
