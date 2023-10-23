@@ -21,6 +21,7 @@ Date      : 17-October-2023
 Update    : 22-October-2023
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
+Requires  : Powershell Core version 7.x or later
 Product   : Azure ARC
 
 .LINK
