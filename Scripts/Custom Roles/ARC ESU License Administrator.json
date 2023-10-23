@@ -1,0 +1,24 @@
+{
+    "properties": {
+        "roleName": "ARC ESU License Administrator",
+        "description": "ESU License administrator, grants the rights to manage and assign ESU licenses to ARC server nodes.",
+        "assignableScopes": [
+            "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+        ],
+        "permissions": [
+            {
+                "actions": [
+                    "Microsoft.HybridCompute/licenses/read",
+                    "Microsoft.HybridCompute/licenses/write",
+                    "Microsoft.HybridCompute/licenses/delete",
+                    "Microsoft.HybridCompute/machines/licenseProfiles/read",
+                    "Microsoft.HybridCompute/machines/licenseProfiles/write",
+                    "Microsoft.HybridCompute/machines/licenseProfiles/delete"
+                ],
+                "notActions": [],
+                "dataActions": [],
+                "notDataActions": []
+            }
+        ]
+    }
+}
