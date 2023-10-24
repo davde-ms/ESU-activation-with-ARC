@@ -116,7 +116,11 @@ param(
         $_ -ge $min -and $_ -le $max -and $_ % 2 -eq 0
     }, ErrorMessage = "The item '{0}' did not pass validation of statements '{1}'")]
     [Alias("cc","count")]
-    [int] $coreCount
+    [int] $coreCount,
+
+    [Parameter (Mandatory=$true, HelpMessage="The CSV file name to read from")]
+    [Alias("csv","file")]
+    [string] $csvFilePath
 )
 
 #####################################
@@ -130,13 +134,12 @@ param(
 ##############################
 
 # Do NOT change those variables as it will break the script. They are meant to be static.
-$targetOS = "Windows Server 2012"
+$global:targetOS = "Windows Server 2012"
 # Azure API endpoint
-$apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName`?api-version=2023-06-20-preview"
-$method = "PUT"
-$creator = $MyInvocation.MyCommand.Name
+$global:apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName`?api-version=2023-06-20-preview"
+$global:method = "PUT"
+$global:creator = $MyInvocation.MyCommand.Name
 
-$edition = "Standard"
 
 #########################################
 # End of the variables definition block #
@@ -147,49 +150,6 @@ $edition = "Standard"
 ################################
 # Function(s) definition block #
 ################################
-
-function IngestDatafromCSV {
-    param (
-        [string]$ServerName,
-        [string]$LicenseEdition,
-        [string]$CoreType,
-        [int]$CoreCount
-    )
-
-    Write-Host "Running second script with the following arguments:"
-    Write-Host "ServerName: $ServerName"
-    Write-Host "LicenseEdition: $LicenseEdition"
-    Write-Host "CoreType: $CoreType"
-    Write-Host "CoreCount: $CoreCount"
-
-    
-}
-
-# Path to the CSV file
-$csvFilePath = "Path\To\Your\CSV\File.csv"
-
-# Import the CSV data
-$data = Import-Csv -Path $csvFilePath
-
-# Define the script block for parallel execution
-$scriptBlock = {
-    param ($rowData)
-    RunSecondScript -ServerName $rowData.servername -LicenseEdition $rowData.licenseedition -CoreType $rowData.coretype -CoreCount $rowData.corecount
-}
-
-# Loop through the data and run the script block as a job
-foreach ($row in $data) {
-    $job = Start-Job -ScriptBlock $scriptBlock -ArgumentList $row
-}
-
-# Wait for all jobs to finish
-Get-Job | Wait-Job
-
-# Retrieve the job results if necessary
-Get-Job | Receive-Job
-
-# Remove the jobs
-Get-Job | Remove-Job
 
 function Get-AzureADBearerToken {
     param(
@@ -230,11 +190,9 @@ function CreateESULicense {
         [string]$tenantId,
         [string]$location,
         [string]$state,
-        [string]$targetOS,
         [string]$edition,
         [string]$coreType,
-        [int]$coreCount,
-        [string]$creator
+        [int]$coreCount
     )
     
 
@@ -253,14 +211,14 @@ $requestBody = @{
     properties = @{
         licenseDetails = @{
             state = $state
-            target = $targetOS
+            target = $global:targetOS
             edition = $edition
             Type = $coreType
             Processors = $coreCount
         }
     }
     tags = @{
-        CreatedBy = "$creator"
+        CreatedBy = "$global:creator"
         "ESU Usage" = “WS2012 MULTIPURPOSE”
     }
 }
@@ -269,7 +227,7 @@ $requestBody = @{
 $requestBodyJson = $requestBody | ConvertTo-Json -Depth 5
 
 # Sends the PUT request to update the license
-$response = Invoke-RestMethod -Uri $apiEndpoint -Method $method -Headers $headers -Body $requestBodyJson
+$response = Invoke-RestMethod -Uri $global:apiEndpoint -Method $global:method -Headers $headers -Body $requestBodyJson
 
 # Sends the response to STDOUT, which would be captured by the calling script if any
 $response
@@ -290,7 +248,40 @@ $response
     # For example:
     # & "Path\To\Your\SecondScript.ps1" -ServerName $ServerName -LicenseEdition $LicenseEdition -CoreType $CoreType -CoreCount $CoreCount
 
+$data = Import-Csv -Path $csvFilePath
 
+
+# Define the script block for parallel execution
+$scriptBlock = {
+    param ($rowData)
+    CreateESULicense -subscriptionId $subscriptionId `
+    -tenantId $tenantId `
+    -appID $appID `
+    -clientSecret $clientSecret `
+    -licenseResourceGroupName $licenseResourceGroupName `
+    -licenseName $licenseName `
+    -location $location `
+    -state $state `
+    -edition $edition `
+    -coreType $coreType `
+    -coreCount $coreCount 
+    
+    RunSecondScript -ServerName $rowData.servername -LicenseEdition $rowData.licenseedition -CoreType $rowData.coretype -CoreCount $rowData.corecount
+}
+
+# Loop through the data and run the script block as a job
+foreach ($row in $data) {
+    $job = Start-Job -ScriptBlock $scriptBlock -ArgumentList $row
+}
+
+# Wait for all jobs to finish
+Get-Job | Wait-Job
+
+# Retrieve the job results if necessary
+Get-Job | Receive-Job
+
+# Remove the jobs
+Get-Job | Remove-Job
 
 
 
