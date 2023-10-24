@@ -252,25 +252,30 @@ foreach ($row in $data) {
 
     $LicenseName = $licenseNamePrefix + $row.name + $licensepreNameSuffix
     
-    #adjusting coreCount to the right amount required for the license
-    switch ($row.coreType) {
-        "vcore" {
-            if ($row.coreCount -lt 8 -or $row.coreCount % 2 -ne 0) {
-                $row.coreCount = [math]::Max(8, [math]::Ceiling($row.coreCount / 2) * 2)
+    #adjusting coreCount and coreType to the right values required for the license
+    switch ($row.model) {
+        "Virtual Machine" {
+            if ($row.cores -lt 8 -or $row.cores % 2 -ne 0) {
+                $row.cores = [math]::Max(8, [math]::Ceiling($row.cores / 2) * 2)
             }
+            $coreType = "vcore"; Break
         }
-        "pcore" {
-            if ($row.coreCount -lt 16 -or $row.coreCount % 2 -ne 0) {
-                $row.coreCount = [math]::Max(16, [math]::Ceiling($row.coreCount / 2) * 2)
+        "Physical Machine" {
+            if ($row.cores -lt 16 -or $row.cores % 2 -ne 0) {
+                $row.cores = [math]::Max(16, [math]::Ceiling($row.cores / 2) * 2)
             }
+            $coreType = "pcore"; Break
         }
         Default {
-            Write-Host "Invalid coreType."
+            Write-Host "Unknown coreType."
         }
     }
     
+
     #Create the ESU License
-    CreateESULicense -LicenseName $rowData.name -LicenseEdition $rowData.licenseedition -CoreType $rowData.coretype -CoreCount $rowData.corecount
+    
+    CreateESULicense.ps1 -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.corecount
+ 
 }
 
 
