@@ -32,9 +32,9 @@ https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-
 ./CreateESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
--clientSecret "Zil8Q~i5xFbrg.N5ew_UvD1JRZcGgu66VA-DtaEL" `
+-clientSecret "your_application_secret_value" `
 -licenseResourceGroupName "rg-arclicenses" `
--licenseName "Standard8vcores" `
+-licenseName "Standard-8vcores" `
 -location "EastUS" `
 -state "Deactivated" `
 -edition "Standard" `

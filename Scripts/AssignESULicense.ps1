@@ -32,9 +32,9 @@ https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-
 ./AssignESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
--clientSecret "clientsecretvalue" `
--licenseResourceGroupName "rg-arclicenses" `
--licenseName "Standard-8v" `
+-clientSecret "your_application_secret_value" `
+-licenseResourceGroupName "rg-ARC-ESULicenses" `
+-licenseName "Standard-8vcores" `
 -serverResourceGroupName "rg-arservers" `
 -ARCServerName "Win2012" `
 -location "EastUS" 

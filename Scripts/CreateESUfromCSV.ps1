@@ -1,6 +1,16 @@
 <# 
 //-----------------------------------------------------------------------
 
+*****************************************************
+*****************************************************
+
+            DRAFT and NOT FUNCTIONAL
+
+
+*****************************************************
+*****************************************************
+
+
 THE SUBJECT SCRIPT IS PROVIDED “AS IS” WITHOUT ANY WARRANTY OF ANY KIND AND SHOULD ONLY BE USED FOR TESTING OR DEMO PURPOSES.
 YOU ARE FREE TO REUSE AND/OR MODIFY THE CODE TO FIT YOUR NEEDS
 
@@ -33,14 +43,11 @@ https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-
 ./CreateESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
--clientSecret "Zil8Q~i5xFbrg.N5ew_UvD1JRZcGgu66VA-DtaEL" `
--licenseResourceGroupName "rg-arclicenses" `
--licenseName "Standard8vcores" `
+-clientSecret "your_application_secret_value" `
+-licenseResourceGroupName "rg-ARC-ESULicenses" `
 -location "EastUS" `
 -state "Deactivated" `
--edition "Standard" `
--type "vCore" `
--cores 8 
+-edition "Standard"
 
 This example will create a license object that is Deactivated with a virtual cores count of 8 and of type Standard
 
@@ -77,11 +84,17 @@ param(
     [Alias("lrg")]
     [string]$licenseResourceGroupName,
 
-    [Parameter(Mandatory=$true, HelpMessage="The name of the ESU license to be created.")]
+    [Parameter(Mandatory=$false, HelpMessage="The name of the ESU license to be created.")]
     [ValidateNotNullOrEmpty()]
-    [ValidatePattern('^(?!.*\.$)[a-zA-Z0-9_()\-.]{1,90}$', ErrorMessage="The resource group name '{0}' did not pass validation (1-90 alphanumeric characters)")]
+    [ValidatePattern('^(?!.*\.$)[a-zA-Z0-9_()\-.]{1,20}$', ErrorMessage="The resource group name '{0}' did not pass validation (1-90 alphanumeric characters)")]
     [Alias("lpn")]
-    [string]$licenseprefixName,
+    [string]$licenseNamePrefix,
+
+    [Parameter(Mandatory=$false, HelpMessage="The name of the ESU license to be created.")]
+    [ValidateNotNullOrEmpty()]
+    [ValidatePattern('^(?!.*\.$)[a-zA-Z0-9_()\-.]{1,20}$', ErrorMessage="The resource group name '{0}' did not pass validation (1-90 alphanumeric characters)")]
+    [Alias("lpn")]
+    [string]$licensepreNameSuffix,
 
     [Parameter(Mandatory=$true, HelpMessage="The region where the license will be created.")]
     [ValidateNotNullOrEmpty()]
@@ -100,27 +113,7 @@ param(
     [Parameter (Mandatory=$false, HelpMessage="The type of license. Valid values are pCore for physical cores or vCore for virtual cores.")]
     [ValidateSet ("pCore", "vCore",ErrorMessage="Value '{0}' is invalid. Try one of: '{1}'")]
     [Alias("ct","type")]
-    [string] $coreType,
-
-    [Parameter (Mandatory=$false, HelpMessage="The number of cores to be licensed. Valid values are 16-256 for pCore and 8-128 for vCore.")]
-    # The MAX values can be changed in the param validation block below if you need to license more cores (unlikely)
-    # Those values have been set as a precaution to avoid accidental licensing of too many cores
-    # The minimum value shoud stay as is.
-    # Changing the minimum number of cores ($min value herebelow) would have be in violation of with the Microsoft Licensing Terms
-
-    [ValidateScript ({
-        switch ($coreType) {
-            "pCore" { $min = 16; $max = 256 }
-            "vCore" { $min = 8; $max = 128 }
-        }
-        $_ -ge $min -and $_ -le $max -and $_ % 2 -eq 0
-    }, ErrorMessage = "The item '{0}' did not pass validation of statements '{1}'")]
-    [Alias("cc","count")]
-    [int] $coreCount,
-
-    [Parameter (Mandatory=$true, HelpMessage="The CSV file name to read from")]
-    [Alias("csv","file")]
-    [string] $csvFilePath
+    [string] $coreType
 )
 
 #####################################
@@ -133,11 +126,8 @@ param(
 # Variables definition block #
 ##############################
 
-# Do NOT change those variables as it will break the script. They are meant to be static.
+# Do NOT change those variables as it might break the script. They are meant to be static.
 $global:targetOS = "Windows Server 2012"
-# Azure API endpoint
-$global:apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName`?api-version=2023-06-20-preview"
-$global:method = "PUT"
 $global:creator = $MyInvocation.MyCommand.Name
 
 
@@ -189,12 +179,15 @@ function CreateESULicense {
         [string]$clientSecret,
         [string]$tenantId,
         [string]$location,
+        [string]$licenseResourceGroupName,
+        [string]$licenseName,
         [string]$state,
         [string]$edition,
         [string]$coreType,
         [int]$coreCount
     )
     
+$apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName`?api-version=2023-06-20-preview"
 
 # Gets a bearer token from the App
 $bearerToken = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId 
@@ -227,10 +220,10 @@ $requestBody = @{
 $requestBodyJson = $requestBody | ConvertTo-Json -Depth 5
 
 # Sends the PUT request to update the license
-$response = Invoke-RestMethod -Uri $global:apiEndpoint -Method $global:method -Headers $headers -Body $requestBodyJson
+$response = Invoke-RestMethod -Uri $apiEndpoint -Method PUT -Headers $headers -Body $requestBodyJson
 
 # Sends the response to STDOUT, which would be captured by the calling script if any
-$response
+return $response
 
 }
 
@@ -250,38 +243,33 @@ $response
 
 $data = Import-Csv -Path $csvFilePath
 
-
-# Define the script block for parallel execution
-$scriptBlock = {
-    param ($rowData)
-    CreateESULicense -subscriptionId $subscriptionId `
-    -tenantId $tenantId `
-    -appID $appID `
-    -clientSecret $clientSecret `
-    -licenseResourceGroupName $licenseResourceGroupName `
-    -licenseName $licenseName `
-    -location $location `
-    -state $state `
-    -edition $edition `
-    -coreType $coreType `
-    -coreCount $coreCount 
-    
-    RunSecondScript -ServerName $rowData.servername -LicenseEdition $rowData.licenseedition -CoreType $rowData.coretype -CoreCount $rowData.corecount
-}
-
-# Loop through the data and run the script block as a job
 foreach ($row in $data) {
-    $job = Start-Job -ScriptBlock $scriptBlock -ArgumentList $row
+
+    $LicenseName = $licenseNamePrefix + $row.name + $licensepreNameSuffix
+    
+    #adjusting coreCount to the right amount required for the license
+    switch ($row.coreType) {
+        "vcore" {
+            if ($row.coreCount -lt 8 -or $row.coreCount % 2 -ne 0) {
+                $row.coreCount = [math]::Max(8, [math]::Ceiling($row.coreCount / 2) * 2)
+            }
+        }
+        "pcore" {
+            if ($row.coreCount -lt 16 -or $row.coreCount % 2 -ne 0) {
+                $row.coreCount = [math]::Max(16, [math]::Ceiling($row.coreCount / 2) * 2)
+            }
+        }
+        Default {
+            Write-Host "Invalid coreType."
+        }
+    }
+    
+    #Create the ESU License
+    CreateESULicense -LicenseName $rowData.name -LicenseEdition $rowData.licenseedition -CoreType $rowData.coretype -CoreCount $rowData.corecount
 }
 
-# Wait for all jobs to finish
-Get-Job | Wait-Job
 
-# Retrieve the job results if necessary
-Get-Job | Receive-Job
 
-# Remove the jobs
-Get-Job | Remove-Job
 
 
 
