@@ -87,14 +87,14 @@ param(
     [Parameter(Mandatory=$false, HelpMessage="The name of the ESU license to be created.")]
     [ValidateNotNullOrEmpty()]
     [ValidatePattern('^(?!.*\.$)[a-zA-Z0-9_()\-.]{1,20}$', ErrorMessage="The resource group name '{0}' did not pass validation (1-90 alphanumeric characters)")]
-    [Alias("lpn")]
+    [Alias("lp")]
     [string]$licenseNamePrefix,
 
     [Parameter(Mandatory=$false, HelpMessage="The name of the ESU license to be created.")]
     [ValidateNotNullOrEmpty()]
     [ValidatePattern('^(?!.*\.$)[a-zA-Z0-9_()\-.]{1,20}$', ErrorMessage="The resource group name '{0}' did not pass validation (1-90 alphanumeric characters)")]
-    [Alias("lpn")]
-    [string]$licensepreNameSuffix,
+    [Alias("ls")]
+    [string]$licenseNameSuffix,
 
     [Parameter(Mandatory=$true, HelpMessage="The region where the license will be created.")]
     [ValidateNotNullOrEmpty()]
@@ -111,12 +111,6 @@ param(
     [string]$edition,
 
     [Parameter (Mandatory=$false, HelpMessage="The type of license. Valid values are pCore for physical cores or vCore for virtual cores.")]
-    [ValidateSet ("pCore", "vCore",ErrorMessage="Value '{0}' is invalid. Try one of: '{1}'")]
-    [Alias("ct","type")]
-    [string] $coreType,
-
-[Parameter (Mandatory=$false, HelpMessage="The type of license. Valid values are pCore for physical cores or vCore for virtual cores.")]
-    [ValidateSet ("pCore", "vCore",ErrorMessage="Value '{0}' is invalid. Try one of: '{1}'")]
     [Alias("f","csv")]
     [string] $csvFilePath
 )
@@ -250,32 +244,30 @@ $data = Import-Csv -Path $csvFilePath
 
 foreach ($row in $data) {
 
-    $LicenseName = $licenseNamePrefix + $row.name + $licensepreNameSuffix
+    #Build the license name based on the prefix and suffix provided in the parameters (if any)
+    $LicenseName = $licenseNamePrefix + $row.name + $licenseNameSuffix
     
-    #adjusting coreCount and coreType to the right values required for the license
+    #Adjust coreCount and translate coreType to the right values required for the license based on the input from the CSV file
     switch ($row.model) {
         "Virtual Machine" {
             if ($row.cores -lt 8 -or $row.cores % 2 -ne 0) {
                 $row.cores = [math]::Max(8, [math]::Ceiling($row.cores / 2) * 2)
             }
-            $coreType = "vcore"; Break
+            $row.model = "vCore"
+            CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $row.model -CoreCount $row.cores
         }
         "Physical Machine" {
             if ($row.cores -lt 16 -or $row.cores % 2 -ne 0) {
                 $row.cores = [math]::Max(16, [math]::Ceiling($row.cores / 2) * 2)
             }
-            $coreType = "pcore"; Break
+            $row.model = "pCore"
+            CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $row.model -CoreCount $row.cores
         }
         Default {
-            Write-Host "Unknown coreType."
+            Write-Host "Cannot create license because of unknown coreType for $row"
         }
     }
-    
-
-    #Create the ESU License
-    
-    CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.corecount
- 
+      
 }
 
 
