@@ -40,7 +40,7 @@ To get more information on Azure ARC ESU license REST API please visit:
 https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-updates
 
 .EXAMPLE-1
-./CreateESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+./CreateESULicensefromCSV -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -clientSecret "your_application_secret_value" `
@@ -113,7 +113,12 @@ param(
     [Parameter (Mandatory=$false, HelpMessage="The type of license. Valid values are pCore for physical cores or vCore for virtual cores.")]
     [ValidateSet ("pCore", "vCore",ErrorMessage="Value '{0}' is invalid. Try one of: '{1}'")]
     [Alias("ct","type")]
-    [string] $coreType
+    [string] $coreType,
+
+[Parameter (Mandatory=$false, HelpMessage="The type of license. Valid values are pCore for physical cores or vCore for virtual cores.")]
+    [ValidateSet ("pCore", "vCore",ErrorMessage="Value '{0}' is invalid. Try one of: '{1}'")]
+    [Alias("f","csv")]
+    [string] $csvFilePath
 )
 
 #####################################
