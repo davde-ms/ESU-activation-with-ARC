@@ -107,14 +107,14 @@ The creation of the CSV file can be done in 2 ways:
 - **automatically** (by running the following Azure Graph Explorer query and saving its output to a CSV):
 
     Resources
-    | where type == 'microsoft.hybridcompute/machines'
-    | extend agentVersion = tostring(properties.agentVersion) , operatingSystem = tostring(properties.osSku)
-    | where operatingSystem has "Windows Server 2012"
-    | extend ESUStatus = properties.licenseProfile.esuProfile.licenseAssignmentState
-    | where ESUStatus == "NotAssigned"
-    | extend Cloud = tostring(properties.cloudMetadata.provider)
-    | extend isVirtual = iff(properties.detectedProperties.model == "Virtual Machine" or properties.detectedProperties.manufacturer == "VMware, Inc." or properties.detectedProperties.manufacturer == "Nutanix" or properties.cloudMetadata.provider == "AWS" or properties.cloudMetadata.provider == "GCP", true, false)
-    | extend cores = properties.detectedProperties.coreCount, model = tostring(properties.detectedProperties.model), manufacturer = tostring(properties.detectedProperties.manufacturer)
+    | where type == 'microsoft.hybridcompute/machines'  
+    | extend agentVersion = tostring(properties.agentVersion) , operatingSystem = tostring(properties.osSku)  
+    | where operatingSystem has "Windows Server 2012"  
+    | extend ESUStatus = properties.licenseProfile.esuProfile.licenseAssignmentState  
+    | where ESUStatus == "NotAssigned"  
+    | extend Cloud = tostring(properties.cloudMetadata.provider)  
+    | extend isVirtual = iff(properties.detectedProperties.model == "Virtual Machine" or properties.detectedProperties.manufacturer == "VMware, Inc." or properties.detectedProperties.manufacturer == "Nutanix" or properties.cloudMetadata.provider == "AWS" or properties.cloudMetadata.provider == "GCP", true, false)  
+    | extend cores = properties.detectedProperties.coreCount, model = tostring(properties.detectedProperties.model), manufacturer = tostring(properties.detectedProperties.manufacturer)  
     | project name,operatingSystem,model,manufacturer,cores,isVirtual,Cloud,ESUStatus,agentVersion
     
 
