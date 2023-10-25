@@ -247,15 +247,15 @@ foreach ($row in $data) {
             if ($row.cores -lt 8 -or $row.cores % 2 -ne 0) {
                 $row.cores = [math]::Max(8, [math]::Ceiling($row.cores / 2) * 2)
             }
-            $row.model = "vCore"
-            CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $row.model -CoreCount $row.cores
+            $coreType = "vCore"
+            CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores
         }
         0 {
             if ($row.cores -lt 16 -or $row.cores % 2 -ne 0) {
                 $row.cores = [math]::Max(16, [math]::Ceiling($row.cores / 2) * 2)
             }
-            $row.model = "pCore"
-            CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $row.model -CoreCount $row.cores
+            $coreType = "pCore"
+            CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores
         }
         Default {
             Write-Host "Cannot create license because of unknown machine type for $row"
