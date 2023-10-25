@@ -45,3 +45,14 @@ There are currently 4 scripts in this repository (located in the Scripts folder)
 This script will assign an ESU license to a specific Azure ARC server. Here is the command line you should use to run it:
     
     ./AssignESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores" -serverResourceGroupName "rg-arservers" -ARCServerName "Win2012" -location "EastUS"
+
+where:
+- appID is the application ID of the service principal you created in the prerequisites section.
+- clientSecret is the secret key of the service principal you created in the prerequisites section.
+- licenseResourceGroupName is the name of the resource group that contains the ESU license you want to assign to the Azure ARC server.
+- licenseName is the name of the ESU license you want to assign to the Azure ARC server.
+- serverResourceGroupName is the name of the resource group that contains the Azure ARC server you want to assign the ESU license to.
+- ARCServerName is the name of the Azure ARC server you want to assign the ESU license to.
+- location is the Azure region where you ARC objects are deployed.
+
+You can use the -u at the end of the command line to UNLINK an existing license from an Azure ARC server. If you do not specify the -u parameter, the script will link the license to the Azure ARC server (default behavior).
