@@ -1,16 +1,6 @@
 <# 
 //-----------------------------------------------------------------------
 
-*****************************************************
-*****************************************************
-
-            DRAFT and NOT FUNCTIONAL
-
-
-*****************************************************
-*****************************************************
-
-
 THE SUBJECT SCRIPT IS PROVIDED “AS IS” WITHOUT ANY WARRANTY OF ANY KIND AND SHOULD ONLY BE USED FOR TESTING OR DEMO PURPOSES.
 YOU ARE FREE TO REUSE AND/OR MODIFY THE CODE TO FIT YOUR NEEDS
 
