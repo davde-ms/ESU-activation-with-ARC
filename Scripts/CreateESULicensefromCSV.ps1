@@ -242,15 +242,15 @@ foreach ($row in $data) {
     $LicenseName = $licenseNamePrefix + $row.name + $licenseNameSuffix
     
     #Adjust coreCount and translate coreType to the right values required for the license based on the input from the CSV file
-    switch ($row.model) {
-        "Virtual Machine" {
+    switch ($row.isVirtual) {
+        $true {
             if ($row.cores -lt 8 -or $row.cores % 2 -ne 0) {
                 $row.cores = [math]::Max(8, [math]::Ceiling($row.cores / 2) * 2)
             }
             $row.model = "vCore"
             CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $row.model -CoreCount $row.cores
         }
-        "Physical Machine" {
+        $false {
             if ($row.cores -lt 16 -or $row.cores % 2 -ne 0) {
                 $row.cores = [math]::Max(16, [math]::Ceiling($row.cores / 2) * 2)
             }
@@ -258,7 +258,7 @@ foreach ($row in $data) {
             CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $row.model -CoreCount $row.cores
         }
         Default {
-            Write-Host "Cannot create license because of unknown coreType for $row"
+            Write-Host "Cannot create license because of unknown machine type for $row"
         }
     }
       
