@@ -78,3 +78,10 @@ where:
 - coreType is the core type of the ESU license. It can be "vCore" or "pCore".
 - coreCount is the number of cores of the ESU license.
 
+You can type the exact cores your host or VM has and the script will automatically calculate the number of cores required for the ESU license.
+
+**Note:** The script can also be rerun with the same base parameters to change some of the properties of the license. Those properties are:
+- state (allows you to create a deactivated license and activate it later)
+- coreCount (allows you to change the number of cores of the license if you have need to increase or decrease it)
+
+All other parameters are immutable and cannot be changed once the license is created.
