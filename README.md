@@ -129,7 +129,7 @@ where:
 
 This script will delete an ESU license. When you delete a license, it will be removed from the Azure ARC server it was assigned to and stop the billing tied to that license.
 
-> ** It is NOT advised to delete an activated license then to recreate it. The reasons for that is that ALL ACTIVATED licenses will start the charging you the monthly ESU fee starting on October 10, 2023. If you delete a license and recreate it, you will be charged for the new license from October 10, 2023 and NOT from the time you created or activated it.**
+> ** Deleting an activated license and then recreating it is STRONGLY DISCOURAGED. This is because all activated licenses will incur the monthly ESU fee beginning on October 10, 2023. If you delete a license and subsequently recreate it, you will be charged for the new license from October 10, 2023 onwards, rather than from the time of its initial creation or activation.**
 
 Here is the command line you should use to run it:
     
