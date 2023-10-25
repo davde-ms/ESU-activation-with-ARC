@@ -80,7 +80,7 @@ where:
 - licenseResourceGroupName is the name of the resource group that will contain the ESU license.
 - licenseName is the name of the ESU license you want to create.
 - location is the Azure region where you want to deploy the ESU license.
-- state is the state of the ESU license. It can be "Activated" or "Deactivated".
+- state is the activation state of the ESU license. It can be "Activated" or "Deactivated".
 - edition is the edition of the ESU license. It can be "Standard" or "Datacenter".
 - coreType is the core type of the ESU license. It can be "vCore" or "pCore".
 - coreCount is the number of cores of the ESU license.
@@ -114,11 +114,34 @@ where:
 - appID is the application ID of the service principal you created in the prerequisites section.
 - clientSecret is the secret key of the service principal you created in the prerequisites section.
 - licenseResourceGroupName is the name of the resource group that will contain the ESU licenses.
-- csvFile is the path to the CSV file that contains the information about the ESU licenses you want to create.
 - location is the Azure region where you want to deploy the ESU licenses.
+- state is the activation state of the ESU license. It can be "Activated" or "Deactivated".
+- edition is the edition of the ESU license. It can be "Standard" or "Datacenter".
+- csvFile is the path to the CSV file that contains the information about the ESU licenses you want to create.
 
-**Note**: you can use the optional parameters to add a prefix and/or suffix to the license name that will be created. If you specify "ESU-" as a prefix and "-marketing" as a suffix, the script will create licenses named "ESU-ServerName-marketing" for each server in the CSV file.
+
+**Note**: you can use the optional parameters to add a prefix and/or suffix to the license name that will be created. If you specify "ESU-" as a prefix and "-marketing" as a suffix, the script will create licenses named "ESU-ServerName-marketing" for each server in the CSV file. That can help you differentiate licenses belonging to different departments or business units for example.
 
 - licenseNamePrefix (optional) is the prefix that will be used to create the ESU licenses. The script will concatenate the prefix with the content of the 'Name' found in the CSV to create the license name.
 - licenseNameSuffix (optional) is the suffix that will be used to create the ESU licenses. The script will concatenate the suffix with the content of the 'Name' found in the CSV to create the license name.
+
+## DeleteESULicense.ps1
+
+This script will delete an ESU license. When you delete a license, it will be removed from the Azure ARC server it was assigned to and stop the billing tied to that license.
+
+> ** It is NOT recommended to delete a activated license then to recreate it. The reasons for that is that ALL ACTIVATED licenses will start the charging you the monthly ESU fee starting on October 10, 2023. If you delete a license and recreate it, you will be charged for the new license from October 10, 2023 and NOT from the time you created or activated it.**
+
+Here is the command line you should use to run it:
+    
+    ./DeleteESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores"
+
+where:
+- subscriptionId is the subscription ID of the Azure subscription you want to use.
+- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
+- appID is the application ID of the service principal you created in the prerequisites section.
+- clientSecret is the secret key of the service principal you created in the prerequisites section.
+- licenseResourceGroupName is the name of the resource group that contains the ESU license you want to delete.
+- licenseName is the name of the ESU license you want to delete.
+
+
 
