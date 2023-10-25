@@ -1,16 +1,6 @@
 <# 
 //-----------------------------------------------------------------------
 
-*****************************************************
-*****************************************************
-
-            DRAFT and NOT FUNCTIONAL
-
-
-*****************************************************
-*****************************************************
-
-
 THE SUBJECT SCRIPT IS PROVIDED “AS IS” WITHOUT ANY WARRANTY OF ANY KIND AND SHOULD ONLY BE USED FOR TESTING OR DEMO PURPOSES.
 YOU ARE FREE TO REUSE AND/OR MODIFY THE CODE TO FIT YOUR NEEDS
 
@@ -27,9 +17,9 @@ License assignment should be done with another script and so will be removal/unl
 .NOTES
 File Name : CreateESUfromCSV.ps1
 Author    : David De Backer
-Version   : 0.5
+Version   : 1.0
 Date      : 23-October-2023
-Update    : 23-October-2023
+Update    : 24-October-2023
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
@@ -47,13 +37,18 @@ https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-
 -licenseResourceGroupName "rg-ARC-ESULicenses" `
 -location "EastUS" `
 -state "Deactivated" `
--edition "Standard"
+-edition "Standard" `
+-csvFilePath "C:\Temp\ESU Eligible Resources.csv" `
+-licenseNamePrefix "ESU-" `
+-licenseNameSuffix "-2023"
 
-This example will create a license object that is Deactivated with a virtual cores count of 8 and of type Standard
+This example will create ESU license objects based on the input from the C:\Temp\ESU Eligible Resources.csv file contents.
+The licenses will be using Standard edition type, be deactivated and their core count as well as core type will be based on the input from the CSV file.
+The license name will be prefixed with ESU- , will contain the servername (coming from the CSV) and be suffixed with -2023.
+As in the example, the license name will be ESU-ServerName-2023.
 
-To modify an existing license object, use the same script while providing different values.
-Note that you can only change the NUMBER of cores associated to a license as well as the ACTIVATION state.
-You CAN NEITHER modify the EDITION nor can you modify the TYPE of the cores configured for the license.
+You can activate the license by changing the -state parameter to 'Activated' and run the same script with the same values again.
+You CANNOT edit the contents of the CSV file to edit values as it will result in an error when trying to create the license.
 
 #>
 
@@ -247,15 +242,15 @@ foreach ($row in $data) {
     $LicenseName = $licenseNamePrefix + $row.name + $licenseNameSuffix
     
     #Adjust coreCount and translate coreType to the right values required for the license based on the input from the CSV file
-    switch ($row.model) {
-        "Virtual Machine" {
+    switch ($row.isVirtual) {
+        1 {
             if ($row.cores -lt 8 -or $row.cores % 2 -ne 0) {
                 $row.cores = [math]::Max(8, [math]::Ceiling($row.cores / 2) * 2)
             }
             $row.model = "vCore"
             CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $row.model -CoreCount $row.cores
         }
-        "Physical Machine" {
+        0 {
             if ($row.cores -lt 16 -or $row.cores % 2 -ne 0) {
                 $row.cores = [math]::Max(16, [math]::Ceiling($row.cores / 2) * 2)
             }
@@ -263,7 +258,7 @@ foreach ($row in $data) {
             CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $row.model -CoreCount $row.cores
         }
         Default {
-            Write-Host "Cannot create license because of unknown coreType for $row"
+            Write-Host "Cannot create license because of unknown machine type for $row"
         }
     }
       
