@@ -34,9 +34,9 @@ https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-
 ./DeleteESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
--clientSecret "Zil8Q~i5xFbrg.N5ew_UvD1JRZcGgu66VA-DtaEL" `
--licenseResourceGroupName "rg-arclicenses" `
--licenseName "Standard8vcores"
+-clientSecret "your_application_secret_value" `
+-licenseResourceGroupName "rg-ARC-ESULicenses" `
+-licenseName "Standard-8vcores"
 
 This example will create a license object that is Deactivated with a virtual cores count of 8 and of type Standard
 
