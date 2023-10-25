@@ -47,6 +47,8 @@ This script will assign an ESU license to a specific Azure ARC server. Here is t
     ./AssignESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores" -serverResourceGroupName "rg-arservers" -ARCServerName "Win2012" -location "EastUS"
 
 where:
+- subscriptionId is the subscription ID of the Azure subscription you want to use.
+- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
 - appID is the application ID of the service principal you created in the prerequisites section.
 - clientSecret is the secret key of the service principal you created in the prerequisites section.
 - licenseResourceGroupName is the name of the resource group that contains the ESU license you want to assign to the Azure ARC server.
@@ -56,3 +58,23 @@ where:
 - location is the Azure region where you ARC objects are deployed.
 
 You can use the -u at the end of the command line to UNLINK an existing license from an Azure ARC server. If you do not specify the -u parameter, the script will link the license to the Azure ARC server (default behavior).
+
+### CreateESULicense.ps1
+
+This script will create an ESU license. Here is the command line you should use to run it:
+    
+    ./CreateESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores" -location "EastUS" -state "Activated" -edition "Standard" -coreType "vCore" -coreCount 8
+
+where:
+- subscriptionId is the subscription ID of the Azure subscription you want to use.
+- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
+- appID is the application ID of the service principal you created in the prerequisites section.
+- clientSecret is the secret key of the service principal you created in the prerequisites section.
+- licenseResourceGroupName is the name of the resource group that will contain the ESU license.
+- licenseName is the name of the ESU license you want to create.
+- location is the Azure region where you want to deploy the ESU license.
+- state is the state of the ESU license. It can be "Activated" or "Deactivated".
+- edition is the edition of the ESU license. It can be "Standard" or "Datacenter".
+- coreType is the core type of the ESU license. It can be "vCore" or "pCore".
+- coreCount is the number of cores of the ESU license.
+

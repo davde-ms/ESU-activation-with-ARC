@@ -38,8 +38,8 @@ https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-
 -location "EastUS" `
 -state "Deactivated" `
 -edition "Standard" `
--type "vCore" `
--cores 8 
+-coreType "vCore" `
+-coreCount 8 
 
 This example will create a license object that is Deactivated with a virtual cores count of 8 and of type Standard
 
