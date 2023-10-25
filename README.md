@@ -6,6 +6,8 @@ The aim of this repository is to facilitate the speedy activation of your Window
 
 Prior activation of your Windows 2012/R2 Servers is necessary for ESU reception. Failure to activate your servers will result in an inability to receive the ESU.
 
+> Make sure to clearly understand the licensing mechanism and requirements for the servers you want to activate the ESUs for. In case of doubt please consult your Microsoft Azure specialist.
+
 ## Prerequisites
 
  - An Microsoft Entra ID tenant as well as an active Azure subscription.
