@@ -66,7 +66,7 @@ where:
 
 You can use the -u at the end of the command line to UNLINK an existing license from an Azure ARC server. If you do not specify the -u parameter, the script will link the license to the Azure ARC server (default behavior).
 
-### CreateESULicense.ps1
+## CreateESULicense.ps1
 
 This script will create an ESU license. Here is the command line you should use to run it:
     
@@ -92,3 +92,19 @@ You can type the exact cores your host or VM has and the script will automatical
 - coreCount (allows you to change the number of cores of the license if you have need to increase or decrease it)
 
 All other parameters are immutable and cannot be changed once the license is created.
+
+## CreateESULicensesFromCSV.ps1
+
+This script will create ESU licenses in bulk, taking its information from a CSV file.
+
+The creation of the CSV file can be done in 2 ways:
+- **manually** (by providing the required information in the CSV file). Here are the columns that have to be present in the CSV file:
+    - Name: the name of the server objet as it exists in Azure ARC.
+    - IsVirtual: a boolean value that indicates if the server is virtual or not, set is to 1 for VMs and 0 for physical servers.
+    - Cores: the number of cores of the VM or server.
+
+Here is the command line you should use to run it:
+    
+    ./CreateESULicensesFromCSV.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -csvFile "C:\temp\ESULicenses.csv" -location "EastUS"
+
+where:
