@@ -44,8 +44,7 @@ There are currently 4 scripts in this repository (located in the Scripts folder)
 
 This script will assign an ESU license to a specific Azure ARC server. Here is the command line you should use to run it:
     
-    ```powershell
-./AssignESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+    ```./AssignESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -clientSecret "your_application_secret_value" `
