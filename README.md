@@ -27,3 +27,15 @@ The following rights have to be delegated on the resource groups you plan on usi
 - "Microsoft.HybridCompute/machines/licenseProfiles/write"
 - "Microsoft.HybridCompute/machines/licenseProfiles/delete"
 
+There is a custom role definition located in the Custom Roles folder in this repository that can be used to create a custom role with the required rights. Please check the [Create a custom role using Azure PowerShell] (https://docs.microsoft.com/en-us/azure/role-based-access-control/custom-roles-powershell#create-a-custom-role-using-azure-powershell) to create a custom role with the custom role definition.
+
+Once the role is created, assign it to the security principal and apply it to the resource groups.
+
+## How to use the scripts
+
+There are currently 4 scripts in this repository (located in the Scripts folder):
+
+- AssignESULicense.ps1
+- CreateESULicense.ps1
+- CreateESULicensesFromCSV.ps1
+- DeleteESULicense.ps1
