@@ -160,5 +160,6 @@ where:
 - licenseResourceGroupName is the name of the resource group that contains the ESU license you want to delete.
 - licenseName is the name of the ESU license you want to delete.
 
+## License
 
-
+This project is licensed under the terms of the MIT license. See the [LICENSE](LICENSE) file.
