@@ -17,9 +17,9 @@ License assignment should be done with another script and so will be removal/unl
 .NOTES
 File Name : CreateESUfromCSV.ps1
 Author    : David De Backer
-Version   : 1.0
+Version   : 1.5
 Date      : 23-October-2023
-Update    : 24-October-2023
+Update    : 25-October-2023
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
@@ -30,7 +30,7 @@ To get more information on Azure ARC ESU license REST API please visit:
 https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-updates
 
 .EXAMPLE-1
-./CreateESULicensefromCSV -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+./CreateESULicensesfromCSV -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -clientSecret "your_application_secret_value" `
@@ -247,15 +247,15 @@ foreach ($row in $data) {
             if ($row.cores -lt 8 -or $row.cores % 2 -ne 0) {
                 $row.cores = [math]::Max(8, [math]::Ceiling($row.cores / 2) * 2)
             }
-            $row.model = "vCore"
-            CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $row.model -CoreCount $row.cores
+            $coreType = "vCore"
+            CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores
         }
         0 {
             if ($row.cores -lt 16 -or $row.cores % 2 -ne 0) {
                 $row.cores = [math]::Max(16, [math]::Ceiling($row.cores / 2) * 2)
             }
-            $row.model = "pCore"
-            CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $row.model -CoreCount $row.cores
+            $coreType = "pCore"
+            CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores
         }
         Default {
             Write-Host "Cannot create license because of unknown machine type for $row"

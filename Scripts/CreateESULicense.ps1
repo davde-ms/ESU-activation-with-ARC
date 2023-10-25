@@ -16,9 +16,9 @@ License assignment should be done with another script and so will be removal/unl
 .NOTES
 File Name : CreateESULicense.ps1
 Author    : David De Backer
-Version   : 1.9
+Version   : 2.0
 Date      : 09-October-2023
-Update    : 22-October-2023
+Update    : 25-October-2023
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
@@ -38,8 +38,8 @@ https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-
 -location "EastUS" `
 -state "Deactivated" `
 -edition "Standard" `
--type "vCore" `
--cores 8 
+-coreType "vCore" `
+-coreCount 8 
 
 This example will create a license object that is Deactivated with a virtual cores count of 8 and of type Standard
 
