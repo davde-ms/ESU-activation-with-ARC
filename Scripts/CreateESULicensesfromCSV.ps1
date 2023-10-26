@@ -124,7 +124,6 @@ param(
 $global:targetOS = "Windows Server 2012"
 $global:creator = $MyInvocation.MyCommand.Name
 
-
 #########################################
 # End of the variables definition block #
 #########################################
@@ -240,11 +239,13 @@ foreach ($row in $data) {
     
     Write-Host ""
     Write-Host "Initial core count from CSV " $row.cores
+    $cores = [int]$row.cores
     #Adjust coreCount and translate coreType to the right values required for the license based on the input from the CSV file
     switch ($row.isVirtual) {
+        
         "Virtual" {
-            if ($row.cores -lt 8 -or $row.cores % 2 -ne 0) {
-                $row.cores = [math]::Max(8, [math]::Ceiling($row.cores / 2) * 2)
+            if ($cores -lt 8 -or $cores % 2 -ne 0) {
+                $row.cores = [math]::Max(8, [math]::Ceiling($cores / 2) * 2)
                 Write-Host "VIRTUAL core count is " $row.cores "for " $LicenseName
             }
             $coreType = "vCore"
@@ -253,8 +254,8 @@ foreach ($row in $data) {
             ; break
         } 
         "Physical" {
-            if ($row.cores -lt 16 -or $row.cores % 2 -ne 0) {
-                $row.cores = [math]::Max(16, [math]::Ceiling($row.cores / 2) * 2)
+            if ($cores -lt 16 -or $cores % 2 -ne 0) {
+                $row.cores = [math]::Max(16, [math]::Ceiling($cores / 2) * 2)
                 Write-Host "PHYSICAL core count is " $row.cores "for " $LicenseName
             }
             $coreType = "pCore"
