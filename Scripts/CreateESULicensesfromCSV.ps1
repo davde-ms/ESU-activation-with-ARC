@@ -231,10 +231,6 @@ Write-Host "Processing $licenseName with $coreCount $coreType"
 # Main script block #
 #####################
 
-# Invoke your second script here using the provided arguments
-    # For example:
-    # & "Path\To\Your\SecondScript.ps1" -ServerName $ServerName -LicenseEdition $LicenseEdition -CoreType $CoreType -CoreCount $CoreCount
-
 $data = Import-Csv -Path $csvFilePath
 
 foreach ($row in $data) {
