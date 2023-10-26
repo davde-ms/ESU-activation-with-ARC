@@ -113,7 +113,7 @@ The creation of the CSV file can be done in 2 ways:
     | extend ESUStatus = properties.licenseProfile.esuProfile.licenseAssignmentState  
     | where ESUStatus == "NotAssigned"  
     | extend Cloud = tostring(properties.cloudMetadata.provider)  
-    | extend isVirtual = iff(properties.detectedProperties.model == "Virtual Machine" or properties.detectedProperties.manufacturer == "VMware, Inc." or properties.detectedProperties.manufacturer == "Nutanix" or properties.cloudMetadata.provider == "AWS" or properties.cloudMetadata.provider == "GCP", true, false)  
+    | extend isVirtual = iff(properties.detectedProperties.model == "Virtual Machine" or properties.detectedProperties.manufacturer == "VMware, Inc." or properties.detectedProperties.manufacturer == "Nutanix" or properties.cloudMetadata.provider == "AWS" or properties.cloudMetadata.provider == "GCP", "Virtual", "Physical")  
     | extend cores = properties.detectedProperties.coreCount, model = tostring(properties.detectedProperties.model), manufacturer = tostring(properties.detectedProperties.manufacturer)  
     | project name,operatingSystem,model,manufacturer,cores,isVirtual,Cloud,ESUStatus,agentVersion
     
