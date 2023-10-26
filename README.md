@@ -104,7 +104,7 @@ The creation of the CSV file can be done in 2 ways:
     > **Note:** The IsVirtual column is only used to determine the type of core that is going to be assigned to the license. You usually will almost always use vCore licenses unless you are covering physical servers.
     - Cores: the number of cores of the VM or physical server.
     
-- **automatically** (by running the following Azure Graph Explorer query and saving its output to a CSV):
+- **automatically** (by running the following [Azure Graph Explorer query](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) and saving its output to a CSV):
 
     Resources
     | where type == 'microsoft.hybridcompute/machines'  
