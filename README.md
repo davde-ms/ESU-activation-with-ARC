@@ -100,7 +100,7 @@ This script will create ESU licenses in bulk, taking its information from a CSV 
 The creation of the CSV file can be done in 2 ways:
 - **manually** (by providing the required information in the CSV file). Here are the columns that have to be present in the CSV file:
     - Name: the name of the ESU license that will be created (usually matches a server name but not mandatory if you plan on using ESU licenses to cover multiple servers).
-    - IsVirtual: a **boolean** value that indicates if the server is virtual or not, set is to **1** for VMs and **0** for physical servers.
+    - IsVirtual: a value that indicates if the server is virtual or not, set is to **Virtual** for VMs or **Physical** for physical servers.
     > **Note:** The IsVirtual column is only used to determine the type of core that is going to be assigned to the license. You usually will almost always use vCore licenses unless you are covering physical servers.
     - Cores: the number of cores of the VM or physical server.
     
