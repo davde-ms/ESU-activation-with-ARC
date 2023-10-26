@@ -106,8 +106,12 @@ param(
     [string]$edition,
 
     [Parameter (Mandatory=$false, HelpMessage="The type of license. Valid values are pCore for physical cores or vCore for virtual cores.")]
-    [Alias("f","csv")]
-    [string] $csvFilePath
+    [Alias("csv")]
+    [string] $csvFilePath,
+
+    [Parameter(Mandatory=$false, HelpMessage="The target OS edition for the license. Valid values are Standard or Datacenter.")]
+    [Alias("log")]
+    [string]$logFileName
 )
 
 #####################################
@@ -216,8 +220,19 @@ $response = Invoke-RestMethod -Uri $apiEndpoint -Method PUT -Headers $headers -B
 
 # Sends the response to STDOUT, which would be captured by the calling script if any
 #return $response
-Write-Host "Processing $licenseName with $coreCount $coreType"
+Write-Host "Creating $licenseName license with $coreCount $coreType"
+Write-Host ""
 
+}
+
+function Write-Logfile  {
+    param(
+    [Parameter (Mandatory=$true)]
+    [Alias("m")]
+    [string] $message
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    Write-Output ("[$timestamp] " + $message)
 }
 
 #######################################
@@ -230,36 +245,35 @@ Write-Host "Processing $licenseName with $coreCount $coreType"
 # Main script block #
 #####################
 
+if ($logFileName -ne $null) {Start-Transcript -Path $logFileName}
+
 $data = Import-Csv -Path $csvFilePath
 
 foreach ($row in $data) {
 
     #Build the license name based on the prefix and suffix provided in the parameters (if any)
     $LicenseName = $licenseNamePrefix + $row.name + $licenseNameSuffix
-    
-    Write-Host ""
-    Write-Host "Initial core count from CSV " $row.cores
-    $cores = [int]$row.cores
+        
     #Adjust coreCount and translate coreType to the right values required for the license based on the input from the CSV file
+    $cores = [int]$row.cores
+
     switch ($row.isVirtual) {
         
         "Virtual" {
+            Write-Host "VIRTUAL core count is " $cores "for " $row.name
             if ($cores -lt 8 -or $cores % 2 -ne 0) {
-                $row.cores = [math]::Max(8, [math]::Ceiling($cores / 2) * 2)
-                Write-Host "VIRTUAL core count is " $row.cores "for " $LicenseName
+                $row.cores = [math]::Max(8, [math]::Ceiling($cores / 2) * 2)  
             }
             $coreType = "vCore"
-            Write-Host "Sending " $row.cores " " $coreType " for the license " $licenseName " for processing."
             CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores
             ; break
         } 
         "Physical" {
+            Write-Host "PHYSICAL core count is " $cores "for " $row.name
             if ($cores -lt 16 -or $cores % 2 -ne 0) {
-                $row.cores = [math]::Max(16, [math]::Ceiling($cores / 2) * 2)
-                Write-Host "PHYSICAL core count is " $row.cores "for " $LicenseName
+                $row.cores = [math]::Max(16, [math]::Ceiling($cores / 2) * 2)  
             }
             $coreType = "pCore"
-            Write-Host "Sending " $row.cores " " $coreType " for the license " $licenseName " for processing."
             CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores
             ; break
         } 
@@ -271,7 +285,7 @@ foreach ($row in $data) {
 }
 
 
-
+if ($logFileName -ne $null) {Stop-Transcript}
 
 
 
