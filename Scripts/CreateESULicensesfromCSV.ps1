@@ -242,25 +242,27 @@ foreach ($row in $data) {
     #Build the license name based on the prefix and suffix provided in the parameters (if any)
     $LicenseName = $licenseNamePrefix + $row.name + $licenseNameSuffix
     
+    Write-Host ""
+    Write-Host "Initial core count from CSV " $row.cores
     #Adjust coreCount and translate coreType to the right values required for the license based on the input from the CSV file
     switch ($row.isVirtual) {
         "Virtual" {
             if ($row.cores -lt 8 -or $row.cores % 2 -ne 0) {
                 $row.cores = [math]::Max(8, [math]::Ceiling($row.cores / 2) * 2)
-                Write-Host "Vcore is " $row.cores + "for " $LicenseName
+                Write-Host "VIRTUAL core count is " $row.cores "for " $LicenseName
             }
             $coreType = "vCore"
-            Write-Host "Sending " $row.cores "cores for $coreType for the license $licenseName for processing."
+            Write-Host "Sending " $row.cores " " $coreType " for the license " $licenseName " for processing."
             CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores
             ; break
         } 
         "Physical" {
             if ($row.cores -lt 16 -or $row.cores % 2 -ne 0) {
                 $row.cores = [math]::Max(16, [math]::Ceiling($row.cores / 2) * 2)
-                Write-Host "Pcore is " $row.cores + "for " $LicenseName
+                Write-Host "PHYSICAL core count is " $row.cores "for " $LicenseName
             }
             $coreType = "pCore"
-            Write-Host "Sending " $row.cores "cores for $coreType for the license $licenseName for processing."
+            Write-Host "Sending " $row.cores " " $coreType " for the license " $licenseName " for processing."
             CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores
             ; break
         } 
