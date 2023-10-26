@@ -247,7 +247,7 @@ foreach ($row in $data) {
         "Virtual" {
             if ($row.cores -lt 8 -or $row.cores % 2 -ne 0) {
                 $row.cores = [math]::Max(8, [math]::Ceiling($row.cores / 2) * 2)
-                Write-Host "Vcore is " + $row.cores + "for " + $LicenseName
+                Write-Host "Vcore is " $row.cores + "for " $LicenseName
             }
             $coreType = "vCore"
             Write-Host "Sending " $row.cores "cores for $coreType for the license $licenseName for processing."
@@ -257,7 +257,7 @@ foreach ($row in $data) {
         "Physical" {
             if ($row.cores -lt 16 -or $row.cores % 2 -ne 0) {
                 $row.cores = [math]::Max(16, [math]::Ceiling($row.cores / 2) * 2)
-                Write-Host "Pcore is " + $row.cores + "for " + $LicenseName
+                Write-Host "Pcore is " $row.cores + "for " $LicenseName
             }
             $coreType = "pCore"
             Write-Host "Sending " $row.cores "cores for $coreType for the license $licenseName for processing."
