@@ -251,36 +251,47 @@ $data = Import-Csv -Path $csvFilePath
 
 foreach ($row in $data) {
 
-    #Build the license name based on the prefix and suffix provided in the parameters (if any)
-    $LicenseName = $licenseNamePrefix + $row.name + $licenseNameSuffix
-        
-    #Adjust coreCount and translate coreType to the right values required for the license based on the input from the CSV file
-    $cores = [int]$row.cores
-
-    switch ($row.isVirtual) {
-        
-        "Virtual" {
-            Write-Host "VIRTUAL core count is " $cores "for " $row.name
-            if ($cores -lt 8 -or $cores % 2 -ne 0) {
-                $row.cores = [math]::Max(8, [math]::Ceiling($cores / 2) * 2)  
-            }
-            $coreType = "vCore"
-            CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores
-            ; break
-        } 
-        "Physical" {
-            Write-Host "PHYSICAL core count is " $cores "for " $row.name
-            if ($cores -lt 16 -or $cores % 2 -ne 0) {
-                $row.cores = [math]::Max(16, [math]::Ceiling($cores / 2) * 2)  
-            }
-            $coreType = "pCore"
-            CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores
-            ; break
-        } 
-        Default {
-            Write-Host "Cannot create license because of unknown machine type for $row"
-        }
+    #Check if the agent version is compatible with ESU activation through ARC
+    $agentVersion = [system.version]$row.agentVersion
+    if ($agentVersion -lt 1.34) {
+        Write-Host "Agent version is " $agentVersion "for " $row.name
+        Write-Host "Minimum version required for ESU activation through ARC agent is 1.34. Skipping license creation."
+        Write-Host ""
     }
+    else {
+        
+        #Build the license name based on the prefix and suffix provided in the parameters (if any)
+        $LicenseName = $licenseNamePrefix + $row.name + $licenseNameSuffix
+        Write-Host "Agent version is " $agentVersion "for " $row.name ". Going for license creation."
+        #Adjust coreCount and translate coreType to the right values required for the license based on the input from the CSV file
+        $cores = [int]$row.cores
+
+        switch ($row.isVirtual) {
+            
+            "Virtual" {
+                Write-Host "VIRTUAL core count is " $cores "for " $row.name
+                if ($cores -lt 8 -or $cores % 2 -ne 0) {
+                    $row.cores = [math]::Max(8, [math]::Ceiling($cores / 2) * 2)  
+                }
+                $coreType = "vCore"
+                CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores
+                ; break
+            } 
+            "Physical" {
+                Write-Host "PHYSICAL core count is " $cores "for " $row.name
+                if ($cores -lt 16 -or $cores % 2 -ne 0) {
+                    $row.cores = [math]::Max(16, [math]::Ceiling($cores / 2) * 2)  
+                }
+                $coreType = "pCore"
+                CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores
+                ; break
+            } 
+            Default {
+                Write-Host "Cannot create license because of unknown machine type for $row"
+            }
+        }
+    }   
+    
       
 }
 
