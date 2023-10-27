@@ -105,11 +105,11 @@ param(
     [Alias( "e", "ed")]
     [string]$edition,
 
-    [Parameter (Mandatory=$false, HelpMessage="The type of license. Valid values are pCore for physical cores or vCore for virtual cores.")]
+    [Parameter (Mandatory=$false, HelpMessage="The full path to the CSV file containing the list of ESU eligible resources.")]
     [Alias("csv")]
     [string] $csvFilePath,
 
-    [Parameter(Mandatory=$false, HelpMessage="The target OS edition for the license. Valid values are Standard or Datacenter.")]
+    [Parameter(Mandatory=$false, HelpMessage="The name of the log file to be created.")]
     [Alias("log")]
     [string]$logFileName
 )
