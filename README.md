@@ -96,7 +96,7 @@ All other parameters are immutable and cannot be changed once the license is cre
 ## CreateESULicensesFromCSV.ps1
 
 This script will create ESU licenses in bulk, taking its information from a CSV file.
-> **Note: license creation will be skipped if Arc agent version is lower than 1.34 since it is the minimum required version that is able to push the ESU activation to servers. Upgrade your ARC agent then rerun the script to process the newly update servers.**
+> **Note: license creation will be skipped if Arc agent version is lower than 1.34 since it is the minimum required version that is able to push the ESU activation to servers. Upgrade your ARC agent then rerun the script to process the newly upgraded servers.**
 
 The creation of the CSV file can be done in 2 ways:
 - **manually** (by providing the required information in the CSV file). Here are the columns that have to be present in the CSV file:
