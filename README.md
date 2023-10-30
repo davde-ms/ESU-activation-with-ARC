@@ -6,7 +6,7 @@ The aim of this repository is to facilitate the speedy activation of your Window
 
 Prior activation of your Windows 2012/R2 Servers is necessary for ESU reception. Failure to activate your servers will result in an inability to receive the ESU.
 
-> Make sure to clearly understand the licensing mechanism and requirements for the servers you want to activate the ESUs for with Azure ARC. In case of doubt please consult your Microsoft Azure specialist or Microsoft Account Executive.
+> It is crucial to thoroughly comprehend the appropriate licensing procedures and prerequisites for the servers you intend to enable ESUs for using Azure ARC. It is imperative to generate the CORRECT form of licenses, such as Standard or Datacenter, considering whether they are for virtual or physical cores. Failing to do so could lead to either excessive billing or non-compliance with Microsoft's licensing regulations. If you have any uncertainties, please seek advice from your dedicated Microsoft Azure specialist or Microsoft Account Executive.
 
 This information and scripts are provided as is and are not intended to be a substitute for professional advice or consulting, including but not limited to legal advice. I do not make any warranties, express, implied or statutory, as to the information in this document or scripts. I do not accept any liability for any damages, direct or consequential, arising from the use of the information contained in this document or scripts.
 
