@@ -1,31 +1,33 @@
-# ESU activation with ARC
+# Activation des ESU via Azure ARC
 
 ## Introduction
 
-The purpose of this repository is to streamline the rapid setup of your Windows 2012/R2 Servers, ensuring they are ready to receive the upcoming Extended Security Updates, referred to as ESU.
+Le but de ce dépôt est de faciliter la configuration rapide de vos serveurs Windows 2012/R2, garantissant qu'ils sont prêts à recevoir les prochaines mises à jour de sécurité étendues, appelées ESU.
 
-Prior activation of your Windows 2012/R2 Servers is necessary for ESU reception. Failure to activate your servers will result in an inability to receive the ESUs.
+L'activation préalable de vos serveurs Windows 2012/R2 est nécessaire pour recevoir les ESU. Ne pas activer vos serveurs entraînera l'impossibilité de recevoir les ESU.
 
-> It is crucial to thoroughly comprehend the appropriate licensing procedures and prerequisites for the servers you intend to enable ESUs for using Azure ARC. It is imperative to generate the CORRECT form of licenses, such as Standard or Datacenter, considering whether they are for virtual or physical cores. Failing to do so could lead to either excessive billing or non-compliance with Microsoft's licensing regulations. If you have any uncertainties, please seek advice from your dedicated Microsoft Azure specialist or Microsoft Account Executive.
+> Il est crucial de bien comprendre les procédures de licence appropriées et les exigences pour les serveurs que vous souhaitez activer avec les ESU (Extended Security Updates) en utilisant Azure ARC. Il est impératif de générer le BON type de licences, telles que Standard ou Datacenter, en tenant compte s'il s'agit de cœurs virtuels ou physiques. Ne pas le faire pourrait entraîner soit une facturation excessive, soit une non-conformité avec les réglementations de licence de Microsoft. En cas de doute, veuillez consulter votre spécialiste Microsoft Azure dédié ou votre responsable de compte Microsoft.
 
-This information and scripts are provided as is and are not intended to be a substitute for professional advice or consulting, including but not limited to legal advice. I do not make any warranties, express, implied or statutory, as to the information in this document or scripts. I do not accept any liability for any damages, direct or consequential, arising from the use of the information contained in this document or scripts.
+Ces informations et scripts sont fournis tels quels et ne sont pas destinés à se substituer à des conseils professionnels ou à une consultation, y compris, mais sans s'y limiter, des conseils juridiques. Je ne donne aucune garantie, expresse, implicite ou légale, quant aux informations contenues dans ce document ou ces scripts. Je n'accepte aucune responsabilité pour les dommages, directs ou indirects, découlant de l'utilisation des informations contenues dans ce document ou ces scripts.
 
-That being said, let's get started!
+Cela étant clarifié, allons-y !
 
 
-## Prerequisites
+## Prérequis
 
- - An Microsoft Entra ID tenant as well as an active Azure subscription.
- - Windows 2012/R2 Server(s) already onboarded to the Azure ARC platform. Please check the [Connected Machine agent prerequisites](https://learn.microsoft.com/en-us/azure/azure-arc/servers/prerequisites) to ensure your servers are ready for onboarding.
- - An Azure resource group to store the ESU licenses that will be created with these scripts.
- - An Microsoft Entra Enterprise application and service principal that will be used to authenticate to Azure. Please check the [Create an Azure service principal with Azure CLI](https://learn.microsoft.com/en-us/entra/identity-platform/howto-create-service-principal-portal) to create a service principal.
- - The Microsoft Entra application ID and secret key for the service principal created above.
- - A delegation of rights to the resource group that holds the licenses as well as a delegation of rights to the resource group(s) that contain the Azure ARC servers. Please check the [Delegating access to Azure resources](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-steps) to delegate access to the resource groups if you need assistance. The required delegated rights will be documented in the next section.
- - A computer with Powershell 7.x or higher installed. Please check the [Installing PowerShell on Windows](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-core-on-windows) to install Powershell 7.x or higher. The current version of the scripts do not use the AZ Powershell module, but it is recommended to install it for future use. Please check the [Install Azure PowerShell on Windows](https://learn.microsoft.com/en-us/powershell/azure/install-azps-windows) to install the AZ Powershell module if you want to.
+Vous aurez besoin des éléments suivants pour commencer :
+
+- Un locataire Microsoft Entra ainsi qu'un abonnement Azure actif.
+- Des serveurs Windows 2012/R2 déjà intégrés à la plateforme Azure ARC. Veuillez consulter les [prérequis de l'agent Connected Machine](https://learn.microsoft.com/fr-fr/azure/azure-arc/servers/prerequisites) pour vous assurer que vos serveurs sont prêts pour l'intégration.
+- Un groupe de ressources Azure pour stocker les licences ESU qui seront créées avec ces scripts.
+- Une Application d'Entreprise Microsoft Entra et un service principal actif qui seront utilisés pour l'authentification d'Azure. Veuillez consulter le document [Créer un service principal Microsoft Entra](https://learn.microsoft.com/fr-fr/entra/identity-platform/howto-create-service-principal-portal) pour sa création.
+- L'ID de l'application Microsoft Entra et la clé secrète pour le service principal créé ci-dessus.
+- Une délégation de droits sur le groupe de ressources contenant les licences, ainsi qu'une délégation de droits sur le(s) groupe(s) de ressources contenant les serveurs Azure ARC. Veuillez consulter la rubrique [Déléguer l'accès aux ressources Azure](https://learn.microsoft.com/fr-fr/azure/role-based-access-control/role-assignments-steps) pour déléguer l'accès aux groupes de ressources si vous avez besoin d'aide. Les droits délégués requis seront documentés dans la section suivante.
+- Un ordinateur avec Powershell 7.x ou une version ultérieure installée. Veuillez consulter la page [Installer PowerShell sur Windows](https://learn.microsoft.com/fr-fr/powershell/scripting/install/installing-powershell-on-windows) pour installer Powershell 7.x ou une version ultérieure. La version actuelle des scripts n'utilise pas le module AZ Powershell, mais il est recommandé de l'installer pour une utilisation future. Veuillez consulter la page [Installer Azure PowerShell sur Windows](https://learn.microsoft.com/fr-fr/powershell/azure/install-azps-windows) pour installer le module AZ Powershell si vous le souhaitez.
  
-## Azure rights required for the scripts to work
+## Droits Azure requis pour exécuter les scripts
 
-The following rights have to be delegated on the resource groups you plan on using to store the ESU licence objects as well as the resource groups containing the Azure ARC servers:
+Les droits suivants doivent être délégués sur les groupes de ressources que vous prévoyez d'utiliser pour stocker les objets de licence ESU, ainsi que sur les groupes de ressources contenant les serveurs Azure ARC:
 
 - "Microsoft.HybridCompute/licenses/read"
 - "Microsoft.HybridCompute/licenses/write"
@@ -34,7 +36,9 @@ The following rights have to be delegated on the resource groups you plan on usi
 - "Microsoft.HybridCompute/machines/licenseProfiles/write"
 - "Microsoft.HybridCompute/machines/licenseProfiles/delete"
 
-There is a custom role definition located in the Custom Roles folder in this repository that can be used to create a custom role with the required rights. Please check the [Create a custom role using Azure PowerShell](https://docs.microsoft.com/en-us/azure/role-based-access-control/custom-roles-powershell#create-a-custom-role-using-azure-powershell) to create a custom role with the custom role definition.
+Il y a une définition de rôle personnalisé située dans le dossier "Custom Roles" de ce dépôt qui peut être utilisée pour créer un rôle personnalisé avec les droits requis. Veuillez consulter le document [Créer un rôle personnalisé à l'aide d'Azure PowerShell](https://learn.microsoft.com/fr-fr/azure/role-based-access-control/custom-roles-powershell#create-a-custom-role-with-json-template) pour créer un rôle personnalisé avec cette définition de rôle personnalisé.
+
+Une fois le rôle créé, assignez-le au service principal et appliquez le aux groupes de ressources.
 
 Once the role is created, assign it to the security principal and apply it to the resource groups.
 
