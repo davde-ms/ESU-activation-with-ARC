@@ -1,19 +1,21 @@
 {
-    "Name": "ARC ESU License Administrator",
-    "IsCustom": true,
-    "description": "ESU License administrator, grants the rights to create, manage and assign ESU licenses to ARC server nodes.",
-    "assignableScopes": [
-        "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-    ],
-    "actions": [
-        "Microsoft.HybridCompute/licenses/read",
-        "Microsoft.HybridCompute/licenses/write",
-        "Microsoft.HybridCompute/licenses/delete",
-        "Microsoft.HybridCompute/machines/licenseProfiles/read",
-        "Microsoft.HybridCompute/machines/licenseProfiles/write",
-        "Microsoft.HybridCompute/machines/licenseProfiles/delete"
+    "properties": {
+        "Name": "ARC ESU License Administrator",
+        "IsCustom": true,
+        "description": "ESU License administrator, grants the rights to create, manage and assign ESU licenses to ARC server nodes.",
+        "assignableScopes": [
+            "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
         ],
-    "notActions": [],
-    "dataActions": [],
-    "notDataActions": []
+        "actions": [
+            "Microsoft.HybridCompute/licenses/read",
+            "Microsoft.HybridCompute/licenses/write",
+            "Microsoft.HybridCompute/licenses/delete",
+            "Microsoft.HybridCompute/machines/licenseProfiles/read",
+            "Microsoft.HybridCompute/machines/licenseProfiles/write",
+            "Microsoft.HybridCompute/machines/licenseProfiles/delete"
+            ],
+        "notActions": [],
+        "dataActions": [],
+        "notDataActions": []
+    }
 }
