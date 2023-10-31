@@ -100,12 +100,12 @@ param(
     [ValidateSet("Activated", "Deactivated",ErrorMessage="Value '{0}' is invalid. Try one of: '{1}'")]
     [string]$state,
 
-    [Parameter(Mandatory=$false, HelpMessage="The target OS edition for the license. Valid values are Standard or Datacenter.")]
+    [Parameter(Mandatory=$true, HelpMessage="The target OS edition for the license. Valid values are Standard or Datacenter.")]
     [ValidateSet("Standard", "Datacenter",ErrorMessage="Value '{0}' is invalid. Try one of: '{1}'")]
     [Alias( "e", "ed")]
     [string]$edition,
 
-    [Parameter (Mandatory=$false, HelpMessage="The full path to the CSV file containing the list of ESU eligible resources.")]
+    [Parameter (Mandatory=$true, HelpMessage="The full path to the CSV file containing the list of ESU eligible resources.")]
     [Alias("csv")]
     [string] $csvFilePath,
 
