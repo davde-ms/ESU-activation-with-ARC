@@ -40,8 +40,6 @@ Il y a une définition de rôle personnalisé située dans le dossier "Custom Ro
 
 Une fois le rôle créé, assignez-le au service principal et appliquez le aux groupes de ressources.
 
-Once the role is created, assign it to the security principal and apply it to the resource groups.
-
 ## How to use the scripts
 
 There are currently 4 scripts in this repository (located in the Scripts folder):
