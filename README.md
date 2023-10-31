@@ -1,6 +1,6 @@
 # ESU activation with ARC
 
-> Les instructions en français se trouvent dans le [fichier LICSEZMOI.md](LISEZMOI.md).
+> Les instructions en français se trouvent dans le [fichier LISEZMOI.md](LISEZMOI.md).
 
 ## Introduction
 
