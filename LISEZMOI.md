@@ -83,14 +83,14 @@ où :
 - licenseName est le nom de la licence ESU que vous souhaitez assigner au serveur ARC Azure.
 - location est la Azure région où vos objets ARC sont déployés.
 - state est l'état d'activation de la licence ESU. Il peut être "Activated" ou "Deactivated.
-- edition est l'édition de la licence ESU. Il peut s'agir de "Standard" » ou de "Datacenter".
-- coreType est le type e coeur à utiliser pour la licence ESU. Il peut s'agir de "vCore" (coeur virtuel) ou de "pCore" (coeur phusique).
-- coreCount est le nombre de cœurs de la licence ESU.
+- edition est l'édition de la licence ESU. Il peut s'agir de "Standard" ou de "Datacenter".
+- coreType est le type e coeur à utiliser pour la licence ESU. Il peut s'agir de "vCore" (coeur virtuel) ou de "pCore" (coeur physique).
+- coreCount est le nombre de cœurs associés la licence ESU.
 
 Vous pouvez entrer le nombre exact de cœurs dont dispose votre hôte ou votre machine virtuelle et le script calculera automatiquement le nombre de cœurs requis pour la licence ESU.
 
 **Remarque :** Le script peut également être réexécuté avec les mêmes paramètres de base pour changer certaines des propriétés de la licence. Ces propriétés sont les suivantes :
-- état (vous permet de créer une licence désactivée et de l'activer ultérieurement)
+- state (vous permet de créer une licence désactivée et de l'activer ultérieurement)
 - coreCount (vous permet de modifier le nombre de cœurs de la licence si vous avez besoin de l'augmenter ou de le diminuer)
 
 Tous les autres paramètres sont **immuables** et ne peuvent pas être modifiés une fois la licence créée.
@@ -105,11 +105,12 @@ La création du fichier CSV peut être effectuée de 2 manières :
 - **Manuellement** (en fournissant les informations requises dans le fichier CSV). 
 
 Voici les colonnes qui doivent être présentes dans le fichier CSV :
-    - Nom : nom de la licence ESU qui sera créée (correspond généralement à un nom de serveur mais pas obligatoire si vous prévoyez d'utiliser des licences ESU pour couvrir plusieurs serveurs).
-    - IsVirtual : valeur qui indique si le serveur est virtuel ou non, soit **Virtual** pour les machines virtuelles ou **Physical** pour les serveurs physiques.
-    > **Remarque :** La colonne IsVirtual est seulement utilisée pour déterminer le type de noyau qui va être assigné à la licence. Vous utiliserez généralement presque toujours des licences vCore, sauf si vous couvrez des serveurs physiques.
-    - Cœurs : nombre de cœurs de la machine virtuelle ou du serveur physique.
-    - AgentVersion : version de l'agent ARC Azure installé sur le serveur. Ces informations peuvent être récupérées à partir du portail Azure ou en exécutant la requête [Azure De Graph Explorer](https://learn.microsoft.com/fr-fr/graph/graph-explorer/graph-explorer-overview) mentionnée ci-dessous.
+- Nom : nom de la licence ESU qui sera créée (correspond généralement à un nom de serveur mais pas obligatoire si vous prévoyez d'utiliser des licences ESU pour couvrir plusieurs serveurs).
+- IsVirtual : valeur qui indique si le serveur est virtuel ou non, soit **Virtual** pour les machines virtuelles ou **Physical** pour les serveurs physiques.
+
+> **Remarque :** La colonne IsVirtual est seulement utilisée pour déterminer le type de noyau qui va être assigné à la licence. Vous utiliserez généralement presque toujours des licences vCore, sauf si vous couvrez des serveurs physiques.
+- Cœurs : nombre de cœurs de la machine virtuelle ou du serveur physique.
+- AgentVersion : version de l'agent ARC Azure installé sur le serveur. Ces informations peuvent être récupérées à partir du portail Azure ou en exécutant la requête [Azure De Graph Explorer](https://learn.microsoft.com/fr-fr/graph/graph-explorer/graph-explorer-overview) mentionnée ci-dessous.
     
 - **Automatiquement** (en exécutant la requête suivante de [Azure De Graph Explorer](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) et en enregistrant les données ainsi produites dans un fichier CSV) :
 
