@@ -4,11 +4,11 @@
 
 Le but de ce dépôt est de faciliter la configuration rapide de vos serveurs Windows 2012/R2, garantissant qu'ils sont prêts à recevoir les prochaines mises à jour de sécurité étendues, appelées ESU.
 
-L'activation préalable de vos serveurs Windows 2012/R2 est nécessaire pour recevoir les ESU. Ne pas activer vos serveurs entraînera l'impossibilité de recevoir les ESU.
+L'activation préalable de vos serveurs Windows 2012/R2 est nécessaire pour recevoir les ESU. La non activation de vos serveurs entraînera l'impossibilité de recevoir les ESU.
 
-> Il est crucial de bien comprendre les procédures de licence appropriées et les exigences pour les serveurs que vous souhaitez activer avec les ESU (Extended Security Updates) en utilisant Azure ARC. Il est impératif de générer le BON type de licences, telles que Standard ou Datacenter, en tenant compte s'il s'agit de cœurs virtuels ou physiques. Ne pas le faire pourrait entraîner soit une facturation excessive, soit une non-conformité avec les réglementations de licence de Microsoft. En cas de doute, veuillez consulter votre spécialiste Microsoft Azure dédié ou votre responsable de compte Microsoft.
+> Il est crucial de bien comprendre les procédures de licence appropriées et les exigences pour les serveurs pour lesquels vous souhaitez activer les ESU (Extended Security Updates) en utilisant Azure ARC. Il est impératif de générer le BON type de licence, tel que Standard ou Datacenter, mais aussi de bien choisir le type de cœurs (virtuels ou physiques). Ne pas le faire pourrait entraîner soit une facturation excessive, soit une non-conformité avec les réglementations de licence de Microsoft. En cas de doute, veuillez consulter votre spécialiste Microsoft Azure dédié ou votre responsable de compte Microsoft.
 
-Ces informations et scripts sont fournis tels quels et ne sont pas destinés à se substituer à des conseils professionnels ou à une consultation, y compris, mais sans s'y limiter, des conseils juridiques. Je ne donne aucune garantie, expresse, implicite ou légale, quant aux informations contenues dans ce document ou ces scripts. Je n'accepte aucune responsabilité pour les dommages, directs ou indirects, découlant de l'utilisation des informations contenues dans ce document ou ces scripts.
+Ces informations et scripts sont fournis "tels quels" et ne sont pas destinés à se substituer à des conseils professionnels ou à une consultation, y compris, mais sans s'y limiter, des conseils juridiques. Je ne donne aucune garantie, expresse, implicite ou légale, quant aux informations contenues dans ce document ou ces scripts. Je n'accepte aucune responsabilité pour les dommages, directs ou indirects, découlant de l'utilisation des informations contenues dans ce document ou ces scripts.
 
 Cela étant clarifié, allons-y !
 
@@ -20,9 +20,9 @@ Vous aurez besoin des éléments suivants pour commencer :
 - Un locataire Microsoft Entra ainsi qu'un abonnement Azure actif.
 - Des serveurs Windows 2012/R2 déjà intégrés à la plateforme Azure ARC. Veuillez consulter les [prérequis de l'agent Connected Machine](https://learn.microsoft.com/fr-fr/azure/azure-arc/servers/prerequisites) pour vous assurer que vos serveurs sont prêts pour l'intégration.
 - Un groupe de ressources Azure pour stocker les licences ESU qui seront créées avec ces scripts.
-- Une Application d'Entreprise Microsoft Entra et un service principal actif qui seront utilisés pour l'authentification d'Azure. Veuillez consulter le document [Créer un service principal Microsoft Entra](https://learn.microsoft.com/fr-fr/entra/identity-platform/howto-create-service-principal-portal) pour sa création.
+- Une Application d'Entreprise Microsoft Entra et un service principal actif qui seront utilisés pour l'authentification Azure. Veuillez vous référer au document [Créer un service principal Microsoft Entra](https://learn.microsoft.com/fr-fr/entra/identity-platform/howto-create-service-principal-portal) pour sa création.
 - L'ID de l'application Microsoft Entra et la clé secrète pour le service principal créé ci-dessus.
-- Une délégation de droits sur le groupe de ressources contenant les licences, ainsi qu'une délégation de droits sur le(s) groupe(s) de ressources contenant les serveurs Azure ARC. Veuillez consulter la rubrique [Déléguer l'accès aux ressources Azure](https://learn.microsoft.com/fr-fr/azure/role-based-access-control/role-assignments-steps) pour déléguer l'accès aux groupes de ressources si vous avez besoin d'aide. Les droits délégués requis seront documentés dans la section suivante.
+- Une délégation de droits sur le groupe de ressources contenant les licences, ainsi qu'une délégation de droits sur les groupes de ressources contenant les serveurs ARC Azure. Veuillez consulter la rubrique [Déléguer l'accès aux ressources Azure](https://learn.microsoft.com/fr-fr/azure/role-based-access-control/role-assignments-steps) pour déléguer l'accès aux groupes de ressources si vous avez besoin d'aide. Les droits délégués requis seront documentés dans la section suivante.
 - Un ordinateur avec Powershell 7.x ou une version ultérieure installée. Veuillez consulter la page [Installer PowerShell sur Windows](https://learn.microsoft.com/fr-fr/powershell/scripting/install/installing-powershell-on-windows) pour installer Powershell 7.x ou une version ultérieure. La version actuelle des scripts n'utilise pas le module AZ Powershell, mais il est recommandé de l'installer pour une utilisation future. Veuillez consulter la page [Installer Azure PowerShell sur Windows](https://learn.microsoft.com/fr-fr/powershell/azure/install-azps-windows) pour installer le module AZ Powershell si vous le souhaitez.
  
 ## Droits Azure requis pour exécuter les scripts
@@ -36,13 +36,13 @@ Les droits suivants doivent être délégués sur les groupes de ressources que 
 - "Microsoft.HybridCompute/machines/licenseProfiles/write"
 - "Microsoft.HybridCompute/machines/licenseProfiles/delete"
 
-Il y a une définition de rôle personnalisé située dans le dossier "Custom Roles" de ce dépôt qui peut être utilisée pour créer un rôle personnalisé avec les droits requis. Veuillez consulter le document [Créer un rôle personnalisé à l'aide d'Azure PowerShell](https://learn.microsoft.com/fr-fr/azure/role-based-access-control/custom-roles-powershell#create-a-custom-role-with-json-template) pour créer un rôle personnalisé avec cette définition de rôle personnalisé.
+Il y a une définition de rôle personnalisé située dans le dossier "Custom Roles" de ce référentiel qui peut être utilisée pour créer un rôle personnalisé avec les droits requis. Voir [Créer un rôle personnalisé à l'aide d'Azure PowerShell](https://learn.microsoft.com/fr-fr/azure/role-based-access-control/custom-roles-powershell#create-a-custom-role-with-json-template) pour créer un rôle personnalisé avec cette définition de rôle personnalisé.
 
 Une fois le rôle créé, assignez-le au service principal et appliquez le aux groupes de ressources.
 
-## How to use the scripts
+## Comment utiliser les scripts
 
-There are currently 4 scripts in this repository (located in the Scripts folder):
+Il y a actuellement 4 scripts dans ce référentiel (situé dans le dossier Scripts) :
 
 - AssignESULicense.ps1
 - CreateESULicense.ps1
@@ -51,49 +51,50 @@ There are currently 4 scripts in this repository (located in the Scripts folder)
 
 ### AssignESULicense.ps1
 
-This script will assign an ESU license to a specific Azure ARC server. Here is the command line you should use to run it:
+Ce script assignera une licence ESU au serveur ARC Azure spécifié. Voici la ligne de commande que vous devez utiliser pour l'exécuter :
     
     ./AssignESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores" -serverResourceGroupName "rg-arservers" -ARCServerName "Win2012" -location "EastUS"
 
-where:
-- subscriptionId is the subscription ID of the Azure subscription you want to use.
-- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
-- appID is the application ID of the service principal you created in the prerequisites section.
-- clientSecret is the secret key of the service principal you created in the prerequisites section.
-- licenseResourceGroupName is the name of the resource group that contains the ESU license you want to assign to the Azure ARC server.
-- licenseName is the name of the ESU license you want to assign to the Azure ARC server.
-- serverResourceGroupName is the name of the resource group that contains the Azure ARC server you want to assign the ESU license to.
-- ARCServerName is the name of the Azure ARC server you want to assign the ESU license to.
-- location is the Azure region where you ARC objects are deployed.
+où :
+- subscriptionId est l'ID d'abonnement de l'abonnement Azure que vous souhaitez utiliser.
+- tenantId est l'ID de locataire du locataire Microsoft Entra ID que vous souhaitez utiliser.
+- appID est l'ID d'application du service principal que vous avez créé dans la section Prérequis.
+- clientSecret est la clé secrète du service principal que vous avez créé dans la section Prérequis.
+- licenseResourceGroupName est le nom du groupe de ressources qui contient la licence ESU que vous souhaitez assigner au serveur ARC Azure.
+- licenseName est le nom de la licence ESU que vous souhaitez assigner au serveur ARC Azure.
+- serverResourceGroupName est le nom du groupe de ressources qui contient le Azure serveur ARC auquel vous souhaitez assigner la licence ESU.
+- ARCServerName est le nom du serveur ARC Azure auquel vous souhaitez assigner la licence ESU.
+- location est la Azure région où vos objets ARC sont déployés.
 
-You can use the -u at the end of the command line to UNLINK an existing license from an Azure ARC server. If you do not specify the -u parameter, the script will link the license to the Azure ARC server (default behavior).
+Vous pouvez utiliser -u à la fin de la ligne de commande pour DISSOCIER (unlink) une licence existante d'un serveur ARC Azure. Si vous ne spécifiez pas le paramètre -u, le script assignera la licence au serveur ARC Azure (comportement par défaut).
 
 ## CreateESULicense.ps1
 
-This script will create an ESU license. Here is the command line you should use to run it:
+Ce script créera une licence ESU. Voici la ligne de commande que vous devez utiliser pour l'exécuter :
     
     ./CreateESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores" -location "EastUS" -state "Activated" -edition "Standard" -coreType "vCore" -coreCount 8
 
-where:
-- subscriptionId is the subscription ID of the Azure subscription you want to use.
-- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
-- appID is the application ID of the service principal you created in the prerequisites section.
-- clientSecret is the secret key of the service principal you created in the prerequisites section.
-- licenseResourceGroupName is the name of the resource group that will contain the ESU license.
-- licenseName is the name of the ESU license you want to create.
-- location is the Azure region where you want to deploy the ESU license.
-- state is the activation state of the ESU license. It can be "Activated" or "Deactivated".
-- edition is the edition of the ESU license. It can be "Standard" or "Datacenter".
-- coreType is the core type of the ESU license. It can be "vCore" or "pCore".
-- coreCount is the number of cores of the ESU license.
+où :
+- subscriptionId est l'ID d'abonnement de l'abonnement Azure que vous souhaitez utiliser.
+- tenantId est l'ID de locataire du locataire Microsoft Entra ID que vous souhaitez utiliser.
+- appID est l'ID d'application du service principal que vous avez créé dans la section Prérequis.
+- clientSecret est la clé secrète du service principal que vous avez créé dans la section Prérequis.
+- licenseResourceGroupName est le nom du groupe de ressources qui contient la licence ESU que vous souhaitez assigner au serveur ARC Azure.
+- licenseName est le nom de la licence ESU que vous souhaitez assigner au serveur ARC Azure.
+- location est la Azure région où vos objets ARC sont déployés.
+- state est l'état d'activation de la licence ESU. Il peut être "Activated" ou "Deactivated.
+- edition est l'édition de la licence ESU. Il peut s'agir de "Standard" » ou de "Datacenter".
+- coreType est le type e coeur à utiliser pour la licence ESU. Il peut s'agir de "vCore" (coeur virtuel) ou de "pCore" (coeur phusique).
+- coreCount est le nombre de cœurs de la licence ESU.
 
-You can type the exact cores your host or VM has and the script will automatically calculate the number of cores required for the ESU license.
+Vous pouvez entrer le nombre exact de cœurs dont dispose votre hôte ou votre machine virtuelle et le script calculera automatiquement le nombre de cœurs requis pour la licence ESU.
 
-**Note:** The script can also be rerun with the same base parameters to change some of the properties of the license. Those properties are:
-- state (allows you to create a deactivated license and activate it later)
-- coreCount (allows you to change the number of cores of the license if you have need to increase or decrease it)
+**Remarque :** Le script peut également être réexécuté avec les mêmes paramètres de base pour changer certaines des propriétés de la licence. Ces propriétés sont les suivantes :
+- état (vous permet de créer une licence désactivée et de l'activer ultérieurement)
+- coreCount (vous permet de modifier le nombre de cœurs de la licence si vous avez besoin de l'augmenter ou de le diminuer)
 
-All other parameters are immutable and cannot be changed once the license is created.
+Tous les autres paramètres sont **immuables** et ne peuvent pas être modifiés une fois la licence créée.
+
 
 ## CreateESULicensesFromCSV.ps1
 
