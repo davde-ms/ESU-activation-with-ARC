@@ -1,5 +1,7 @@
 # Activation des ESU via Azure ARC
 
+> English instructions can be found in the [README.md file](README.md).
+
 ## Introduction
 
 Le but de ce référentiel est de faciliter la configuration rapide de vos serveurs Windows 2012/R2, garantissant qu'ils sont prêts à recevoir les prochaines mises à jour de sécurité étendues, appelées ESU.
