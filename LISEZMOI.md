@@ -102,7 +102,8 @@ Ce script créera des licences ESU en bloc, en prenant ses informations d'un fic
 > **Remarque : la création de licence sera ignorée si la version de l'agent Arc est inférieure à 1.34, car il s'agit de la version minimale requise capable de pousser l'activation ESU vers les serveurs. Mettez à niveau vos agents ARC, réexécutez la requête Azure Graph Explorer, puis réexécutez le script pour traiter les serveurs nouvellement mis à niveau.**
 
 La création du fichier CSV peut être effectuée de 2 manières :
-### **Manuellement** (en fournissant les informations requises dans le fichier CSV). 
+### **Manuellement**:
+(en fournissant les informations requises dans le fichier CSV). 
 
 Voici les colonnes qui doivent être présentes dans le fichier CSV :
 - Nom : nom de la licence ESU qui sera créée (correspond généralement à un nom de serveur mais pas obligatoire si vous prévoyez d'utiliser des licences ESU pour couvrir plusieurs serveurs).
@@ -112,7 +113,8 @@ Voici les colonnes qui doivent être présentes dans le fichier CSV :
 - Cœurs : nombre de cœurs de la machine virtuelle ou du serveur physique.
 - AgentVersion : version de l'agent ARC Azure installé sur le serveur. Ces informations peuvent être récupérées à partir du portail Azure ou en exécutant la requête [Azure De Graph Explorer](https://learn.microsoft.com/fr-fr/graph/graph-explorer/graph-explorer-overview) mentionnée ci-dessous.
     
-### **Automatiquement** (en exécutant la requête suivante de [Azure De Graph Explorer](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) et en enregistrant les données ainsi produites dans un fichier CSV) :
+### **Automatiquement**
+(en exécutant la requête suivante de [Azure De Graph Explorer](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) et en enregistrant les données ainsi produites dans un fichier CSV) :
 
 
     Resources
