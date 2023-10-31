@@ -169,7 +169,7 @@ function Get-AzureADBearerToken {
 
 # Gets a bearer token from the App
 $bearerToken = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId 
-Write-Host $bearerToken
+
 # Sets the headers for the request
 $headers = @{
     "Authorization" = "Bearer $bearerToken"
