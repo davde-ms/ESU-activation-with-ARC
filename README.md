@@ -1,5 +1,7 @@
 # ESU activation with ARC
 
+> Les instructions en français se trouvent dans le [fichier LICSEZMOI.md](LISEZMOI.md).
+
 ## Introduction
 
 The purpose of this repository is to streamline the rapid setup of your Windows 2012/R2 Servers, ensuring they are ready to receive the upcoming Extended Security Updates, referred to as ESU.
