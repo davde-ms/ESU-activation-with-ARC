@@ -98,18 +98,21 @@ Tous les autres paramètres sont **immuables** et ne peuvent pas être modifiés
 
 ## CreateESULicensesFromCSV.ps1
 
-This script will create ESU licenses in bulk, taking its information from a CSV file.
-> **Note: license creation will be skipped if Arc agent version is lower than 1.34 since it is the minimum required version that is able to push the ESU activation to servers. Upgrade your ARC agent(s), run the Azure Graph Explorer query again and then rerun the script to process the newly upgraded servers.**
+Ce script créera des licences ESU en bloc, en prenant ses informations d'un fichier CSV.
+> **Remarque : la création de licence sera ignorée si la version de l'agent Arc est inférieure à 1.34, car il s'agit de la version minimale requise capable de pousser l'activation ESU vers les serveurs. Mettez à niveau vos agents ARC, réexécutez la requête Azure Graph Explorer, puis réexécutez le script pour traiter les serveurs nouvellement mis à niveau.**
 
-The creation of the CSV file can be done in 2 ways:
-- **Manually** (by providing the required information in the CSV file). Here are the columns that have to be present in the CSV file:
-    - Name: the name of the ESU license that will be created (usually matches a server name but not mandatory if you plan on using ESU licenses to cover multiple servers).
-    - IsVirtual: a value that indicates if the server is virtual or not, set is to **Virtual** for VMs or **Physical** for physical servers.
-    > **Note:** The IsVirtual column is only used to determine the type of core that is going to be assigned to the license. You usually will almost always use vCore licenses unless you are covering physical servers.
-    - Cores: the number of cores of the VM or physical server.
-    - AgentVersion: the version of the Azure ARC agent installed on the server. This information can be retrieved from the Azure portal or by running the [Azure Graph Explorer query](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) mentioned below.
+La création du fichier CSV peut être effectuée de 2 manières :
+- **Manuellement** (en fournissant les informations requises dans le fichier CSV). 
+
+Voici les colonnes qui doivent être présentes dans le fichier CSV :
+    - Nom : nom de la licence ESU qui sera créée (correspond généralement à un nom de serveur mais pas obligatoire si vous prévoyez d'utiliser des licences ESU pour couvrir plusieurs serveurs).
+    - IsVirtual : valeur qui indique si le serveur est virtuel ou non, soit **Virtual** pour les machines virtuelles ou **Physical** pour les serveurs physiques.
+    > **Remarque :** La colonne IsVirtual est seulement utilisée pour déterminer le type de noyau qui va être assigné à la licence. Vous utiliserez généralement presque toujours des licences vCore, sauf si vous couvrez des serveurs physiques.
+    - Cœurs : nombre de cœurs de la machine virtuelle ou du serveur physique.
+    - AgentVersion : version de l'agent ARC Azure installé sur le serveur. Ces informations peuvent être récupérées à partir du portail Azure ou en exécutant la requête [Azure De Graph Explorer](https://learn.microsoft.com/fr-fr/graph/graph-explorer/graph-explorer-overview) mentionnée ci-dessous.
     
-- **Automatically** (by running the following [Azure Graph Explorer query](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) and saving its output to a CSV):
+- **Automatiquement** (en exécutant la requête suivante de [Azure De Graph Explorer](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) et en enregistrant les données ainsi produites dans un fichier CSV) :
+
 
     Resources
     | where type == 'microsoft.hybridcompute/machines'  
@@ -121,52 +124,54 @@ The creation of the CSV file can be done in 2 ways:
     | extend isVirtual = iff(properties.detectedProperties.model == "Virtual Machine" or properties.detectedProperties.manufacturer == "VMware, Inc." or properties.detectedProperties.manufacturer == "Nutanix" or properties.cloudMetadata.provider == "AWS" or properties.cloudMetadata.provider == "GCP", "Virtual", "Physical")  
     | extend cores = properties.detectedProperties.coreCount, model = tostring(properties.detectedProperties.model), manufacturer = tostring(properties.detectedProperties.manufacturer)  
     | project name,operatingSystem,model,manufacturer,cores,isVirtual,Cloud,ESUStatus,agentVersion
-    
-> **Note:** The mentioned query will display all Azure ARC onboarded Windows 2012/R2 servers that haven't been assigned an ESU license. You have the option to adjust the query to retrieve all Windows 2012/R2 servers and subsequently filter the results in Excel, keeping only the servers you wish to assign ESU licenses to. While some of the columns returned might not be utilized by the script, they can be helpful for Excel-based result filtering. Ensure you retain the essential columns (as specified in the manual creation process mentioned earlier) to ensure smooth operations.
+   
+> **Remarque :** La requête mentionnée affichera tous les serveurs Windows 2012/R2 intégrés à Azure ARC qui n'ont pas encore reçu de licence ESU. Vous avez la possibilité d'ajuster la requête pour récupérer tous les serveurs Windows 2012/R2 et ensuite filtrer les résultats dans Excel, en ne conservant que les serveurs auxquels vous souhaitez attribuer des licences ESU. Bien que certaines des colonnes retournées puissent ne pas être utilisées par le script, elles peuvent être utiles pour le filtrage des résultats dans Excel. Assurez-vous de conserver les colonnes essentielles (comme spécifié dans le processus de création manuel mentionné précédemment) pour assurer le bon fonctionnement du script.
 
-Always ensure a thorough review of the CSV file's contents before utilization. Note that in rare cases, the Cores might return a NULL value instead of the actual number of cores. If this occurs, manual intervention is necessary, requiring you to edit the CSV file and replace the NULL value with the specific number of cores pertaining to the server.
+Assurez-vous toujours de faire un examen approfondi du contenu du fichier CSV avant son utilisation. Notez que dans de rares cas, la reqûete Azure Graph Explorer peut renvoyer une valeur 'NULL' pour les cœurs des machines analysées au lieu du nombre réel de cœurs. Si cela se produit, une intervention manuelle est nécessaire, vous obligeant à modifier le fichier CSV et à remplacer la valeur NULL par le nombre spécifique de cœurs relatifs au serveur.
+ 
+Voici la ligne de commande que vous devez utiliser pour l'exécuter :
 
 Here is the command line you should use to run it:
     
     ./CreateESULicensesFromCSV.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" - edition "Standard" -csvFile "C:\foldername\ESULicenses.csv" 
 
-where:
-- subscriptionId is the subscription ID of the Azure subscription you want to use.
-- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
-- appID is the application ID of the service principal you created in the prerequisites section.
-- clientSecret is the secret key of the service principal you created in the prerequisites section.
-- licenseResourceGroupName is the name of the resource group that will contain the ESU licenses.
-- location is the Azure region where you want to deploy the ESU licenses.
-- state is the activation state of the ESU license. It can be "Activated" or "Deactivated".
-- edition is the edition of the ESU license. It can be "Standard" or "Datacenter".
-- csvFile is the path to the CSV file that contains the information about the ESU licenses you want to create.
+où :
+- subscriptionId est l'ID d'abonnement de l'abonnement Azure que vous souhaitez utiliser.
+- tenantId est l'ID de locataire du locataire Microsoft Entra ID que vous souhaitez utiliser.
+- appID est l'ID d'application du service principal que vous avez créé dans la section Prérequis.
+- clientSecret est la clé secrète du service principal que vous avez créé dans la section Prérequis.
+- licenseResourceGroupName est le nom du groupe de ressources qui contiendra les licences ESU.
+- location est la Azure région où vos objets ARC sont déployés.
+- state est l'état d'activation de la licence ESU. Il peut être "Activated" ou "Deactivated.
+- edition est l'édition de la licence ESU. Il peut s'agir de "Standard" » ou de "Datacenter".
+- csvFile est le nom du fichier CSV qui contient les informations sur les licences ESU que vous voulez créer.
 
+**Remarque **: vous pouvez utiliser des paramètres facultatifs pour ajouter un préfixe et/ou un suffixe au nom de licence qui sera créée. Par exemple, si vous spécifiez « ESU- » comme préfixe et « -marketing » comme suffixe, le script créera des licences nommées « ESU-ServerName-marketing » pour chaque serveur dans le fichier CSV. Cela peut vous aider à différencier les licences appartenant à différents départements ou unités commerciales par exemple.
 
-**Note**: you can use the optional parameters to add a prefix and/or suffix to the license name that will be created. If you specify "ESU-" as a prefix and "-marketing" as a suffix, the script will create licenses named "ESU-ServerName-marketing" for each server in the CSV file. That can help you differentiate licenses belonging to different departments or business units for example.
+- licenseNamePrefix (facultatif) est le préfixe qui sera utilisé pour créer les licences ESU. Le script concaténera le préfixe avec le contenu du champ "Name" trouvé dans le fichier CSV pour créer le nom de la licence.
+- licenseNameSuffix (facultatif) est le suffixe qui sera utilisé pour créer les licences ESU. Le script concaténera le suffixe avec le contenu du champ "Name" trouvé dans le CSV pour créer le nom de la licence.
 
-- licenseNamePrefix (optional) is the prefix that will be used to create the ESU licenses. The script will concatenate the prefix with the content of the 'Name' found in the CSV to create the license name.
-- licenseNameSuffix (optional) is the suffix that will be used to create the ESU licenses. The script will concatenate the suffix with the content of the 'Name' found in the CSV to create the license name.
+**Remarque **: vous pouvez utiliser les paramètres facultatifs -log pour spécifier un chemin d'accès à un fichier journal.
 
-**Note**: you can use the optional parameters -log to specify a log file path.
 
 ## DeleteESULicense.ps1
 
-This script will delete an ESU license. When you delete a license, it will be removed from the Azure ARC server it was assigned to and stop the billing tied to that license.
+Ce script supprimera une licence ESU. Lorsque vous supprimez une licence, elle est supprimée du serveur ARC Azure auquel elle a été affectée et arrête la facturation liée à cette licence.
 
-> **Deleting an activated license and then recreating it is STRONGLY DISCOURAGED. This is because all activated licenses will incur the monthly ESU fee beginning on October 10, 2023. If you delete a license and subsequently recreate it, you will be charged for the new license from October 10, 2023 onwards, rather than from the time of its initial creation or activation.**
+> **La suppression d'une licence activée puis sa recréation sont FORTEMENT DÉCONSEILLÉES. En effet, toutes les licences activées entraîneront les frais mensuels de l'ESU à compter du 10 octobre 2023. Si vous supprimez une licence et que vous la recréez par la suite, la nouvelle licence vous sera facturée à partir du 10 octobre 2023, plutôt qu'à partir du moment de sa création ou de son activation initiale. Cette opération de suppression/recréation impliquera une double facturation temporaire.**
 
-Here is the command line you should use to run it:
+Voici la ligne de commande que vous devez utiliser pour l'exécuter :
     
     ./DeleteESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores"
 
-where:
-- subscriptionId is the subscription ID of the Azure subscription you want to use.
-- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
-- appID is the application ID of the service principal you created in the prerequisites section.
-- clientSecret is the secret key of the service principal you created in the prerequisites section.
-- licenseResourceGroupName is the name of the resource group that contains the ESU license you want to delete.
-- licenseName is the name of the ESU license you want to delete.
+où :
+- subscriptionId est l'ID d'abonnement de l'abonnement Azure que vous souhaitez utiliser.
+- tenantId est l'ID de locataire du locataire Microsoft Entra ID que vous souhaitez utiliser.
+- appID est l'ID d'application du service principal que vous avez créé dans la section Prérequis.
+- clientSecret est la clé secrète du service principal que vous avez créé dans la section Prérequis.
+- licenseResourceGroupName est le nom du groupe de ressources qui contiendra les licences ESU.
+- licenseName est le nom de la licence ESU que vous souhaitez supprimer.
 
 ## License
 
-This project is licensed under the terms of the MIT license. See the [LICENSE](LICENSE) file.
+Ce projet est sous licence selon les termes de la licence MIT. Voir le [fichier LICENSE](LICENSE).
