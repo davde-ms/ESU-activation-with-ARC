@@ -109,7 +109,7 @@ The creation of the CSV file can be done in 2 ways:
 > **Note:** The IsVirtual column is only used to determine the type of core that is going to be assigned to the license. You usually will almost always use vCore licenses unless you are covering physical servers.
 - AgentVersion: the version of the Azure ARC agent installed on the server. This information can be retrieved from the Azure portal or by running the [Azure Graph Explorer query](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) mentioned below.
 - ServerResourceGroupName: the name of the resource group that contains the Azure ARC server.
-- AssignESULicense: a value that indicates if the license should be assigned to the Azure ARC server. Set it to **True** if you want the license to be assigned to the Azure ARC server or **False** if you want to create the license but not assign it to the Azure ARC server or later on unlink it from the Azure ARC server.
+- AssignESULicense: Set it to **True** if you want the license to be assigned to the Azure ARC server, **False** to unlink the license from the Azure ARC server or omit the value altogether to create a license without assigning it.
     
 > Those last two columns are **optional** and are used IF/WHEN you want to manage license assignment as part of the script execution. Note that they are NOT automatically created when using Azure Graph Explorer to generate the CSV file. You will need to **manually** add them to the CSV file if you want to use them.
 
