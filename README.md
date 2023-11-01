@@ -113,7 +113,7 @@ The creation of the CSV file can be done in 2 ways:
 > Those last two columns are **optional** and are used IF/WHEN you want to manage license assignment as part of the script execution. Note that they are NOT automatically created when using Azure Graph Explorer to generate the CSV file. You will need to add them manually to the CSV file if you want to use them.
 
 **Minimum required contents in the CSV**
-![Example CSV file](media/csv-minimum-required-contents.png)
+![Example CSV file](media/csv-minmum-required-contents.jpg)
 
     
 - **Automatically** (by running the following [Azure Graph Explorer query](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) and saving its output to a CSV):
