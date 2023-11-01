@@ -120,8 +120,8 @@ Voici les colonnes qui doivent être présentes dans le fichier CSV :
 
 > Ces deux dernières colonnes sont **optionelles** et ne sont utiles que quand/lorsque vous voulez gérer les attrributions de licences via le fichier CSV. Notez qu'elles ne sont PAS créées automatiquement lors de la génération du fichier CSV avec Azure Graph Explorer. Vous devrez donc les ajouter **manuellement** si vous comptez les utiliser.
 
-**Fichier CSV type**
 ![Exemple d'un fichier CSV type](media/csv-minmum-required-contents.jpg)
+**Fichier CSV type**
     
 ### **Automatiquement**
 (en exécutant la requête suivante de [Azure De Graph Explorer](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) et en enregistrant les données ainsi produites dans un fichier CSV) :
