@@ -118,7 +118,7 @@ param(
 #End of Parameters definition block #
 #####################################
 
-. "$PSScriptRoot\AssignESULicense.ps1"
+
 
 ##############################
 # Variables definition block #
@@ -137,6 +137,68 @@ $global:creator = $MyInvocation.MyCommand.Name
 ################################
 # Function(s) definition block #
 ################################
+
+function AssignESULicense {
+
+    param (
+        [string]$appID,
+        [string]$clientSecret,
+        [string]$tenantId,
+        [string]$licenseResourceGroupName,
+        [string]$licenseName,
+        [string]$ARCServerName,
+        [string]$serverResourceGroupName,
+        [string]$location,
+        [switch]$unassign
+    )
+
+    $apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$serverResourceGroupName/providers/Microsoft.HybridCompute/machines/$ARCServerName/licenseProfiles/default`?api-version=2023-06-20-preview"
+    $licenseID = "/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName" 
+    $method = "PUT"
+
+    # Gets a bearer token from the App
+    $bearerToken = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId 
+
+    # Sets the headers for the request
+    $headers = @{
+        "Authorization" = "Bearer $bearerToken"
+        "Content-Type" = "application/json"
+    }
+
+    # creates the request body depending on the action type (assign or unassign)
+    if ($unassign) {
+        $requestBody = @{
+            location = $location
+            properties = @{
+                esuProfile = @{
+                    
+                }
+            }
+        }
+    } 
+    else {
+        $requestBody = @{
+            location = $location
+            properties = @{
+                esuProfile = @{
+                    "assignedLicense" = $licenseID 
+                }
+            }
+        }  
+    }
+
+
+    # Converts the request body to JSON
+    $requestBodyJson = $requestBody | ConvertTo-Json -Depth 5
+
+    # Sends the PUT request to update the license
+    $response = Invoke-RestMethod -Uri $apiEndpoint -Method $method -Headers $headers -Body $requestBodyJson
+
+    Write-Host ""
+    # Sends the response to STDOUT, which would be captured by the calling script if any.
+    # Feel free to comment out that line if you don't need to see the response.
+    #$response
+}
 
 function Get-AzureADBearerToken {
     param(
@@ -220,7 +282,7 @@ $response = Invoke-RestMethod -Uri $apiEndpoint -Method PUT -Headers $headers -B
 
 # Sends the response to STDOUT, which would be captured by the calling script if any
 #return $response
-Write-Host "Creating $licenseName license with $coreCount $coreType"
+Write-Host "Creating or modifying $licenseName license with $coreCount $coreType"
 Write-Host ""
 
 }
@@ -244,6 +306,11 @@ function Write-Logfile  {
 #####################
 # Main script block #
 #####################
+
+Write-Host ""
+Write-Host "==========================================="
+Write-Host "Starting ESU license creation from CSV file"
+Write-Host "==========================================="
 
 If (![string]::IsNullOrWhiteSpace($logFileName)) {Start-Transcript -Path $logFileName}
 
@@ -290,6 +357,51 @@ foreach ($row in $data) {
                 Write-Host "Cannot create license because of unknown machine type for $row"
             }
         }
+
+        #Assign the license to the server if requested from the CSV file (AssignESULicense column shoud say TRUE for assignment or FALSE for unlinking)
+        switch ($row.AssignESULicense) {
+            "True" {
+                Write-Host "Assigning ESU license ($LicenseName) to server ("$row.name")"
+                
+                $params = @{
+                    'subscriptionId' = $subscriptionId
+                    'tenantId' = $tenantId
+                    'appID' = $appID
+                    'clientSecret' = $clientSecret
+                    'licenseResourceGroupName' = $licenseResourceGroupName
+                    'licenseName' = $LicenseName
+                    'serverResourceGroupName' = $row.resourceGroupName
+                    'ARCServerName' = $row.name
+                    'location' = $location
+                }
+                
+                AssignESULicense @params
+              }
+
+            "False" {
+                Write-Host "Unlinking ESU license ($LicenseName) from server ("$row.name")"
+
+                $params = @{
+                    'subscriptionId' = $subscriptionId
+                    'tenantId' = $tenantId
+                    'appID' = $appID
+                    'clientSecret' = $clientSecret
+                    'licenseResourceGroupName' = $licenseResourceGroupName
+                    'licenseName' = $LicenseName
+                    'serverResourceGroupName' = $row.resourceGroupName
+                    'ARCServerName' = $row.name
+                    'location' = $location
+                    'unassign' = $true
+                }
+
+                AssignESULicense @params
+              }
+
+            Default {
+                Write-Host "Skipping license assignment for server ("$row.name")"
+            }
+        }
+
     }   
     
       
