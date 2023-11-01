@@ -117,6 +117,11 @@ Voici les colonnes qui doivent être présentes dans le fichier CSV :
 - AgentVersion : version de l'agent ARC Azure installé sur le serveur. Ces informations peuvent être récupérées à partir du portail Azure ou en exécutant la requête [Azure De Graph Explorer](https://learn.microsoft.com/fr-fr/graph/graph-explorer/graph-explorer-overview) mentionnée ci-dessous.
 - ServerResourceGroupName : nom du groupe de ressources qui contient le serveur ARC Azure auquel vous souhaitez assigner la licence ESU.
 - AssignESULicense: lorsque la valeur est à **True**, la license sera automatiquement assignée au serveur ARC Azure. **False** désassociera la licence ESU du serveur ARC Azure. Enfin, si vous désirez créer une licence ESU sans l'assigner à un serveur ARC Azure, vous devez **omettre** une valeur pour la colonne AssignESULicense.
+
+> Ces deux dernières colonnes sont **optionelles** et ne sont utiles que quand/lorsque vous voulez gérer les attrributions de licences via le fichier CSV. Notez qu'elles ne sont PAS créées automatiquement lors de la génération du fichier CSV avec Azure Graph Explorer. Vous devrez donc les ajouter **manuellement** si vous comptez les utiliser.
+
+**Fichier CSV type**
+![Exemple d'un fichier CSV type](media/csv-minmum-required-contents.jpg)
     
 ### **Automatiquement**
 (en exécutant la requête suivante de [Azure De Graph Explorer](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) et en enregistrant les données ainsi produites dans un fichier CSV) :
