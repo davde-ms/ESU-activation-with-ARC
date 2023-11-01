@@ -103,16 +103,17 @@ This script will create ESU licenses in bulk, taking its information from a CSV 
 The creation of the CSV file can be done in 2 ways:
 - **Manually** (by providing the required information in the CSV file). Here are the columns that have to be present in the CSV file:
     - Name: the name of the ESU license that will be created (usually matches a server name but not mandatory if you plan on using ESU licenses to cover multiple servers).
+    - Cores: the number of cores of the VM or physical server.
     - IsVirtual: a value that indicates if the server is virtual or not, set is to **Virtual** for VMs or **Physical** for physical servers.
     > **Note:** The IsVirtual column is only used to determine the type of core that is going to be assigned to the license. You usually will almost always use vCore licenses unless you are covering physical servers.
-    - Cores: the number of cores of the VM or physical server.
     - AgentVersion: the version of the Azure ARC agent installed on the server. This information can be retrieved from the Azure portal or by running the [Azure Graph Explorer query](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) mentioned below.
     - ServerResourceGroupName: the name of the resource group that contains the Azure ARC server.
     - AssignESULicense: a value that indicates if the license should be assigned to the Azure ARC server. Set it to **True** if you want the license to be assigned to the Azure ARC server or **False** if you want to create the license but not assign it to the Azure ARC server or later on unlink it from the Azure ARC server.
     
 > Those last two columns are **optional** and are used IF/WHEN you want to manage license assignment as part of the script execution. Note that they are NOT automatically created when using Azure Graph Explorer to generate the CSV file. You will need to add them manually to the CSV file if you want to use them.
 
-
+**Minimum required contents in the CSV**
+![Example CSV file](media/csv-minimum-required-contents.png)
 
     
 - **Automatically** (by running the following [Azure Graph Explorer query](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) and saving its output to a CSV):
