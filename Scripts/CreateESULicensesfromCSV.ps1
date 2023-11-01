@@ -245,7 +245,7 @@ function Write-Logfile  {
 # Main script block #
 #####################
 
-if ($logFileName -ne $null) {Start-Transcript -Path $logFileName}
+If (![string]::IsNullOrWhiteSpace($logFileName)) {Start-Transcript -Path $logFileName}
 
 $data = Import-Csv -Path $csvFilePath
 
@@ -296,7 +296,7 @@ foreach ($row in $data) {
 }
 
 
-if ($logFileName -ne $null) {Stop-Transcript}
+If (![string]::IsNullOrWhiteSpace($logFileName)) {Stop-Transcript}
 
 
 
