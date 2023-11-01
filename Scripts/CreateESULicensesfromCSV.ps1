@@ -370,7 +370,7 @@ foreach ($row in $data) {
                     'clientSecret' = $clientSecret
                     'licenseResourceGroupName' = $licenseResourceGroupName
                     'licenseName' = $LicenseName
-                    'serverResourceGroupName' = $row.resourceGroupName
+                    'serverResourceGroupName' = $row.serverResourceGroupName
                     'ARCServerName' = $row.name
                     'location' = $location
                 }
@@ -388,7 +388,7 @@ foreach ($row in $data) {
                     'clientSecret' = $clientSecret
                     'licenseResourceGroupName' = $licenseResourceGroupName
                     'licenseName' = $LicenseName
-                    'serverResourceGroupName' = $row.resourceGroupName
+                    'serverResourceGroupName' = $row.serverResourceGroupName
                     'ARCServerName' = $row.name
                     'location' = $location
                     'unassign' = $true
