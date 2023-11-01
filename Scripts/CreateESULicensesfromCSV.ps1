@@ -118,7 +118,7 @@ param(
 #End of Parameters definition block #
 #####################################
 
-
+. "$PSScriptRoot\AssignESULicense.ps1"
 
 ##############################
 # Variables definition block #
