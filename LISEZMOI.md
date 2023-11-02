@@ -40,7 +40,7 @@ Les droits suivants doivent être délégués sur les groupes de ressources que 
 
 Il y a une définition de rôle personnalisé située dans le dossier "Custom Roles" de ce référentiel qui peut être utilisée pour créer un rôle personnalisé avec les droits requis. Voir [Créer un rôle personnalisé à l'aide d'Azure PowerShell](https://learn.microsoft.com/fr-fr/azure/role-based-access-control/custom-roles-powershell#create-a-custom-role-with-json-template) pour créer un rôle personnalisé avec cette définition de rôle personnalisé.
 
-Une fois le rôle créé, assignez-le au service principal et appliquez le aux groupes de ressources.
+Une fois que le rôle est créé, attribuez-le au service principal et appliquez-le à tous les groupes de ressources stockant les licences ou les objets de serveurs Azure ARC. Par exemple, si vous avez 3 groupes de ressources, un pour les licences et deux pour les serveurs Azure ARC, vous devrez attribuer le rôle personnalisé au service principal et l'appliquer à ces trois groupes de ressources.
 
 ## Comment utiliser les scripts
 

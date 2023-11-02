@@ -38,7 +38,7 @@ The following rights have to be delegated on the resource groups you plan on usi
 
 There is a custom role definition located in the Custom Roles folder in this repository that can be used to create a custom role with the required rights. Please check the [Create a custom role using Azure PowerShell](https://docs.microsoft.com/en-us/azure/role-based-access-control/custom-roles-powershell#create-a-custom-role-using-azure-powershell) to create a custom role with the custom role definition.
 
-Once the role is created, assign it to the security principal and apply it to the resource groups.
+Once the role is created, assign it to the security principal and apply it to the all resource groups storing the licenses or the Azure ARC Server objects. For example, if you have 3 resource groups, one for the licenses and otwo for the Azure ARC servers, you will need to assign the custom role to the security principal and apply it to all three resource groups.
 
 ## How to use the scripts
 
