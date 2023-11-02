@@ -154,8 +154,8 @@ où :
 - clientSecret est la clé secrète du service principal que vous avez créé dans la section Prérequis.
 - licenseResourceGroupName est le nom du groupe de ressources qui contiendra les licences ESU.
 - location est la Azure région où vos objets ARC sont déployés.
-- state est l'état d'activation de la licence ESU. Il peut être "Activated" ou "Deactivated.
-- edition est l'édition de la licence ESU. Il peut s'agir de "Standard" » ou de "Datacenter".
+- state est l'état d'activation de la licence ESU. Il peut être "Activated" ou "Deactivated".
+- edition est l'édition de la licence ESU. Il peut s'agir de "Standard" ou de "Datacenter".
 - csvFile est le nom du fichier CSV qui contient les informations sur les licences ESU que vous voulez créer.
 
 **Remarque**: vous pouvez utiliser des paramètres facultatifs pour ajouter un préfixe et/ou un suffixe au nom de licence qui sera créée. Par exemple, si vous spécifiez « ESU- » comme préfixe et « -marketing » comme suffixe, le script créera des licences nommées « ESU-ServerName-marketing » pour chaque serveur dans le fichier CSV. Cela peut vous aider à différencier les licences appartenant à différents départements ou unités commerciales par exemple.
