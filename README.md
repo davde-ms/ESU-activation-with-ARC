@@ -119,16 +119,15 @@ The creation of the CSV file can be done in 2 ways:
 ### **Automatically**:
 (by running the following [Azure Graph Explorer query](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) and saving its output to a CSV):
 
-    Resources
+    resources
     | where type == 'microsoft.hybridcompute/machines'  
-    | extend agentVersion = tostring(properties.agentVersion) , operatingSystem = tostring(properties.osSku)  
+    | extend agentVersion = tostring(properties.agentVersion), operatingSystem = tostring(properties.osSku)  
     | where operatingSystem has "Windows Server 2012"  
     | extend ESUStatus = properties.licenseProfile.esuProfile.licenseAssignmentState  
-    | where ESUStatus == "NotAssigned"  
     | extend Cloud = tostring(properties.cloudMetadata.provider)  
     | extend isVirtual = iff(properties.detectedProperties.model == "Virtual Machine" or properties.detectedProperties.manufacturer == "VMware, Inc." or properties.detectedProperties.manufacturer == "Nutanix" or properties.cloudMetadata.provider == "AWS" or properties.cloudMetadata.provider == "GCP", "Virtual", "Physical")  
     | extend cores = properties.detectedProperties.coreCount, model = tostring(properties.detectedProperties.model), manufacturer = tostring(properties.detectedProperties.manufacturer)  
-    | project name,operatingSystem,model,manufacturer,cores,isVirtual,Cloud,ESUStatus,agentVersion
+    | project name,ServerResourceGroupName=resourceGroup,cores,isVirtual,ESUStatus,agentVersion,operatingSystem,model,manufacturer,Cloud
     
 > **Note:** The mentioned query will display all Azure ARC onboarded Windows 2012/R2 servers that haven't been assigned an ESU license. You have the option to adjust the query to retrieve all Windows 2012/R2 servers and subsequently filter the results in Excel, keeping only the servers you wish to assign ESU licenses to. While some of the columns returned might not be utilized by the script, they can be helpful for Excel-based result filtering. Ensure you retain the essential columns (as specified in the manual creation process mentioned earlier) to ensure smooth operations.
 

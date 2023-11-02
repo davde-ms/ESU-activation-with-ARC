@@ -126,16 +126,15 @@ Voici les colonnes qui doivent être présentes dans le fichier CSV :
 (en exécutant la requête suivante de [Azure De Graph Explorer](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) et en enregistrant les données ainsi produites dans un fichier CSV) :
 
 
-    Resources
+    resources
     | where type == 'microsoft.hybridcompute/machines'  
-    | extend agentVersion = tostring(properties.agentVersion) , operatingSystem = tostring(properties.osSku)  
+    | extend agentVersion = tostring(properties.agentVersion), operatingSystem = tostring(properties.osSku)  
     | where operatingSystem has "Windows Server 2012"  
     | extend ESUStatus = properties.licenseProfile.esuProfile.licenseAssignmentState  
-    | where ESUStatus == "NotAssigned"  
     | extend Cloud = tostring(properties.cloudMetadata.provider)  
     | extend isVirtual = iff(properties.detectedProperties.model == "Virtual Machine" or properties.detectedProperties.manufacturer == "VMware, Inc." or properties.detectedProperties.manufacturer == "Nutanix" or properties.cloudMetadata.provider == "AWS" or properties.cloudMetadata.provider == "GCP", "Virtual", "Physical")  
     | extend cores = properties.detectedProperties.coreCount, model = tostring(properties.detectedProperties.model), manufacturer = tostring(properties.detectedProperties.manufacturer)  
-    | project name,operatingSystem,model,manufacturer,cores,isVirtual,Cloud,ESUStatus,agentVersion
+    | project name,ServerResourceGroupName=resourceGroup,cores,isVirtual,ESUStatus,agentVersion,operatingSystem,model,manufacturer,Cloud
    
 > **Remarque :** La requête mentionnée affichera tous les serveurs Windows 2012/R2 intégrés à Azure ARC qui n'ont pas encore reçu de licence ESU. Vous avez la possibilité d'ajuster la requête pour récupérer tous les serveurs Windows 2012/R2 et ensuite filtrer les résultats dans Excel, en ne conservant que les serveurs auxquels vous souhaitez attribuer des licences ESU. Bien que certaines des colonnes retournées puissent ne pas être utilisées par le script, elles peuvent être utiles pour le filtrage des résultats dans Excel. Assurez-vous de conserver les colonnes essentielles (comme spécifié dans le processus de création manuel mentionné précédemment) pour assurer le bon fonctionnement du script.
 
