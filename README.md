@@ -111,7 +111,7 @@ The creation of the CSV file can be done in 2 ways:
 - ServerResourceGroupName: the name of the resource group that contains the Azure ARC server.
 - AssignESULicense: Set it to **True** if you want the license to be assigned to the Azure ARC server, **False** to unlink the license from the Azure ARC server or omit the value altogether to create a license without assigning it.
     
-> Those last two columns are **optional** and are used IF/WHEN you want to manage license assignment as part of the script execution. Note that they are NOT automatically created when using Azure Graph Explorer to generate the CSV file. You will need to **manually** add them to the CSV file if you want to use them.
+> The AssignedESULicense column is **optional** and is used IF/WHEN you want to manage license assignment as part of the script execution. Note that it is NOT automatically created when using Azure Graph Explorer to generate the CSV file. You will need to **manually** add it to the CSV file if you want to manage assignment of license as part of the execution of this script.
 
 ![Example CSV file](media/csv-minmum-required-contents.jpg)
 
