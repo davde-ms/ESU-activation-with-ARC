@@ -97,7 +97,7 @@ All other parameters are immutable and cannot be changed once the license is cre
 
 ## ManageESULicenses.ps1
 
-This script will manage ESU licenses in bulk, taking its information from a CSV file.
+This script will create, assign and manage ESU licenses in bulk, taking its information from a CSV file.
 > **Note: license creation will be skipped if Arc agent version is lower than 1.34 since it is the minimum required version that is able to push the ESU activation to servers. Upgrade your ARC agent(s), run the Azure Graph Explorer query again and then rerun the script to process the newly upgraded servers.**
 
 The creation of the CSV file can be done in 2 ways:
