@@ -7,19 +7,18 @@ YOU ARE FREE TO REUSE AND/OR MODIFY THE CODE TO FIT YOUR NEEDS
 //-----------------------------------------------------------------------
 
 .SYNOPSIS
-Creates ESU licenses to be used with Azure ARC in bulk, using a exported CSV from the Azure Portal.
+Creates and manages ESU licenses to be used with Azure ARC in bulk, using an exported CSV from the Azure Portal or a manually created one.
 
 .DESCRIPTION
-This script will create ARC based ESU licenses that can later be assigned to your servers requiring ESU acvitation.
-Creation will fetch parameters information from a CSV file coming from an Azure Portal export of the ARC ESU Eligible resources.
-License assignment should be done with another script and so will be removal/unlinking of the license when/if required.
+This script automates the creation and management of ARC based ESU licenses for servers needing ESU activation.
+It retrieves information from a CSV file and the command line for tasks like license creation, management, assignment, and removal.
 
 .NOTES
-File Name : CreateESUfromCSV.ps1
+File Name : ManageESULicenses.ps1
 Author    : David De Backer
-Version   : 2.0
+Version   : 2.5
 Date      : 23-October-2023
-Update    : 01-November-2023
+Update    : 07-November-2023
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
@@ -30,7 +29,7 @@ To get more information on Azure ARC ESU license REST API please visit:
 https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-updates
 
 .EXAMPLE-1
-./CreateESULicensesfromCSV -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+./ManageESULicenses -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -clientSecret "your_application_secret_value" `

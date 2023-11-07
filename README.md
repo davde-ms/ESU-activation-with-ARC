@@ -46,7 +46,7 @@ There are currently 4 scripts in this repository (located in the Scripts folder)
 
 - AssignESULicense.ps1
 - CreateESULicense.ps1
-- CreateESULicensesFromCSV.ps1
+- ManageESULicenses.ps1 (previsouly named CreateESULicensesFromCSV.ps1)
 - DeleteESULicense.ps1
 
 ### AssignESULicense.ps1
@@ -95,9 +95,9 @@ You can type the exact cores your host or VM has and the script will automatical
 
 All other parameters are immutable and cannot be changed once the license is created.
 
-## CreateESULicensesFromCSV.ps1
+## ManageESULicenses.ps1
 
-This script will create ESU licenses in bulk, taking its information from a CSV file.
+This script will manage ESU licenses in bulk, taking its information from a CSV file.
 > **Note: license creation will be skipped if Arc agent version is lower than 1.34 since it is the minimum required version that is able to push the ESU activation to servers. Upgrade your ARC agent(s), run the Azure Graph Explorer query again and then rerun the script to process the newly upgraded servers.**
 
 The creation of the CSV file can be done in 2 ways:
@@ -135,7 +135,7 @@ Always ensure a thorough review of the CSV file's contents before utilization. N
 
 Here is the command line you should use to run it:
     
-    ./CreateESULicensesFromCSV.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" - edition "Standard" -csvFile "C:\foldername\ESULicenses.csv" 
+    ./ManageESULicenses.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" - edition "Standard" -csvFile "C:\foldername\ESULicenses.csv" 
 
 where:
 - subscriptionId is the subscription ID of the Azure subscription you want to use.
