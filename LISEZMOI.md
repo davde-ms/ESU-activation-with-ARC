@@ -48,7 +48,7 @@ Il y a actuellement 4 scripts dans ce référentiel (situé dans le dossier Scri
 
 - AssignESULicense.ps1
 - CreateESULicense.ps1
-- CreateESULicensesFromCSV.ps1
+- ManageESULicenses.ps1 (appelé précédement CreateESULicensesFromCSV.ps1)
 - DeleteESULicense.ps1
 
 ### AssignESULicense.ps1
@@ -98,9 +98,9 @@ Vous pouvez entrer le nombre exact de cœurs dont dispose votre hôte ou votre m
 Tous les autres paramètres sont **immuables** et ne peuvent pas être modifiés une fois la licence créée.
 
 
-## CreateESULicensesFromCSV.ps1
+## ManageESULicenses.ps1
 
-Ce script créera des licences ESU en bloc, en prenant ses informations d'un fichier CSV.
+Ce script gèrera les licences ESU en bloc, en prenant ses informations d'un fichier CSV.
 > **Remarque : la création de licence sera ignorée si la version de l'agent Arc est inférieure à 1.34, car il s'agit de la version minimale requise capable de pousser l'activation ESU vers les serveurs. Mettez à niveau vos agents ARC, réexécutez la requête Azure Graph Explorer, puis réexécutez le script pour traiter les serveurs nouvellement mis à niveau.**
 
 La création du fichier CSV peut être effectuée de 2 manières :
@@ -144,7 +144,7 @@ Voici la ligne de commande que vous devez utiliser pour l'exécuter :
 
 Here is the command line you should use to run it:
     
-    ./CreateESULicensesFromCSV.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" - edition "Standard" -csvFile "C:\foldername\ESULicenses.csv" 
+    ./ManageESULicenses.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" - edition "Standard" -csvFile "C:\foldername\ESULicenses.csv" 
 
 où :
 - subscriptionId est l'ID d'abonnement de l'abonnement Azure que vous souhaitez utiliser.
