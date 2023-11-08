@@ -46,7 +46,7 @@ There are currently 4 scripts in this repository (located in the Scripts folder)
 
 - AssignESULicense.ps1
 - CreateESULicense.ps1
-- ManageESULicenses.ps1 (previsouly named CreateESULicensesFromCSV.ps1)
+- ManageESULicenses.ps1 (previously named CreateESULicensesFromCSV.ps1)
 - DeleteESULicense.ps1
 
 ### AssignESULicense.ps1
