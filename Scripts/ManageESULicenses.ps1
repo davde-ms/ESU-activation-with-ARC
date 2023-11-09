@@ -16,13 +16,18 @@ It retrieves information from a CSV file and the command line for tasks like lic
 .NOTES
 File Name : ManageESULicenses.ps1
 Author    : David De Backer
-Version   : 2.5
+Version   : 3.0
 Date      : 23-October-2023
-Update    : 07-November-2023
+Update    : 09-November-2023
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
 Product   : Azure ARC
+
+.CHANGELOG
+v1.0 - Initial release
+v2.0 - Added support for license assignment and unassignment
+v3.0 - Added support for ESU license exceptions (Dev/test, AVS hosted, etc.)
 
 .LINK
 To get more information on Azure ARC ESU license REST API please visit:
@@ -242,7 +247,8 @@ function CreateESULicense {
         [string]$state,
         [string]$edition,
         [string]$coreType,
-        [int]$coreCount
+        [int]$coreCount,
+        [string]$ESULicenseException
     )
     
 $apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName`?api-version=2023-06-20-preview"
@@ -272,6 +278,8 @@ $requestBody = @{
         CreatedBy = "$global:creator"
     }
 }
+
+if ($ESULicenseException -ne $false) {$requestBody['tags']['ESU Usage'] = $ESULicenseException}
 
 # Converts the request body to JSON
 $requestBodyJson = $requestBody | ConvertTo-Json -Depth 5
@@ -332,6 +340,14 @@ foreach ($row in $data) {
         #Adjust coreCount and translate coreType to the right values required for the license based on the input from the CSV file
         $cores = [int]$row.cores
 
+        #Check if the machine has been tagged for a licence exception (Dev/test, AVS hosted, etc.)
+        If (![string]::IsNullOrWhiteSpace($row.ESUException)) {
+            $ESUException = $row.ESUException
+        }
+        else {
+            $ESUException = $false
+        }
+       
         switch ($row.isVirtual) {
             
             "Virtual" {
@@ -340,7 +356,7 @@ foreach ($row in $data) {
                     $row.cores = [math]::Max(8, [math]::Ceiling($cores / 2) * 2)  
                 }
                 $coreType = "vCore"
-                CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores
+                CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException
                 ; break
             } 
             "Physical" {
@@ -349,7 +365,7 @@ foreach ($row in $data) {
                     $row.cores = [math]::Max(16, [math]::Ceiling($cores / 2) * 2)  
                 }
                 $coreType = "pCore"
-                CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores
+                CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException
                 ; break
             } 
             Default {
@@ -398,6 +414,7 @@ foreach ($row in $data) {
 
             Default {
                 Write-Host "Skipping license assignment for server ("$row.name")"
+                Write-Host ""
             }
         }
 
