@@ -114,6 +114,9 @@ The creation of the CSV file can be done in 2 ways:
 > **Note:** The AssignedESULicense column is **optional** and is used IF/WHEN you want to manage license assignment as part of the script execution. Note that it is NOT automatically created when using Azure Graph Explorer to generate the CSV file. You will need to **manually** add it to the CSV file if you want to manage assignment of license as part of the execution of this script.
 
 - ESUException: **IF** your server is eligible to receive Extended Security Updates patches at no additional cost, set it to whichever value that matches the use case. Those scenarios are detailed in the [Additional scenarios section of the Deliver Extended Security Updates for Windows Server 2012](https://learn.microsoft.com/en-us/azure/azure-arc/servers/deliver-extended-security-updates#additional-scenarios) article. If your server is not eligible for free ESU, omit the value altogether. Please make sure you fully understand the scenarios and their requirements before setting this value. Failure to do so could lead to either excessive billing or non-compliance with Microsoft's licensing regulations.
+
+> **Note:** MAKE SURE TO REMOVE/NOT TO ADD SERVERS THAT ARE ELIGIBLE TO RECEIVE ESUs AT NO ADDITIONAL COST FROM THE CSV FILE AS THOSE SERVERS SHOULD BE ASSIGNED TO AN EXISTING BILLABLE LICENSE THAT HAS BEEN PROPERLY TAGGED AND NOT HAVE THEIR OWN LICENSE CREATED. FAILURE TO DO SO COULD LEAD TO EXCESSIVE BILLING.
+The ability to bulk assign existing license will come shortly.
  
 ![Example CSV file](media/csv-minmum-required-contents.jpg)
 
