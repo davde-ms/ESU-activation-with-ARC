@@ -122,6 +122,9 @@ Voici les colonnes qui doivent être présentes dans le fichier CSV :
 
 - ESUException: **SI** votre serveur est éligible pour recevoir des correctifs de mises à jour de sécurité étendues gratuitement, définissez cette colone avec la valeur correspondant au cas d'utilisation. Ces scénarios sont détaillés la section [Autres cas de figure de l'article Fournir des Mises à jour de sécurité étendue pour Windows Server 2012](https://learn.microsoft.com/fr-fr/azure/azure-arc/servers/deliver-extended-security-updates#additional-scenarios). Si votre serveur n'est pas éligible pour les ESU gratuits, omettez la valeur. Assurez-vous de bien comprendre les scénarios et leurs exigences avant d'utiliser cette fonctionalité. Ne pas correctement les appliquer pourrait entraîner une facturations excessive ou une non-conformité aux réglementations de licence de Microsoft.
 
+> **TRÈS IMPORTANT** : Assurez-vous de **NE PAS** répertorier les serveurs éligibles pour recevoir des ESUs sans frais supplémentaires dans le fichier CSV, car ces serveurs doivent être assignés à une licence facturable existante et correctement étiquetée et ne pas avoir leur propre licence créée. Le non-respect de cette consigne entraînera une facturation excessive.
+La capacité d'assigner en masse des licences existantes sera bientôt disponible.
+
 ![Exemple d'un fichier CSV type](media/csv-minmum-required-contents.jpg)
     
 ### **Automatiquement**
