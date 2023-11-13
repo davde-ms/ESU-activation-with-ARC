@@ -42,12 +42,14 @@ Once the role is created, assign it to the security principal and apply it to th
 
 ## How to use the scripts
 
-There are currently 4 scripts in this repository (located in the Scripts folder):
+There are currently 5 scripts in this repository (located in the Scripts folder):
 
-- AssignESULicense.ps1
-- CreateESULicense.ps1
-- ManageESULicenses.ps1 (previously named CreateESULicensesFromCSV.ps1)
-- DeleteESULicense.ps1
+- AssignESULicense.ps1 (assign an existing ESU license to an Azure ARC server)
+- CreateESULicense.ps1 (create a new ESU license)
+- DeleteESULicense.ps1 (delete an existing ESU license)
+- ManageESULicenses.ps1 (creates and optionally assigns ESU licenses in bulk, taking its information from a CSV file)
+- ManageESUAssignments.ps1 (assigns ESU licenses in bulk, taking its information from a CSV file)
+
 
 ### AssignESULicense.ps1
 
@@ -67,6 +69,25 @@ where:
 - location is the Azure region where you ARC objects are deployed.
 
 You can use the -u at the end of the command line to UNLINK an existing license from an Azure ARC server. If you do not specify the -u parameter, the script will link the license to the Azure ARC server (default behavior).
+
+## DeleteESULicense.ps1
+
+This script will delete an ESU license. When you delete a license, it will be removed from the Azure ARC server it was assigned to and stop the billing tied to that license.
+
+> **Deleting an activated license and then recreating it is STRONGLY DISCOURAGED. This is because all activated licenses will incur the monthly ESU fee beginning on October 10, 2023. If you delete a license and subsequently recreate it, you will be charged for the new license from October 10, 2023 onwards, rather than from the time of its initial creation or activation.**
+
+Here is the command line you should use to run it:
+    
+    ./DeleteESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores"
+
+where:
+- subscriptionId is the subscription ID of the Azure subscription you want to use.
+- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
+- appID is the application ID of the service principal you created in the prerequisites section.
+- clientSecret is the secret key of the service principal you created in the prerequisites section.
+- licenseResourceGroupName is the name of the resource group that contains the ESU license you want to delete.
+- licenseName is the name of the ESU license you want to delete.
+
 
 ## CreateESULicense.ps1
 
@@ -162,23 +183,6 @@ where:
 
 **Note**: you can use the optional parameters -log to specify a log file path.
 
-## DeleteESULicense.ps1
-
-This script will delete an ESU license. When you delete a license, it will be removed from the Azure ARC server it was assigned to and stop the billing tied to that license.
-
-> **Deleting an activated license and then recreating it is STRONGLY DISCOURAGED. This is because all activated licenses will incur the monthly ESU fee beginning on October 10, 2023. If you delete a license and subsequently recreate it, you will be charged for the new license from October 10, 2023 onwards, rather than from the time of its initial creation or activation.**
-
-Here is the command line you should use to run it:
-    
-    ./DeleteESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores"
-
-where:
-- subscriptionId is the subscription ID of the Azure subscription you want to use.
-- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
-- appID is the application ID of the service principal you created in the prerequisites section.
-- clientSecret is the secret key of the service principal you created in the prerequisites section.
-- licenseResourceGroupName is the name of the resource group that contains the ESU license you want to delete.
-- licenseName is the name of the ESU license you want to delete.
 
 ## License
 
