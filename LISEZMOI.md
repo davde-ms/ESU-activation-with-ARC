@@ -125,7 +125,7 @@ Voici les colonnes qui doivent être présentes dans le fichier CSV :
 > **TRÈS IMPORTANT** : Assurez-vous de **NE PAS** répertorier les serveurs éligibles pour recevoir des ESUs sans frais supplémentaires dans le fichier CSV, car ces serveurs doivent être assignés à une licence facturable **existante** et correctement étiquetée et ne pas avoir leur propre licence créée. Le non-respect de cette consigne entraînera une facturation excessive.
 La capacité d'assigner en masse des licences existantes sera bientôt disponible.
 
-![Exemple d'un fichier CSV type](media/csv-minmum-required-contents.jpg)
+![Exemple d'un fichier CSV type](media/ManageESULicenses_CSV_Example.jpg)
     
 ### **Automatiquement**
 (en exécutant la requête suivante de [Azure De Graph Explorer](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) et en enregistrant les données ainsi produites dans un fichier CSV) :

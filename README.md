@@ -165,7 +165,7 @@ The creation of the CSV file can be done in 2 ways:
 > **VERY IMPORTANT:** Make sure **NOT** to list servers that are eligible to receive ESUs at no additional cost in the CSV file, as those servers **should be assigned to an existing billable license** that has been properly tagged and not have their own license created. Failure to do so will lead to excessive billing.
 The ability to bulk assign existing license will come shortly.
  
-![Example CSV file](media/csv-minmum-required-contents.jpg)
+![Example CSV file](media/ManageESULicenses_CSV_Example.jpg)
 
     
 ### **Automatically**:
