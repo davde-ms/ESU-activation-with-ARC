@@ -134,12 +134,12 @@ où :
 - csvFilePath est le nom du fichier CSV qui contient les informations sur les assignations de licences ESU que vous appliquer à vos serveurs Azure ARC.
 
 
-> The CSV file has to be manually created and should contain the following columns:
-- Name: the name of the ESU license that will be assigned to the Azure ARC server.
-- ServerResourceGroupName: the name of the resource group that contains the Azure ARC server.
-- LicenseName: the name of the ESU license that will be assigned to the Azure ARC server.
-- LicenseResourceGroupName: the name of the resource group that contains the ESU license you want to assign to the Azure ARC server.
-- AssignESULicense: Set it to **True** if you want the license to be assigned to the Azure ARC server or **False** to unlink the license from the Azure ARC server.
+> Le fichier CSV doit être créé **manuellement** et doit contenir les colonnes suivantes:
+- Name: Le nom du serveur Azure ARC auquel vous souhaitez assigner la licence ESU.
+- ServerResourceGroupName: le nom du groupe de ressources qui contient le serveur Azure ARC auquel vous souhaitez assigner la licence ESU.
+- LicenseName: le nom de la licence ESU que vous souhaitez assigner au serveur Azure ARC.
+- LicenseResourceGroupName: le nom du groupe de ressources qui contient la licence ESU que vous souhaitez assigner au serveur Azure ARC.
+- AssignESULicense: lorsque la valeur est à **True**, la license sera automatiquement assignée au serveur ARC Azure. **False** désassociera la licence ESU du serveur ARC Azure.
 
 Voici un example du format du fichier CSV:
 
