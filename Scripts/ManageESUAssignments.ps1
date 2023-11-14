@@ -47,7 +47,7 @@ https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-
 This example will assign or unassign (unlink) ESU licenses to/from ARC server objects based on the information provided in the CSV file.
 
 You will need to provide the following information in the CSV file:
-ESULicenceName: The name of the ESU license to used.
+LicenseName: The name of the ESU license to used.
 licenseResourceGroupName: The name of the resource group where the ESU license object is located.
 ServerResourceGroupName: The name of the resource group where the ARC server object is located.
 ARCServerName: The name of the ARC server object.
@@ -229,9 +229,9 @@ function Write-Logfile  {
 #####################
 
 Write-Host ""
-Write-Host "==========================================="
-Write-Host "Starting ESU license creation from CSV file"
-Write-Host "==========================================="
+Write-Host "=============================================="
+Write-Host "Starting ESU license assignments from CSV file"
+Write-Host "=============================================="
 
 If (![string]::IsNullOrWhiteSpace($logFileName)) {Start-Transcript -Path $logFileName}
 
@@ -242,7 +242,7 @@ foreach ($row in $data) {
         #Assign the license to the server if requested from the CSV file (AssignESULicense column shoud say TRUE for assignment or FALSE for unlinking)
         switch ($row.AssignESULicense) {
             "True" {
-                Write-Host "Assigning ESU license ($LicenseName) to server ("$row.name")"
+                Write-Host "Assigning ESU license ("$row.LicenseName") to server ("$row.name")"
                 
                 $params = @{
                     'subscriptionId' = $subscriptionId
@@ -250,7 +250,7 @@ foreach ($row in $data) {
                     'appID' = $appID
                     'clientSecret' = $clientSecret
                     'licenseResourceGroupName' = $row.licenseResourceGroupName
-                    'licenseName' = $row.ESULicenceName
+                    'licenseName' = $row.LicenseName
                     'serverResourceGroupName' = $row.ServerResourceGroupName
                     'ARCServerName' = $row.Name
                     'location' = $location
@@ -260,7 +260,7 @@ foreach ($row in $data) {
               }
 
             "False" {
-                Write-Host "Unlinking ESU license ($LicenseName) from server ("$row.name")"
+                Write-Host "Unlinking ESU license ("$row.LicenseName") from server ("$row.name")"
 
                 $params = @{
                     'subscriptionId' = $subscriptionId
@@ -268,7 +268,7 @@ foreach ($row in $data) {
                     'appID' = $appID
                     'clientSecret' = $clientSecret
                     'licenseResourceGroupName' = $row.licenseResourceGroupName
-                    'licenseName' = $row.ESULicenceName
+                    'licenseName' = $row.LicenseName
                     'serverResourceGroupName' = $row.ServerResourceGroupName
                     'ARCServerName' = $row.Name
                     'location' = $location
@@ -279,7 +279,7 @@ foreach ($row in $data) {
               }
 
             Default {
-                Write-Host "Missing license assignment action for server ("$row.name")"
+                Write-Host "Missing license assignment action definition for server "$row.name" and license "$row.LicenseName""
                 Write-Host ""
             }
         }
@@ -287,9 +287,6 @@ foreach ($row in $data) {
     }   
     
       
-
-
-
 If (![string]::IsNullOrWhiteSpace($logFileName)) {Stop-Transcript}
 
 

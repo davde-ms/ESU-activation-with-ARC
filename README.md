@@ -116,6 +116,32 @@ You can type the exact cores your host or VM has and the script will automatical
 
 All other parameters are immutable and cannot be changed once the license is created.
 
+## ManageESUAssignments.ps1
+
+This script will assign ESU licenses in bulk, taking its information from a CSV file. Here is the command line you should use to run it:
+    
+    ./ManageESUAssignments.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
+
+where:
+- subscriptionId is the subscription ID of the Azure subscription you want to use.
+- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
+- appID is the application ID of the service principal you created in the prerequisites section.
+- clientSecret is the secret key of the service principal you created in the prerequisites section.
+- location is the Azure region where you ARC objects are deployed.
+- csvFilePath is the path to the CSV file that contains the information about the ESU licenses assignments you want to apply to Azure ARC servers.
+
+
+> The CSV file has to be manually created and should contain the following columns:
+- Name: the name of the ESU license that will be assigned to the Azure ARC server.
+- ServerResourceGroupName: the name of the resource group that contains the Azure ARC server.
+- LicenseName: the name of the ESU license that will be assigned to the Azure ARC server.
+- LicenseResourceGroupName: the name of the resource group that contains the ESU license you want to assign to the Azure ARC server.
+- AssignESULicense: Set it to **True** if you want the license to be assigned to the Azure ARC server or **False** to unlink the license from the Azure ARC server.
+
+Here is an example of the CSV file:
+![CSV File Layout](media/ManageESUAssignments_CSV_example.jpg)
+
+
 ## ManageESULicenses.ps1
 
 This script will create, assign and manage ESU licenses in bulk, taking its information from a CSV file.
