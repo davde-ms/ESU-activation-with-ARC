@@ -51,7 +51,7 @@ Il y a actuellement 4 scripts dans ce référentiel (situé dans le dossier Scri
 - ManageESULicenses.ps1 (appelé précédement CreateESULicensesFromCSV.ps1)
 - DeleteESULicense.ps1
 
-### AssignESULicense.ps1
+## AssignESULicense.ps1
 
 Ce script assignera une licence ESU au serveur ARC Azure spécifié. Voici la ligne de commande que vous devez utiliser pour l'exécuter :
     
@@ -97,6 +97,24 @@ Vous pouvez entrer le nombre exact de cœurs dont dispose votre hôte ou votre m
 
 Tous les autres paramètres sont **immuables** et ne peuvent pas être modifiés une fois la licence créée.
 
+## DeleteESULicense.ps1
+
+Ce script supprimera une licence ESU. Lorsque vous supprimez une licence, elle est supprimée du serveur ARC Azure auquel elle a été affectée et arrête la facturation liée à cette licence.
+
+> **La suppression d'une licence activée puis sa recréation sont FORTEMENT DÉCONSEILLÉES. En effet, toutes les licences activées entraîneront les frais mensuels de l'ESU à compter du 10 octobre 2023. Si vous supprimez une licence et que vous la recréez par la suite, la nouvelle licence vous sera facturée à partir du 10 octobre 2023, plutôt qu'à partir du moment de sa création ou de son activation initiale. Cette opération de suppression/recréation impliquera une double facturation temporaire.**
+
+Voici la ligne de commande que vous devez utiliser pour l'exécuter :
+    
+    ./DeleteESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores"
+
+où :
+- subscriptionId est l'ID d'abonnement de l'abonnement Azure que vous souhaitez utiliser.
+- tenantId est l'ID de locataire du locataire Microsoft Entra ID que vous souhaitez utiliser.
+- appID est l'ID d'application du service principal que vous avez créé dans la section Prérequis.
+- clientSecret est la clé secrète du service principal que vous avez créé dans la section Prérequis.
+- licenseResourceGroupName est le nom du groupe de ressources qui contiendra les licences ESU.
+- licenseName est le nom de la licence ESU que vous souhaitez supprimer.
+
 ## ManageESUAssignments.ps1
 
 Ce script attribuera des licences ESU en masse, en extrayant les informations d'un fichier CSV.
@@ -123,7 +141,8 @@ où :
 - LicenseResourceGroupName: the name of the resource group that contains the ESU license you want to assign to the Azure ARC server.
 - AssignESULicense: Set it to **True** if you want the license to be assigned to the Azure ARC server or **False** to unlink the license from the Azure ARC server.
 
-Here is an example of the CSV file:
+Voici un example du format du fichier CSV:
+
 ![CSV File Layout](media/ManageESUAssignments_CSV_example.jpg)
 
 ## ManageESULicenses.ps1
@@ -152,6 +171,8 @@ Voici les colonnes qui doivent être présentes dans le fichier CSV :
 
 > **TRÈS IMPORTANT** : Assurez-vous de **NE PAS** répertorier les serveurs éligibles pour recevoir des ESUs sans frais supplémentaires dans le fichier CSV, car ces serveurs doivent être assignés à une licence facturable **existante** et correctement étiquetée et ne pas avoir leur propre licence créée. Le non-respect de cette consigne entraînera une facturation excessive.
 La capacité d'assigner en masse des licences existantes sera bientôt disponible.
+
+Voici un example du format du fichier CSV:
 
 ![Exemple d'un fichier CSV type](media/ManageESULicenses_CSV_Example.jpg)
     
@@ -196,23 +217,7 @@ où :
 **Remarque**: vous pouvez utiliser les paramètres facultatifs -log pour spécifier un chemin d'accès à un fichier journal.
 
 
-## DeleteESULicense.ps1
 
-Ce script supprimera une licence ESU. Lorsque vous supprimez une licence, elle est supprimée du serveur ARC Azure auquel elle a été affectée et arrête la facturation liée à cette licence.
-
-> **La suppression d'une licence activée puis sa recréation sont FORTEMENT DÉCONSEILLÉES. En effet, toutes les licences activées entraîneront les frais mensuels de l'ESU à compter du 10 octobre 2023. Si vous supprimez une licence et que vous la recréez par la suite, la nouvelle licence vous sera facturée à partir du 10 octobre 2023, plutôt qu'à partir du moment de sa création ou de son activation initiale. Cette opération de suppression/recréation impliquera une double facturation temporaire.**
-
-Voici la ligne de commande que vous devez utiliser pour l'exécuter :
-    
-    ./DeleteESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores"
-
-où :
-- subscriptionId est l'ID d'abonnement de l'abonnement Azure que vous souhaitez utiliser.
-- tenantId est l'ID de locataire du locataire Microsoft Entra ID que vous souhaitez utiliser.
-- appID est l'ID d'application du service principal que vous avez créé dans la section Prérequis.
-- clientSecret est la clé secrète du service principal que vous avez créé dans la section Prérequis.
-- licenseResourceGroupName est le nom du groupe de ressources qui contiendra les licences ESU.
-- licenseName est le nom de la licence ESU que vous souhaitez supprimer.
 
 ## License
 

@@ -51,7 +51,7 @@ There are currently 5 scripts in this repository (located in the Scripts folder)
 - ManageESUAssignments.ps1 (assigns ESU licenses in bulk, taking its information from a CSV file)
 
 
-### AssignESULicense.ps1
+## AssignESULicense.ps1
 
 This script will assign an ESU license to a specific Azure ARC server. Here is the command line you should use to run it:
     
@@ -69,25 +69,6 @@ where:
 - location is the Azure region where you ARC objects are deployed.
 
 You can use the -u at the end of the command line to UNLINK an existing license from an Azure ARC server. If you do not specify the -u parameter, the script will link the license to the Azure ARC server (default behavior).
-
-## DeleteESULicense.ps1
-
-This script will delete an ESU license. When you delete a license, it will be removed from the Azure ARC server it was assigned to and stop the billing tied to that license.
-
-> **Deleting an activated license and then recreating it is STRONGLY DISCOURAGED. This is because all activated licenses will incur the monthly ESU fee beginning on October 10, 2023. If you delete a license and subsequently recreate it, you will be charged for the new license from October 10, 2023 onwards, rather than from the time of its initial creation or activation.**
-
-Here is the command line you should use to run it:
-    
-    ./DeleteESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores"
-
-where:
-- subscriptionId is the subscription ID of the Azure subscription you want to use.
-- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
-- appID is the application ID of the service principal you created in the prerequisites section.
-- clientSecret is the secret key of the service principal you created in the prerequisites section.
-- licenseResourceGroupName is the name of the resource group that contains the ESU license you want to delete.
-- licenseName is the name of the ESU license you want to delete.
-
 
 ## CreateESULicense.ps1
 
@@ -116,6 +97,25 @@ You can type the exact cores your host or VM has and the script will automatical
 
 All other parameters are immutable and cannot be changed once the license is created.
 
+## DeleteESULicense.ps1
+
+This script will delete an ESU license. When you delete a license, it will be removed from the Azure ARC server it was assigned to and stop the billing tied to that license.
+
+> **Deleting an activated license and then recreating it is STRONGLY DISCOURAGED. This is because all activated licenses will incur the monthly ESU fee beginning on October 10, 2023. If you delete a license and subsequently recreate it, you will be charged for the new license from October 10, 2023 onwards, rather than from the time of its initial creation or activation.**
+
+Here is the command line you should use to run it:
+    
+    ./DeleteESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores"
+
+where:
+- subscriptionId is the subscription ID of the Azure subscription you want to use.
+- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
+- appID is the application ID of the service principal you created in the prerequisites section.
+- clientSecret is the secret key of the service principal you created in the prerequisites section.
+- licenseResourceGroupName is the name of the resource group that contains the ESU license you want to delete.
+- licenseName is the name of the ESU license you want to delete.
+
+
 ## ManageESUAssignments.ps1
 
 This script will assign ESU licenses in bulk, taking its information from a CSV file.
@@ -143,7 +143,8 @@ where:
 - LicenseResourceGroupName: the name of the resource group that contains the ESU license you want to assign to the Azure ARC server.
 - AssignESULicense: Set it to **True** if you want the license to be assigned to the Azure ARC server or **False** to unlink the license from the Azure ARC server.
 
-Here is an example of the CSV file:
+Here is an example of the expected format of the CSV file:
+
 ![CSV File Layout](media/ManageESUAssignments_CSV_example.jpg)
 
 
@@ -169,7 +170,9 @@ The creation of the CSV file can be done in 2 ways:
 
 > **VERY IMPORTANT:** Make sure **NOT** to list servers that are eligible to receive ESUs at no additional cost in the CSV file, as those servers **should be assigned to an existing billable license** that has been properly tagged and not have their own license created. Failure to do so will lead to excessive billing.
 The ability to bulk assign existing license will come shortly.
- 
+
+Here is an example of the expected format of the CSV file:
+
 ![Example CSV file](media/ManageESULicenses_CSV_Example.jpg)
 
     
