@@ -120,7 +120,7 @@ where:
 
 This script will assign ESU licenses in bulk, taking its information from a CSV file.
 
-The main goal for this script is to enable one (license) to many (Azure ARC servers) assignments. This is useful if/;when you have a large number of Azure ARC servers that need to be assigned to the same license.
+> **The main goal for this script is to enable one (license) to many (Azure ARC servers) assignments. This is useful if/when you have a large number of Azure ARC servers that need to be assigned to the same license.**
 
 
 Here is the command line you should use to run it:

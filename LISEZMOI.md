@@ -119,7 +119,7 @@ où :
 
 Ce script attribuera des licences ESU en masse, en extrayant les informations d'un fichier CSV.
 
-L'objectif principal de ce script est de permettre l'attribution d'une licence à de nombreux serveurs Azure ARC. C'est très utile lorsque vous avez un grand nombre de serveurs Azure ARC auxquels vous devez attribuer une même licence.
+> **L'objectif principal de ce script est de permettre l'attribution d'une licence à de nombreux serveurs Azure ARC. C'est très utile lorsque vous avez un grand nombre de serveurs Azure ARC auxquels vous devez attribuer une même licence.**
 
 Voici la ligne de commande que vous devez utiliser pour l'exécuter :
     
