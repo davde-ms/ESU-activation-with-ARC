@@ -97,6 +97,34 @@ Vous pouvez entrer le nombre exact de cœurs dont dispose votre hôte ou votre m
 
 Tous les autres paramètres sont **immuables** et ne peuvent pas être modifiés une fois la licence créée.
 
+## ManageESUAssignments.ps1
+
+Ce script attribuera des licences ESU en masse, en extrayant les informations d'un fichier CSV.
+
+L'objectif principal de ce script est de permettre l'attribution d'une licence à de nombreux serveurs Azure ARC. C'est très utile lorsque vous avez un grand nombre de serveurs Azure ARC auxquels vous devez attribuer une même licence.
+
+Voici la ligne de commande que vous devez utiliser pour l'exécuter :
+    
+    ./ManageESUAssignments.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
+
+où :
+- subscriptionId est l'ID d'abonnement de l'abonnement Azure que vous souhaitez utiliser.
+- tenantId est l'ID de locataire du locataire Microsoft Entra ID que vous souhaitez utiliser.
+- appID est l'ID d'application du service principal que vous avez créé dans la section Prérequis.
+- clientSecret est la clé secrète du service principal que vous avez créé dans la section Prérequis.
+- location est la Azure région où vos objets ARC sont déployés.
+- csvFilePath est le nom du fichier CSV qui contient les informations sur les assignations de licences ESU que vous appliquer à vos serveurs Azure ARC.
+
+
+> The CSV file has to be manually created and should contain the following columns:
+- Name: the name of the ESU license that will be assigned to the Azure ARC server.
+- ServerResourceGroupName: the name of the resource group that contains the Azure ARC server.
+- LicenseName: the name of the ESU license that will be assigned to the Azure ARC server.
+- LicenseResourceGroupName: the name of the resource group that contains the ESU license you want to assign to the Azure ARC server.
+- AssignESULicense: Set it to **True** if you want the license to be assigned to the Azure ARC server or **False** to unlink the license from the Azure ARC server.
+
+Here is an example of the CSV file:
+![CSV File Layout](media/ManageESUAssignments_CSV_example.jpg)
 
 ## ManageESULicenses.ps1
 
@@ -146,10 +174,8 @@ La capacité d'assigner en masse des licences existantes sera bientôt disponibl
 Assurez-vous toujours de faire un examen approfondi du contenu du fichier CSV avant son utilisation. Notez que dans de rares cas, la reqûete Azure Graph Explorer peut renvoyer une valeur 'NULL' pour les cœurs des machines analysées au lieu du nombre réel de cœurs. Si cela se produit, une intervention manuelle est nécessaire, vous obligeant à modifier le fichier CSV et à remplacer la valeur NULL par le nombre spécifique de cœurs relatifs au serveur.
  
 Voici la ligne de commande que vous devez utiliser pour l'exécuter :
-
-Here is the command line you should use to run it:
     
-    ./ManageESULicenses.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" - edition "Standard" -csvFile "C:\foldername\ESULicenses.csv" -licenseNamePrefix "ESU-" -licenseNameSuffix "-marketing"
+    ./ManageESULicenses.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" - edition "Standard" -csvFilePath "C:\foldername\ESULicenses.csv" -licenseNamePrefix "ESU-" -licenseNameSuffix "-marketing"
 
 où :
 - subscriptionId est l'ID d'abonnement de l'abonnement Azure que vous souhaitez utiliser.
@@ -160,7 +186,7 @@ où :
 - location est la Azure région où vos objets ARC sont déployés.
 - state est l'état d'activation de la licence ESU. Il peut être "Activated" ou "Deactivated".
 - edition est l'édition de la licence ESU. Il peut s'agir de "Standard" ou de "Datacenter".
-- csvFile est le nom du fichier CSV qui contient les informations sur les licences ESU que vous voulez créer.
+- csvFilePath est le nom du fichier CSV qui contient les informations sur les licences ESU que vous voulez créer.
 
 **Remarque**: vous pouvez utiliser des paramètres facultatifs pour ajouter un préfixe et/ou un suffixe au nom de licence qui sera créée. Par exemple, si vous spécifiez « ESU- » comme préfixe et « -marketing » comme suffixe, le script créera des licences nommées « ESU-ServerName-marketing » pour chaque serveur dans le fichier CSV. Cela peut vous aider à différencier les licences appartenant à différents départements ou unités commerciales par exemple.
 

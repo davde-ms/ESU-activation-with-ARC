@@ -118,7 +118,12 @@ All other parameters are immutable and cannot be changed once the license is cre
 
 ## ManageESUAssignments.ps1
 
-This script will assign ESU licenses in bulk, taking its information from a CSV file. Here is the command line you should use to run it:
+This script will assign ESU licenses in bulk, taking its information from a CSV file.
+
+The main goal for this script is to enable one (license) to many (Azure ARC servers) assignments. This is useful if/;when you have a large number of Azure ARC servers that need to be assigned to the same license.
+
+
+Here is the command line you should use to run it:
     
     ./ManageESUAssignments.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
 
@@ -187,7 +192,7 @@ Always ensure a thorough review of the CSV file's contents before utilization. N
 
 Here is the command line you should use to run it:
     
-    ./ManageESULicenses.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" - edition "Standard" -csvFile "C:\foldername\ESULicenses.csv" -licenseNamePrefix "ESU-" -licenseNameSuffix "-marketing"
+    ./ManageESULicenses.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" - edition "Standard" -csvFilePath "C:\foldername\ESULicenses.csv" -licenseNamePrefix "ESU-" -licenseNameSuffix "-marketing"
 
 
 where:
@@ -199,7 +204,7 @@ where:
 - location is the Azure region where you want to deploy the ESU licenses.
 - state is the activation state of the ESU license. It can be "Activated" or "Deactivated".
 - edition is the edition of the ESU license. It can be "Standard" or "Datacenter".
-- csvFile is the path to the CSV file that contains the information about the ESU licenses you want to create.
+- csvFilePath is the path to the CSV file that contains the information about the ESU licenses you want to create.
 
 
 **Note**: you can use the optional parameters to add a prefix and/or suffix to the license name that will be created. If you specify "ESU-" as a prefix and "-marketing" as a suffix, the script will create licenses named "ESU-ServerName-marketing" for each server in the CSV file. That can help you differentiate licenses belonging to different departments or business units for example.
