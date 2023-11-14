@@ -48,8 +48,10 @@ Il y a actuellement 4 scripts dans ce référentiel (situé dans le dossier Scri
 
 - AssignESULicense.ps1
 - CreateESULicense.ps1
-- ManageESULicenses.ps1 (appelé précédement CreateESULicensesFromCSV.ps1)
 - DeleteESULicense.ps1
+- ManageESUAssignments.ps1
+- ManageESULicenses.ps1 (appelé précédement CreateESULicensesFromCSV.ps1)
+
 
 ## AssignESULicense.ps1
 
