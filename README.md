@@ -44,9 +44,9 @@ Once the role is created, assign it to the security principal and apply it to th
 
 There are currently 5 scripts in this repository (located in the Scripts folder):
 
-- AssignESULicense.ps1 (assign an existing ESU license to an Azure ARC server)
-- CreateESULicense.ps1 (create a new ESU license)
-- DeleteESULicense.ps1 (delete an existing ESU license)
+- AssignESULicense.ps1 (assigns an existing ESU license to an Azure ARC server)
+- CreateESULicense.ps1 (creates a new ESU license)
+- DeleteESULicense.ps1 (deletes an existing ESU license)
 - ManageESULicenses.ps1 (creates and optionally assigns ESU licenses in bulk, taking its information from a CSV file)
 - ManageESUAssignments.ps1 (assigns ESU licenses in bulk, taking its information from a CSV file)
 
