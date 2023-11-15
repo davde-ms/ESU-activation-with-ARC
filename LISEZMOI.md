@@ -46,10 +46,10 @@ Une fois que le rôle est créé, attribuez-le au service principal et appliquez
 
 Il y a actuellement 4 scripts dans ce référentiel (situé dans le dossier Scripts) :
 
-- AssignESULicense.ps1 (assigne une licence ESU à un serveur ARC Azure)
+- AssignESULicense.ps1 (assigne une licence ESU à un serveur Azure ARC)
 - CreateESULicense.ps1 (crée une licence ESU)
 - DeleteESULicense.ps1 (supprime une licence ESU)
-- ManageESUAssignments.ps1 (assigne des licences ESU à de multiples serveurs ARC Azure)
+- ManageESUAssignments.ps1 (assigne des licences ESU à de multiples serveurs Azure ARC)
 - ManageESULicenses.ps1 (crée, assigne et gère les licences ESU en bloc)
 
 
