@@ -44,7 +44,7 @@ Une fois que le rôle est créé, attribuez-le au service principal et appliquez
 
 ## Comment utiliser les scripts
 
-Il y a actuellement 4 scripts dans ce référentiel (situé dans le dossier Scripts) :
+Il y a actuellement 5 scripts dans ce référentiel (situé dans le dossier Scripts) :
 
 - AssignESULicense.ps1 (assigne une licence ESU à un serveur Azure ARC)
 - CreateESULicense.ps1 (crée une licence ESU)
