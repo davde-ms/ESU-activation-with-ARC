@@ -137,7 +137,7 @@ où :
 
 
 > Le fichier CSV doit être créé **manuellement** et doit contenir les colonnes suivantes:
-- Name: Le nom du serveur Azure ARC auquel vous souhaitez assigner la licence ESU.
+- Name: Le nom du serveur Azure ARC pour lequel vous souhaitez créer une licence ESU.
 - ServerResourceGroupName: le nom du groupe de ressources qui contient le serveur Azure ARC auquel vous souhaitez assigner la licence ESU.
 - LicenseName: le nom de la licence ESU que vous souhaitez assigner au serveur Azure ARC.
 - LicenseResourceGroupName: le nom du groupe de ressources qui contient la licence ESU que vous souhaitez assigner au serveur Azure ARC.
