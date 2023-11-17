@@ -137,7 +137,7 @@ where:
 
 
 > The CSV file has to be manually created and should contain the following columns:
-- Name: the name of the Azure ARC server you want to create a license for.
+- Name: the name of the Azure ARC server you want to assign the license to.
 - ServerResourceGroupName: the name of the resource group that contains the Azure ARC server.
 - LicenseName: the name of the ESU license that will be assigned to the Azure ARC server.
 - LicenseResourceGroupName: the name of the resource group that contains the ESU license you want to assign to the Azure ARC server.
