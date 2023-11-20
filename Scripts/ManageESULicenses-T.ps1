@@ -14,30 +14,27 @@ This script automates the creation and management of ARC based ESU licenses for 
 It retrieves information from a CSV file and the command line for tasks like license creation, management, assignment, and removal.
 
 .NOTES
-File Name : ManageESULicenses.ps1
+File Name : ManageESULicenses-T.ps1
 Author    : David De Backer
-Version   : 3.0
-Date      : 23-October-2023
-Update    : 09-November-2023
+Version   : 0.9
+Date      : 17-November-2023
+Update    : 20-November-2023
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
 Product   : Azure ARC
 
 .CHANGELOG
-v1.0 - Initial release
-v2.0 - Added support for license assignment and unassignment
-v3.0 - Added support for ESU license exceptions (Dev/test, AVS hosted, etc.)
+v0.9 - Test release
+
 
 .LINK
 To get more information on Azure ARC ESU license REST API please visit:
 https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-updates
 
 .EXAMPLE-1
-./ManageESULicenses -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
--tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
--appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
--clientSecret "your_application_secret_value" `
+./ManageESULicenses-T -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+-userToken $token`
 -licenseResourceGroupName "rg-ARC-ESULicenses" `
 -location "EastUS" `
 -state "Deactivated" `
@@ -50,6 +47,11 @@ This example will create ESU license objects based on the input from the C:\Temp
 The licenses will be using Standard edition type, be deactivated and their core count as well as core type will be based on the input from the CSV file.
 The license name will be prefixed with ESU- , will contain the servername (coming from the CSV) and be suffixed with -2023.
 As in the example, the license name will be ESU-ServerName-2023.
+
+You can now provide a user token object to the script instead of the appID, clientSecret and tenantId parameters.
+Create the token object by running the following command in PowerShell:
+$token = Get-AzAccessToken
+and pass that $token object as part of the command line parameters.
 
 You can activate the license by changing the -state parameter to 'Activated' and run the same script with the same values again.
 You CANNOT edit the contents of the CSV file to edit values as it will result in an error when trying to create the license.
@@ -318,7 +320,7 @@ function Write-Logfile  {
 # Main script block #
 #####################
 
-# Gets an authorization token from the App Registration if not provided as an input parameter
+# Gets an authorization token either from the user provided one or from the Azure App Registration if one was provided as part of the command line.
 if ($userToken) {
     Write-Host "Using provided bearer token"
     $token = $userToken
