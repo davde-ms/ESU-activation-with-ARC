@@ -13,13 +13,14 @@ Creates a custom Azure role that can be used to assign ESU licenses to ARC serve
 This script will create a custom Azure role that can be used to assign ESU licenses to ARC server objects.
 You can edit the scope for the role to make it available at the subscription or management group level.
 You can also edit the name and description of the role to fit your needs.
+Script will only accept either a single management group or subscription ID as scope.
 
 .NOTES
 File Name : CreateARCESULicenseAdministratorRole.ps1
 Author    : David De Backer
-Version   : 1.0
+Version   : 1.3
 Date      : 24-November-2023
-Update    : 24-November-2023
+Update    : 26-November-2023
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
@@ -27,6 +28,7 @@ Product   : Azure
 
 .CHANGELOG
 v1.0 - Initial release
+1.3 - Added support for management group scope
 
 .LINK
 A list of the syntax of valid scope values can be found here:
@@ -35,13 +37,13 @@ https://learn.microsoft.com/en-us/azure/role-based-access-control/role-definitio
 .EXAMPLE-1
 ./CreateARCESULicenseAdministratorRole -scope "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
-for single subscription assignment scope
+for a subscription assignment scope
 
 or
 
 ./CreateARCESULicenseAdministratorRole -scope "managementgroupname"
 
-for assignment scope at a management group level
+for a management group assignment scope
 
 #>
 
@@ -51,7 +53,7 @@ for assignment scope at a management group level
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory=$true, HelpMessage="The ID of the subscription where the license will be created.")]
+    [Parameter(Mandatory=$true, HelpMessage="The ID of the subscription or the management group name for the assignment scope.")]
     [ValidatePattern('(^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$)|^([a-zA-Z0-9_\(\)\.\-]{1,90})$)', ErrorMessage="The input '{0}' has to be a valid subscription ID or a valid management group name.")]
     [Alias("s")]
     [string]$scope,
@@ -81,7 +83,7 @@ param(
 # Main script block #
 #####################
 
-# Getting hold of an existing role and modifying it to create a our custom role
+# Getting hold of an existing role and modifying it to create our custom role
 $role = Get-AzRoleDefinition -Name "Virtual Machine Contributor"
 
 # Replacing the name and description of the role
@@ -104,19 +106,20 @@ $role.Actions.Add("Microsoft.HybridCompute/machines/licenseProfiles/read")
 $role.Actions.Add("Microsoft.HybridCompute/machines/licenseProfiles/write")
 $role.Actions.Add("Microsoft.HybridCompute/machines/licenseProfiles/delete")
 
-
 # Setting the scope of the role
+
 if ($scope -match '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') {
     $role.AssignableScopes.Add("/subscriptions/$scope")
 } else {
     $role.AssignableScopes.Add("/providers/Microsoft.Management/managementGroups/$scope")
 }
 
-Write-Output "Role definition created with the following properties: $role"
-
 # Writing the new role back to Azure
+
 try {
-    New-AzRoleDefinition -Role $role
+    New-AzRoleDefinition -Role $role | out-null
+    Write-Output "Created role definition with the following properties:"
+    Write-output $role
 } catch {
     Write-Error "Failed to create new Azure role definition: $_"
     throw
