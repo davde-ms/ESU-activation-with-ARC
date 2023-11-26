@@ -107,7 +107,6 @@ $role.Actions.Add("Microsoft.HybridCompute/machines/licenseProfiles/write")
 $role.Actions.Add("Microsoft.HybridCompute/machines/licenseProfiles/delete")
 
 # Setting the scope of the role
-
 if ($scope -match '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') {
     $role.AssignableScopes.Add("/subscriptions/$scope")
 } else {
@@ -115,7 +114,6 @@ if ($scope -match '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 }
 
 # Writing the new role back to Azure
-
 try {
     New-AzRoleDefinition -Role $role | out-null
     Write-Output "Created role definition with the following properties:"
