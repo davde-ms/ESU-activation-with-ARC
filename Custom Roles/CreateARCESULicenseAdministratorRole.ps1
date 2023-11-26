@@ -39,7 +39,7 @@ for single subscription assignment scope
 
 or
 
-./CreateARCESULicenseAdministratorRole -scope "/providers/Microsoft.Management/managementGroups/managementgroupname"
+./CreateARCESULicenseAdministratorRole -scope "managementgroupname"
 
 for assignment scope at a management group level
 
@@ -52,7 +52,7 @@ for assignment scope at a management group level
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true, HelpMessage="The ID of the subscription where the license will be created.")]
-    [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid subscription ID.")]
+    [ValidatePattern('(^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$)|^([a-zA-Z0-9_\(\)\.\-]{1,90})$)', ErrorMessage="The input '{0}' has to be a valid subscription ID or a valid management group name.")]
     [Alias("s")]
     [string]$scope,
 
@@ -104,8 +104,15 @@ $role.Actions.Add("Microsoft.HybridCompute/machines/licenseProfiles/read")
 $role.Actions.Add("Microsoft.HybridCompute/machines/licenseProfiles/write")
 $role.Actions.Add("Microsoft.HybridCompute/machines/licenseProfiles/delete")
 
+
 # Setting the scope of the role
-$role.AssignableScopes.Add("/subscriptions/$scope")
+if ($scope -match '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') {
+    $role.AssignableScopes.Add("/subscriptions/$scope")
+} else {
+    $role.AssignableScopes.Add("/providers/Microsoft.Management/managementGroups/$scope")
+}
+
+Write-Output "Role definition created with the following properties: $role"
 
 # Writing the new role back to Azure
 try {
