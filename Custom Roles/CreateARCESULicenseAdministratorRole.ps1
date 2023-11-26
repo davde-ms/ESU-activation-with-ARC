@@ -11,7 +11,8 @@ Creates a custom Azure role that can be used to assign ESU licenses to ARC serve
 
 .DESCRIPTION
 This script will create a custom Azure role that can be used to assign ESU licenses to ARC server objects.
-You can edit the scope for the role to make it available at the subscription or resource group level.
+You can edit the scope for the role to make it available at the subscription or management group level.
+You can also edit the name and description of the role to fit your needs.
 
 .NOTES
 File Name : CreateARCESULicenseAdministratorRole.ps1
