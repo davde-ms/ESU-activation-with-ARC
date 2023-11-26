@@ -36,11 +36,11 @@ https://learn.microsoft.com/en-us/azure/role-based-access-control/role-definitio
 
 for single subscription assignment scope
 
-or 
+or
 
-./CreateARCESULicenseAdministratorRole -scope "/"
+./CreateARCESULicenseAdministratorRole -scope "/providers/Microsoft.Management/managementGroups/managementgroupname"
 
-for root management group assignment scope (which is typical for Azure builtin roles
+for assignment scope at a management group level
 
 #>
 
@@ -48,6 +48,7 @@ for root management group assignment scope (which is typical for Azure builtin r
 #Parameters definition block #
 ##############################
 
+[CmdletBinding()]
 param(
     [Parameter(Mandatory=$true, HelpMessage="The ID of the subscription where the license will be created.")]
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid subscription ID.")]
