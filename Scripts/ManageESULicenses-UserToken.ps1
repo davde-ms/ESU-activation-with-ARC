@@ -16,9 +16,9 @@ It retrieves information from a CSV file and the command line for tasks like lic
 .NOTES
 File Name : ManageESULicenses-T.ps1
 Author    : David De Backer
-Version   : 0.9
+Version   : 1.5
 Date      : 17-November-2023
-Update    : 20-November-2023
+Update    : 26-November-2023
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
@@ -26,6 +26,8 @@ Product   : Azure ARC
 
 .CHANGELOG
 v0.9 - Test release
+1.0 - Initial release
+1.5 - Added support for user token authentication
 
 
 .LINK
@@ -33,7 +35,8 @@ To get more information on Azure ARC ESU license REST API please visit:
 https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-updates
 
 .EXAMPLE-1
-./ManageESULicenses-T -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+./ManageESULicenses-UserToken `
+-subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -userToken $token`
 -licenseResourceGroupName "rg-ARC-ESULicenses" `
 -location "EastUS" `
@@ -121,7 +124,7 @@ param(
     
     [Parameter(Mandatory=$false, HelpMessage="The bearer token obtained from the Azure API by the user. If not provided, the script will require the appID, clientSecret and tenantId parameters.")]
     [Alias("token")]
-    [string]$userToken
+    [System.Object]$userToken
 )
 
 #####################################
@@ -321,15 +324,21 @@ function Write-Logfile  {
 #####################
 
 # Gets an authorization token either from the user provided one or from the Azure App Registration if one was provided as part of the command line.
+
+# Check if the token is still valid
 if ($userToken) {
-    Write-Host "Using provided bearer token"
-    $token = $userToken
-    Write-Host $bearerToken
+    if ($userToken.ExpiresOn -gt (Get-Date)) {
+        Write-Host "Using provided Microsoft Entra ID authentication token"
+        $token = $userToken.Token
+    } else {
+        Write-Host "The provided user token has expired. Please provide a valid token.`nExiting."
+        exit
+    }
 } elseif ($tenantId -and $appID -and $clientSecret) {
-    Write-Host "Getting bearer token from Azure AD"
+    Write-Host "Getting authentication token from Microsoft Entra ID"
     $token = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId 
 } else {
-    Write-Host "You need to provide either the tenant, appID and clientSecrets parameters or a valid authentication token. Exiting."
+    Write-Host "You need to provide either the tenant, appID and clientSecrets parameters or a valid authentication token object.`nExiting."
     exit
 }
 
