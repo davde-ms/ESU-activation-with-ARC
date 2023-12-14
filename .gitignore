@@ -1,2 +1,4 @@
 Scripts/*.csv
 Scripts/test.ps1
+Scripts/InstallCert.ps1
+```
