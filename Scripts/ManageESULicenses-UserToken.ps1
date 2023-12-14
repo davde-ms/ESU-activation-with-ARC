@@ -156,9 +156,6 @@ $global:creator = $MyInvocation.MyCommand.Name
 function AssignESULicense {
 
     param (
-        [string]$appID,
-        [string]$clientSecret,
-        [string]$tenantId,
         [string]$token,
         [string]$licenseResourceGroupName,
         [string]$licenseName,
@@ -247,9 +244,6 @@ function Get-AzureADBearerToken {
 
 function CreateESULicense {
     param (
-        [string]$appID,
-        [string]$clientSecret,
-        [string]$tenantId,
         [string]$token,
         [string]$location,
         [string]$licenseResourceGroupName,
@@ -385,7 +379,7 @@ foreach ($row in $data) {
                     $row.cores = [math]::Max(8, [math]::Ceiling($cores / 2) * 2)  
                 }
                 $coreType = "vCore"
-                CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -token $token -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException
+                CreateESULicense -subscriptionId $subscriptionId -token $token -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException
                 ; break
             } 
             "Physical" {
@@ -394,7 +388,7 @@ foreach ($row in $data) {
                     $row.cores = [math]::Max(16, [math]::Ceiling($cores / 2) * 2)  
                 }
                 $coreType = "pCore"
-                CreateESULicense -subscriptionId $subscriptionId -tenantId $tenantId -appID $appID -clientSecret $clientSecret -token $token -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException
+                CreateESULicense -subscriptionId $subscriptionId -token $token -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException
                 ; break
             } 
             Default {
@@ -409,9 +403,6 @@ foreach ($row in $data) {
                 
                 $params = @{
                     'subscriptionId' = $subscriptionId
-                    'tenantId' = $tenantId
-                    'appID' = $appID
-                    'clientSecret' = $clientSecret
                     'token' = $token
                     'licenseResourceGroupName' = $licenseResourceGroupName
                     'licenseName' = $LicenseName
@@ -428,9 +419,6 @@ foreach ($row in $data) {
 
                 $params = @{
                     'subscriptionId' = $subscriptionId
-                    'tenantId' = $tenantId
-                    'appID' = $appID
-                    'clientSecret' = $clientSecret
                     'token' = $token
                     'licenseResourceGroupName' = $licenseResourceGroupName
                     'licenseName' = $LicenseName
