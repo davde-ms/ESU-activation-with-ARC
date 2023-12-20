@@ -25,6 +25,8 @@ That being said, let's get started!
  - A delegation of rights to the resource group that holds the licenses as well as a delegation of rights to the resource group(s) that contain the Azure ARC servers. Please check the [Delegating access to Azure resources](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-steps) to delegate access to the resource groups if you need assistance. The required delegated rights will be documented in the next section.
  - A computer with Powershell 7.x or higher installed. Please check the [Installing PowerShell on Windows](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-core-on-windows) to install Powershell 7.x or higher. The current version of the scripts do not use the AZ Powershell module, but it is recommended to install it for future use. Please check the [Install Azure PowerShell on Windows](https://learn.microsoft.com/en-us/powershell/azure/install-azps-windows) to install the AZ Powershell module if you want to.
  
+> **Note**: the ManageESULicenses.ps1 script can now work with a user provided credentials object and as such the service principal is no longer required to its execution. You will have to provide the tenantID, appID and clientSecret parameters OR a valid Microsoft Entra ID authentication object that has the rights to create and assign ESU licenses. Please check the [ManageESULicenses.ps1](#manageesulicensesps1) section for more information.
+ 
 ## Azure rights required for the scripts to work
 
 The following rights have to be delegated on the resource groups you plan on using to store the ESU licence objects as well as the resource groups containing the Azure ARC servers:
