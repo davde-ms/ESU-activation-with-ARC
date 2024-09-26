@@ -122,7 +122,15 @@ param(
     
     [Parameter(Mandatory=$false, HelpMessage="The bearer token obtained from the Azure API by the user. If not provided, the script will require the appID, clientSecret and tenantId parameters.")]
     [Alias("token")]
-    [System.Object]$userToken
+    [System.Object]$userToken,
+
+    [Parameter(Mandatory=$false, HelpMessage="placeholder - invoiceid.")]
+    [string]$invoiceId,
+
+    [Parameter(Mandatory=$false, HelpMessage="placeholder - programyear.")]
+    [string]$programYear
+
+
 )
 #####################################
 #End of Parameters definition block #
@@ -161,7 +169,7 @@ function AssignESULicense {
         [switch]$unassign
     )
 
-    $apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$serverResourceGroupName/providers/Microsoft.HybridCompute/machines/$ARCServerName/licenseProfiles/default`?api-version=2023-06-20-preview"
+    $apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$serverResourceGroupName/providers/Microsoft.HybridCompute/machines/$ARCServerName/licenseProfiles/default`?api-version=2024-07-10"
     $licenseID = "/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName" 
     $method = "PUT"
 
@@ -195,7 +203,7 @@ function AssignESULicense {
 
 
     # Converts the request body to JSON
-    $requestBodyJson = $requestBody | ConvertTo-Json -Depth 5
+    $requestBodyJson = $requestBody | ConvertTo-Json -Depth 8
 
     # Sends the PUT request to update the license
     $response = Invoke-RestMethod -Uri $apiEndpoint -Method $method -Headers $headers -Body $requestBodyJson
@@ -248,10 +256,12 @@ function CreateESULicense {
         [string]$edition,
         [string]$coreType,
         [int]$coreCount,
-        [string]$ESULicenseException
+        [string]$ESULicenseException,
+        [string]$invoiceId,
+        [string]$programYear
     )
     
-$apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName`?api-version=2023-06-20-preview"
+$apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName`?api-version=2024-07-10"
 
 # Sets the headers for the request
 $headers = @{
@@ -265,12 +275,19 @@ Write-Host $global:bearerToken
 $requestBody = @{
     location = $location
     properties = @{
+        licenseType = "ESU"
         licenseDetails = @{
             state = $state
             target = $global:targetOS
             edition = $edition
             Type = $coreType
             Processors = $coreCount
+            volumeLicenseDetails = @(
+                @{
+                    programYear = $programYear
+                    invoiceId = $invoiceId
+                }
+            )
         }
     }
     tags = @{
@@ -281,7 +298,9 @@ $requestBody = @{
 if ($ESULicenseException -ne $false) {$requestBody['tags']['ESU Usage'] = $ESULicenseException}
 
 # Converts the request body to JSON
-$requestBodyJson = $requestBody | ConvertTo-Json -Depth 5
+$requestBodyJson = $requestBody | ConvertTo-Json -Depth 8 
+
+$requestBodyJson 
 
 # Sends the PUT request to update the license
 $response = Invoke-RestMethod -Uri $apiEndpoint -Method PUT -Headers $headers -Body $requestBodyJson
@@ -291,7 +310,9 @@ $response = Invoke-RestMethod -Uri $apiEndpoint -Method PUT -Headers $headers -B
 Write-Host "Creating or modifying $licenseName license with $coreCount $coreType"
 Write-Host ""
 
-}function CountResources {
+}
+
+function CountResources {
     param (
         [string]$token,
         [string]$licenseResourceGroupName,
@@ -429,7 +450,7 @@ foreach ($row in $data) {
                     $row.cores = [math]::Max(8, [math]::Ceiling($cores / 2) * 2)  
                 }
                 $coreType = "vCore"
-                CreateESULicense -subscriptionId $subscriptionId -token $token -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException
+                CreateESULicense -subscriptionId $subscriptionId -token $token -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException -invoiceId $invoiceId -programYear $programYear
                 ; break
             } 
             "Physical" {
@@ -438,7 +459,7 @@ foreach ($row in $data) {
                     $row.cores = [math]::Max(16, [math]::Ceiling($cores / 2) * 2)  
                 }
                 $coreType = "pCore"
-                CreateESULicense -subscriptionId $subscriptionId -token $token -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException
+                CreateESULicense -subscriptionId $subscriptionId -token $token -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException -invoiceId $invoiceId -programYear $programYear
                 ; break
             } 
             Default {
