@@ -15,10 +15,10 @@ It retrieves information from a CSV file and the command line for tasks like lic
 
 .NOTES
 File Name : ManageESULicenses.ps1
-Author    : David De Backer
-Version   : 3.2
+Author    : David De Backer, Courtney Vallentine
+Version   : 4.0
 Date      : 23-October-2023
-Update    : 14-December-2023
+Update    : 26-September-2024
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
@@ -29,6 +29,7 @@ v1.0 - Initial release
 v2.0 - Added support for license assignment and unassignment
 v3.0 - Added support for ESU license exceptions (Dev/test, AVS hosted, etc.)
 v3.2 - Added check for number of licenses to be created based on the CSV file contents vs existing number of licenses in the resource group (to take care of the 800 limit per resource type per resource group)
+v4.0 - Added support for program year and invoice ID for ESU licenses (for billing purposes)
 
 .LINK
 To get more information on Azure ARC ESU license REST API please visit:
