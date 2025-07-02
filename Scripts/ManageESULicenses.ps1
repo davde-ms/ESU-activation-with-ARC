@@ -378,7 +378,9 @@ Clear-Host
 if ($userToken) {
     if ($userToken.ExpiresOn -gt (Get-Date)) {
         Write-Host "Using provided Microsoft Entra ID authentication token" -ForegroundColor Green
-        $token = $userToken.Token
+        #$token = $userToken.Token
+        #Modified $token variable to match the new output format of the Get-AzAccessToken as it changed from a string to a SecureString type
+        $token = ConvertFrom-SecureString -SecureString $userToken.Token -AsPlainText
     } else {
         Write-Host "The provided user token has expired. Please provide a valid token.`nExiting." -ForegroundColor Red
         exit
