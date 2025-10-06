@@ -15,10 +15,10 @@ It retrieves information from a CSV file and the command line for tasks like lic
 
 .NOTES
 File Name : ManageESULicenses.ps1
-Author    : David De Backer, Courtney Vallentine
-Version   : 4.1
+Author    : David De Backer, Courtney Vallentyne
+Version   : 4.2
 Date      : 23-October-2023
-Update    : 02-July-2024
+Update    : 06-October-2025
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
@@ -31,6 +31,7 @@ v3.0 - Added support for ESU license exceptions (Dev/test, AVS hosted, etc.)
 v3.2 - Added check for number of licenses to be created based on the CSV file contents vs existing number of licenses in the resource group (to take care of the 800 limit per resource type per resource group)
 v4.0 - Added support for program year and invoice ID for ESU licenses (for billing purposes)
 v 4.1 - Added support for the new Get-AzAccessToken cmdlet output to obtain the token and modified the script to use the new output format of the cmdlet.
+v 4.2 - Added Year 3 support, associated changes.
 
 .LINK
 To get more information on Azure ARC ESU license REST API please visit:
@@ -129,7 +130,8 @@ param(
     [Parameter(Mandatory=$false, HelpMessage="placeholder - invoiceid.")]
     [string]$invoiceId,
 
-    [Parameter(Mandatory=$false, HelpMessage="placeholder - programyear.")]
+    [Parameter(Mandatory=$false, HelpMessage="The program year for ESU licensing. Valid values are 'Year 1', 'Year 2', or 'Year 3'. When specifying Year 2 or Year 3, all previous years will be automatically included as required by Azure.")]
+    [ValidateSet("Year 1", "Year 2", "Year 3", ErrorMessage="Value '{0}' is invalid. Try one of: '{1}'")]
     [string]$programYear
 
 
@@ -159,6 +161,36 @@ $global:creator = $MyInvocation.MyCommand.Name
 # Function(s) definition block #
 ################################
 
+function Get-ProgramYearArray {
+    <#
+    .SYNOPSIS
+    Generates an array of program years including all previous years up to the specified year.
+    
+    .DESCRIPTION
+    Azure requires that when creating ESU licenses for Year 2 or Year 3, all previous years must be included.
+    This function takes a program year (Year 1, Year 2, or Year 3) and returns an array containing all years
+    from Year 1 up to and including the specified year.
+    
+    .PARAMETER ProgramYear
+    The target program year (Year 1, Year 2, or Year 3)
+    
+    .EXAMPLE
+    Get-ProgramYearArray -ProgramYear "Year 3"
+    Returns: @("Year 1", "Year 2", "Year 3")
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("Year 1", "Year 2", "Year 3")]
+        [string]$ProgramYear
+    )
+    
+    switch ($ProgramYear) {
+        "Year 1" { return @("Year 1") }
+        "Year 2" { return @("Year 1", "Year 2") }
+        "Year 3" { return @("Year 1", "Year 2", "Year 3") }
+    }
+}
+
 function AssignESULicense {
 
     param (
@@ -171,7 +203,7 @@ function AssignESULicense {
         [switch]$unassign
     )
 
-    $apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$serverResourceGroupName/providers/Microsoft.HybridCompute/machines/$ARCServerName/licenseProfiles/default`?api-version=2024-07-10"
+    $apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$serverResourceGroupName/providers/Microsoft.HybridCompute/machines/$ARCServerName/licenseProfiles/default`?api-version=2025-02-19-preview"
     $licenseID = "/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName" 
     $method = "PUT"
 
@@ -260,10 +292,10 @@ function CreateESULicense {
         [int]$coreCount,
         [string]$ESULicenseException,
         [string]$invoiceId,
-        [string]$programYear
+        [array]$programYears
     )
     
-$apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName`?api-version=2024-07-10"
+$apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName`?api-version=2025-02-19-preview"
 
 # Sets the headers for the request
 $headers = @{
@@ -272,6 +304,15 @@ $headers = @{
 }
 
 Write-Host $global:bearerToken
+
+# Create volume license details for each program year
+$volumeLicenseDetailsArray = @()
+foreach ($year in $programYears) {
+    $volumeLicenseDetailsArray += @{
+        programYear = $year
+        invoiceId = $invoiceId
+    }
+}
 
 # Defines the request body as a PowerShell hashtable
 $requestBody = @{
@@ -284,12 +325,7 @@ $requestBody = @{
             edition = $edition
             Type = $coreType
             Processors = $coreCount
-            volumeLicenseDetails = @(
-                @{
-                    programYear = $programYear
-                    invoiceId = $invoiceId
-                }
-            )
+            volumeLicenseDetails = $volumeLicenseDetailsArray
         }
     }
     tags = @{
@@ -419,6 +455,10 @@ Write-Host "==========================================="
 Write-Host "Starting ESU license creation from CSV file"
 Write-Host "==========================================="
 
+# Generate the array of program years required for the license
+$programYearsArray = Get-ProgramYearArray -ProgramYear $programYear
+Write-Host "Creating licenses for program years: $($programYearsArray -join ', ')"
+
 If (![string]::IsNullOrWhiteSpace($logFileName)) {Start-Transcript -Path $logFileName}
 
 foreach ($row in $data) {
@@ -454,7 +494,7 @@ foreach ($row in $data) {
                     $row.cores = [math]::Max(8, [math]::Ceiling($cores / 2) * 2)  
                 }
                 $coreType = "vCore"
-                CreateESULicense -subscriptionId $subscriptionId -token $token -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException -invoiceId $invoiceId -programYear $programYear
+                CreateESULicense -subscriptionId $subscriptionId -token $token -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException -invoiceId $invoiceId -programYears $programYearsArray
                 ; break
             } 
             "Physical" {
@@ -463,7 +503,7 @@ foreach ($row in $data) {
                     $row.cores = [math]::Max(16, [math]::Ceiling($cores / 2) * 2)  
                 }
                 $coreType = "pCore"
-                CreateESULicense -subscriptionId $subscriptionId -token $token -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException -invoiceId $invoiceId -programYear $programYear
+                CreateESULicense -subscriptionId $subscriptionId -token $token -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException -invoiceId $invoiceId -programYears $programYearsArray
                 ; break
             } 
             Default {
