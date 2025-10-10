@@ -14,21 +14,20 @@ Ces informations et scripts sont fournis "tels quels" et ne sont pas destinés �
 
 Cela étant clarifié, allons-y !
 
-
 ## Prérequis
 
 Vous aurez besoin des éléments suivants pour commencer :
 
 - Un locataire Microsoft Entra ainsi qu'un abonnement Azure actif.
 - Des serveurs Windows 2012/R2 déjà intégrés à la plateforme Azure ARC. Veuillez consulter les [prérequis de l'agent Connected Machine](https://learn.microsoft.com/fr-fr/azure/azure-arc/servers/prerequisites) pour vous assurer que vos serveurs sont prêts pour l'intégration.
-- Un groupe de ressources Azure pour stocker les licences ESU qui seront créées avec ces scripts.
+- Un ou plusieurs groupes de ressources Azure pour stocker les licences ESU qui seront créées avec ces scripts. Les licences ESU peuvent être situées dans le même abonnement que vos serveurs ARC ou dans un abonnement différent.
 - Une Application d'Entreprise Microsoft Entra et un service principal actif qui seront utilisés pour l'authentification Azure. Veuillez vous référer au document [Créer un service principal Microsoft Entra](https://learn.microsoft.com/fr-fr/entra/identity-platform/howto-create-service-principal-portal) pour sa création.
 - L'ID de l'application Microsoft Entra et la clé secrète pour le service principal créé ci-dessus.
 - Une délégation de droits sur le groupe de ressources contenant les licences, ainsi qu'une délégation de droits sur les groupes de ressources contenant les serveurs ARC Azure. Veuillez consulter la rubrique [Déléguer l'accès aux ressources Azure](https://learn.microsoft.com/fr-fr/azure/role-based-access-control/role-assignments-steps) pour déléguer l'accès aux groupes de ressources si vous avez besoin d'aide. Les droits délégués requis seront documentés dans la section suivante.
 - Un ordinateur avec Powershell 7.x ou une version ultérieure installée. Veuillez consulter la page [Installer PowerShell sur Windows](https://learn.microsoft.com/fr-fr/powershell/scripting/install/installing-powershell-on-windows) pour installer Powershell 7.x ou une version ultérieure. La version actuelle des scripts n'utilise pas le module AZ Powershell, mais il est recommandé de l'installer pour une utilisation future. Veuillez consulter la page [Installer Azure PowerShell sur Windows](https://learn.microsoft.com/fr-fr/powershell/azure/install-azps-windows) pour installer le module AZ Powershell si vous le souhaitez.
 
 > **Note**: Le script ManageESULicenses.ps1 peut désormais utiliser un objet contenant les informations d'autentification de l'utilisateur, et en tant que tel, le principal de service n'est plus nécessaire pour son exécution. Vous devrez fournir soit l'un, soit l'autre, à votre choix. Si vous fournissez les informations d'authentification de l'utilisateur, vous devrez vous assurer que l'utilisateur dispose des droits requis pour exécuter les scripts. Veuillez consulter la section "Droits Azure requis pour exécuter les scripts" pour plus d'informations.
- 
+
 ## Droits Azure requis pour exécuter les scripts
 
 Les droits suivants doivent être délégués sur les groupes de ressources que vous prévoyez d'utiliser pour stocker les objets de licence ESU, ainsi que sur les groupes de ressources contenant les serveurs Azure ARC:
@@ -42,7 +41,7 @@ Les droits suivants doivent être délégués sur les groupes de ressources que 
 
 Il y a une définition de rôle personnalisé située dans le dossier "Custom Roles" de ce référentiel qui peut être utilisée pour créer un rôle personnalisé avec les droits requis. Voir [Créer un rôle personnalisé à l'aide d'Azure PowerShell](https://learn.microsoft.com/fr-fr/azure/role-based-access-control/custom-roles-powershell#create-a-custom-role-with-json-template) pour créer un rôle personnalisé avec cette définition de rôle personnalisé.
 
-Une fois que le rôle est créé, attribuez-le au service principal et appliquez-le à tous les groupes de ressources stockant les licences ou les objets de serveurs Azure ARC. Par exemple, si vous avez 3 groupes de ressources, un pour les licences et deux pour les serveurs Azure ARC, vous devrez attribuer le rôle personnalisé au service principal et l'appliquer à ces trois groupes de ressources.
+Une fois que le rôle est créé, attribuez-le au service principal et appliquez-le à tous les groupes de ressources stockant les licences ou les objets de serveurs Azure ARC. Par exemple, si vous avez 3 groupes de ressources, un pour les licences et deux pour les serveurs Azure ARC, vous devrez attribuer le rôle personnalisé au service principal et l'appliquer à ces trois groupes de ressources. **Note importante** : Pour les scénarios inter-abonnements, assurez-vous que le service principal dispose des droits appropriés dans tous les abonnements concernés (abonnement des serveurs ARC et abonnement des licences ESU).
 
 ## Comment utiliser les scripts
 
@@ -51,18 +50,18 @@ Il y a actuellement 5 scripts dans ce référentiel (situé dans le dossier Scri
 - AssignESULicense.ps1 (assigne une licence ESU à un serveur Azure ARC)
 - CreateESULicense.ps1 (crée une licence ESU)
 - DeleteESULicense.ps1 (supprime une licence ESU)
-- ManageESUAssignments.ps1 (assigne des licences ESU à de multiples serveurs Azure ARC)
+- ManageESUAssignments.ps1 (assigne des licences ESU à de multiples serveurs Azure ARC, supporte les scénarios inter-abonnements)
 - ManageESULicenses.ps1 (crée, assigne et gère les licences ESU en bloc)
-
 
 ## AssignESULicense.ps1
 
 Ce script assignera une licence ESU au serveur ARC Azure spécifié. Voici la ligne de commande que vous devez utiliser pour l'exécuter :
-    
+
     ./AssignESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores" -serverResourceGroupName "rg-arservers" -ARCServerName "Win2012" -location "EastUS" -invoiceId "5555555" -programYear "Year 1"
 
-où :
-- subscriptionId est l'ID d'abonnement de l'abonnement Azure que vous souhaitez utiliser.
+où :
+
+- subscriptionId est l'ID d'abonnement de l'abonnement Azure où se trouvent vos serveurs Azure ARC et licences ESU.
 - tenantId est l'ID de locataire du locataire Microsoft Entra ID que vous souhaitez utiliser.
 - appID est l'ID d'application du service principal que vous avez créé dans la section Prérequis.
 - clientSecret est la clé secrète du service principal que vous avez créé dans la section Prérequis.
@@ -77,11 +76,12 @@ Vous pouvez utiliser -u à la fin de la ligne de commande pour DISSOCIER (unlink
 ## CreateESULicense.ps1
 
 Ce script créera une licence ESU. Voici la ligne de commande que vous devez utiliser pour l'exécuter :
-    
+
     ./CreateESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores" -location "EastUS" -state "Activated" -edition "Standard" -coreType "vCore" -coreCount 8
 
-où :
-- subscriptionId est l'ID d'abonnement de l'abonnement Azure que vous souhaitez utiliser.
+où :
+
+- subscriptionId est l'ID d'abonnement de l'abonnement Azure où se trouvent vos serveurs Azure ARC et licences ESU.
 - tenantId est l'ID de locataire du locataire Microsoft Entra ID que vous souhaitez utiliser.
 - appID est l'ID d'application du service principal que vous avez créé dans la section Prérequis.
 - clientSecret est la clé secrète du service principal que vous avez créé dans la section Prérequis.
@@ -96,6 +96,7 @@ où :
 Vous pouvez entrer le nombre exact de cœurs dont dispose votre hôte ou votre machine virtuelle et le script calculera automatiquement le nombre de cœurs requis pour la licence ESU.
 
 **Remarque :** Le script peut également être réexécuté avec les mêmes paramètres de base pour changer certaines des propriétés de la licence. Ces propriétés sont les suivantes :
+
 - state (vous permet de créer une licence désactivée et de l'activer ultérieurement)
 - coreCount (vous permet de modifier le nombre de cœurs de la licence si vous avez besoin de l'augmenter ou de le diminuer)
 
@@ -108,11 +109,12 @@ Ce script supprimera une licence ESU. Lorsque vous supprimez une licence, elle e
 > **La suppression d'une licence activée puis sa recréation sont FORTEMENT DÉCONSEILLÉES. En effet, toutes les licences activées entraîneront les frais mensuels de l'ESU à compter du 10 octobre 2023. Si vous supprimez une licence et que vous la recréez par la suite, la nouvelle licence vous sera facturée à partir du 10 octobre 2023, plutôt qu'à partir du moment de sa création ou de son activation initiale. Cette opération de suppression/recréation impliquera une double facturation temporaire.**
 
 Voici la ligne de commande que vous devez utiliser pour l'exécuter :
-    
+
     ./DeleteESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores"
 
-où :
-- subscriptionId est l'ID d'abonnement de l'abonnement Azure que vous souhaitez utiliser.
+où :
+
+- subscriptionId est l'ID d'abonnement de l'abonnement Azure où se trouvent vos licences ESU.
 - tenantId est l'ID de locataire du locataire Microsoft Entra ID que vous souhaitez utiliser.
 - appID est l'ID d'application du service principal que vous avez créé dans la section Prérequis.
 - clientSecret est la clé secrète du service principal que vous avez créé dans la section Prérequis.
@@ -121,44 +123,72 @@ où :
 
 ## ManageESUAssignments.ps1
 
-Ce script attribuera des licences ESU en masse, en extrayant les informations d'un fichier CSV.
+Ce script attribuera des licences ESU en masse, en extrayant les informations d'un fichier CSV. **Supporte désormais les scénarios inter-abonnements** où les licences ESU peuvent être situées dans des abonnements Azure différents de ceux des serveurs ARC.
 
 > **L'objectif principal de ce script est de permettre l'attribution d'une licence à de nombreux serveurs Azure ARC. C'est très utile lorsque vous avez un grand nombre de serveurs Azure ARC auxquels vous devez attribuer une même licence.**
 
 Voici la ligne de commande que vous devez utiliser pour l'exécuter :
-    
+
     ./ManageESUAssignments.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
 
-où :
-- subscriptionId est l'ID d'abonnement de l'abonnement Azure que vous souhaitez utiliser.
+**Pour les scénarios inter-abonnements**, vous pouvez optionnellement spécifier un abonnement différent pour les licences ESU :
+
+    ./ManageESUAssignments.ps1 -subscriptionId "arc-servers-sub-xxxxxxxx" -licenseSubscriptionId "esu-licenses-sub-yyyyyyyy" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
+
+où :
+
+- subscriptionId est l'ID d'abonnement de l'abonnement Azure où se trouvent vos serveurs Azure ARC.
+- licenseSubscriptionId _(optionnel)_ est l'ID d'abonnement où se trouvent vos licences ESU. Si non fourni, utilise le même abonnement que les serveurs ARC.
 - tenantId est l'ID de locataire du locataire Microsoft Entra ID que vous souhaitez utiliser.
 - appID est l'ID d'application du service principal que vous avez créé dans la section Prérequis.
 - clientSecret est la clé secrète du service principal que vous avez créé dans la section Prérequis.
 - location est la Azure région où vos objets ARC sont déployés.
 - csvFilePath est le nom du fichier CSV qui contient les informations sur les assignations de licences ESU que vous appliquer à vos serveurs Azure ARC.
 
-
 > Le fichier CSV doit être créé **manuellement** et doit contenir les colonnes suivantes:
+
 - Name: Le nom du serveur Azure ARC auquel vous souhaitez assigner la licence ESU.
 - ServerResourceGroupName: le nom du groupe de ressources qui contient le serveur Azure ARC auquel vous souhaitez assigner la licence ESU.
 - LicenseName: le nom de la licence ESU que vous souhaitez assigner au serveur Azure ARC.
 - LicenseResourceGroupName: le nom du groupe de ressources qui contient la licence ESU que vous souhaitez assigner au serveur Azure ARC.
 - AssignESULicense: lorsque la valeur est à **True**, la license sera automatiquement assignée au serveur ARC Azure. **False** désassociera la licence ESU du serveur ARC Azure.
+- LicenseSubscriptionId _(optionnel)_: L'ID d'abonnement où se trouve la licence spécifique. **Cette colonne a toujours la priorité** sur le paramètre de ligne de commande lorsqu'elle est fournie. Si omise, utilise le paramètre du script ou par défaut l'abonnement du serveur ARC pour la compatibilité descendante.
 
 Voici un example du format du fichier CSV:
 
 ![CSV File Layout](media/ManageESUAssignments_CSV_example.jpg)
 
+### Exemples inter-abonnements
+
+**CSV de scénario mixte** (certaines licences dans différents abonnements) :
+
+```csv
+Name,ServerResourceGroupName,LicenseName,LicenseResourceGroupName,AssignESULicense,LicenseSubscriptionId
+Server1,rg-servers,ESU-License-1,rg-licenses,True,yyyy-yyyy-yyyy-yyyy
+Server2,rg-servers,ESU-License-2,rg-licenses,True,
+Server3,rg-servers,ESU-License-3,rg-licenses,False,zzzz-zzzz-zzzz-zzzz
+```
+
+**Logique de priorité des abonnements :**
+
+1. **Colonne CSV en premier** : Si `LicenseSubscriptionId` est fourni dans la ligne CSV → toujours utiliser celui-ci
+2. **Paramètre de ligne de commande** : Si aucune valeur CSV mais `-licenseSubscriptionId` fourni → utiliser celui-ci
+3. **Par défaut** : Utiliser l'abonnement du serveur ARC (compatibilité descendante)
+
 ## ManageESULicenses.ps1
 
 Ce script créera, assignera et gèrera les licences ESU en bloc, en prenant ses informations d'un fichier CSV.
+
 > **Remarque : la création de licence sera ignorée si la version de l'agent Arc est inférieure à 1.34, car il s'agit de la version minimale requise capable de pousser l'activation ESU vers les serveurs. Mettez à niveau vos agents ARC, réexécutez la requête Azure Graph Explorer, puis réexécutez le script pour traiter les serveurs nouvellement mis à niveau.**
 
 La création du fichier CSV peut être effectuée de 2 manières :
+
 ### **Manuellement**:
-(en fournissant les informations requises dans le fichier CSV). 
+
+(en fournissant les informations requises dans le fichier CSV).
 
 Voici les colonnes qui doivent être présentes dans le fichier CSV :
+
 - Nom : nom de la licence ESU qui sera créée (correspond généralement à un nom de serveur mais pas obligatoire si vous prévoyez d'utiliser des licences ESU pour couvrir plusieurs serveurs).
 - Cores : nombre de cœurs de la machine virtuelle ou du serveur physique.
 - IsVirtual : valeur qui indique si le serveur est virtuel ou non, soit **Virtual** pour les machines virtuelles ou **Physical** pour les serveurs physiques.
@@ -174,43 +204,44 @@ Voici les colonnes qui doivent être présentes dans le fichier CSV :
 - ESUException: **SI** votre serveur est éligible pour recevoir des correctifs de mises à jour de sécurité étendues gratuitement, définissez cette colone avec la valeur correspondant au cas d'utilisation. Ces scénarios sont détaillés la section [Autres cas de figure de l'article Fournir des Mises à jour de sécurité étendue pour Windows Server 2012](https://learn.microsoft.com/fr-fr/azure/azure-arc/servers/deliver-extended-security-updates#additional-scenarios). Si votre serveur n'est pas éligible pour les ESU gratuits, omettez la valeur. Assurez-vous de bien comprendre les scénarios et leurs exigences avant d'utiliser cette fonctionalité. Ne pas correctement les appliquer pourrait entraîner une facturations excessive ou une non-conformité aux réglementations de licence de Microsoft.
 
 > **TRÈS IMPORTANT** : Assurez-vous de **NE PAS** répertorier les serveurs éligibles pour recevoir des ESUs sans frais supplémentaires dans le fichier CSV, car ces serveurs doivent être assignés à une licence facturable **existante** et correctement étiquetée et ne pas avoir leur propre licence créée. Le non-respect de cette consigne entraînera une facturation excessive.
-La capacité d'assigner en masse des licences existantes sera bientôt disponible.
+> La capacité d'assigner en masse des licences existantes sera bientôt disponible.
 
 Voici un example du format du fichier CSV:
 
 ![Exemple d'un fichier CSV type](media/ManageESULicenses_CSV_Example.jpg)
-    
+
 ### **Automatiquement**
+
 (en exécutant la requête suivante de [Azure De Graph Explorer](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) et en enregistrant les données ainsi produites dans un fichier CSV) :
 
-
     resources
-    | where type == 'microsoft.hybridcompute/machines'  
-    | extend agentVersion = tostring(properties.agentVersion), operatingSystem = tostring(properties.osSku)  
-    | where operatingSystem has "Windows Server 2012"  
-    | extend ESUStatus = properties.licenseProfile.esuProfile.licenseAssignmentState  
-    | extend Cloud = tostring(properties.cloudMetadata.provider)  
-    | extend isVirtual = iff(properties.detectedProperties.model == "Virtual Machine" or properties.detectedProperties.manufacturer == "VMware, Inc." or properties.detectedProperties.manufacturer == "Nutanix" or properties.cloudMetadata.provider == "AWS" or properties.cloudMetadata.provider == "GCP", "Virtual", "Physical")  
-    | extend cores = properties.detectedProperties.coreCount, model = tostring(properties.detectedProperties.model), manufacturer = tostring(properties.detectedProperties.manufacturer)  
+    | where type == 'microsoft.hybridcompute/machines'
+    | extend agentVersion = tostring(properties.agentVersion), operatingSystem = tostring(properties.osSku)
+    | where operatingSystem has "Windows Server 2012"
+    | extend ESUStatus = properties.licenseProfile.esuProfile.licenseAssignmentState
+    | extend Cloud = tostring(properties.cloudMetadata.provider)
+    | extend isVirtual = iff(properties.detectedProperties.model == "Virtual Machine" or properties.detectedProperties.manufacturer == "VMware, Inc." or properties.detectedProperties.manufacturer == "Nutanix" or properties.cloudMetadata.provider == "AWS" or properties.cloudMetadata.provider == "GCP", "Virtual", "Physical")
+    | extend cores = properties.detectedProperties.coreCount, model = tostring(properties.detectedProperties.model), manufacturer = tostring(properties.detectedProperties.manufacturer)
     | project name,cores,isVirtual,agentVersion,ServerResourceGroupName=resourceGroup,ESUStatus,operatingSystem,model,manufacturer,Cloud
-   
+
 > **Remarque :** La requête mentionnée affichera tous les serveurs Windows 2012/R2 intégrés à Azure ARC qui n'ont pas encore reçu de licence ESU. Vous avez la possibilité d'ajuster la requête pour récupérer tous les serveurs Windows 2012/R2 et ensuite filtrer les résultats dans Excel, en ne conservant que les serveurs auxquels vous souhaitez attribuer des licences ESU. Bien que certaines des colonnes retournées puissent ne pas être utilisées par le script, elles peuvent être utiles pour le filtrage des résultats dans Excel. Assurez-vous de conserver les colonnes essentielles (comme spécifié dans le processus de création manuel mentionné précédemment) pour assurer le bon fonctionnement du script.
 
 Assurez-vous toujours de faire un examen approfondi du contenu du fichier CSV avant son utilisation. Notez que dans de rares cas, la reqûete Azure Graph Explorer peut renvoyer une valeur 'NULL' pour les cœurs des machines analysées au lieu du nombre réel de cœurs. Si cela se produit, une intervention manuelle est nécessaire, vous obligeant à modifier le fichier CSV et à remplacer la valeur NULL par le nombre spécifique de cœurs relatifs au serveur.
- 
+
 Voici la ligne de commande que vous devez utiliser pour l'exécuter :
-    
+
     ./ManageESULicenses.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" -edition "Standard" -csvFilePath "C:\foldername\ESULicenses.csv" -licenseNamePrefix "ESU-" -licenseNameSuffix "-marketing"
 
-où :
-- subscriptionId est l'ID d'abonnement de l'abonnement Azure que vous souhaitez utiliser.
+où :
+
+- subscriptionId est l'ID d'abonnement de l'abonnement Azure où se trouvent vos serveurs Azure ARC et où les licences ESU seront créées.
 - tenantId est l'ID de locataire du locataire Microsoft Entra ID que vous souhaitez utiliser.
 - appID est l'ID d'application du service principal que vous avez créé dans la section Prérequis.
 - clientSecret est la clé secrète du service principal que vous avez créé dans la section Prérequis.
 - licenseResourceGroupName est le nom du groupe de ressources qui contiendra les licences ESU.
 - location est la Azure région où vos objets ARC sont déployés.
 - state est l'état d'activation de la licence ESU. Il peut être "Activated" ou "Deactivated".
-- edition est l'édition de la licence ESU. Il peut s'agir de "Standard" ou de "Datacenter".
+- edition est l'édition de la licence ESU. Il peut s'agir de "Standard" ou de "Datacenter".
 - csvFilePath est le nom du fichier CSV qui contient les informations sur les licences ESU que vous voulez créer.
 
 **Remarque**: vous pouvez utiliser des paramètres facultatifs pour ajouter un préfixe et/ou un suffixe au nom de licence qui sera créée. Par exemple, si vous spécifiez « ESU- » comme préfixe et « -marketing » comme suffixe, le script créera des licences nommées « ESU-ServerName-marketing » pour chaque serveur dans le fichier CSV. Cela peut vous aider à différencier les licences appartenant à différents départements ou unités commerciales par exemple.
@@ -219,9 +250,6 @@ où :
 - licenseNameSuffix (facultatif) est le suffixe qui sera utilisé pour créer les licences ESU. Le script concaténera le suffixe avec le contenu du champ "Name" trouvé dans le CSV pour créer le nom de la licence.
 
 **Remarque**: vous pouvez utiliser les paramètres facultatifs -log pour spécifier un chemin d'accès à un fichier journal.
-
-
-
 
 ## License
 

@@ -13,15 +13,16 @@ Manages ESU licenses assignments in bulk, taking its inputs from a CSV file.
 This script manages the assignment of ARC based ESU licenses for servers needing ESU activation.
 It retrieves information from a CSV file and the command line for tasks like license assignment and removal.
 Its purpose is to allow you to assign a single license to multiple servers at once or to remove a license from multiple servers at once.
+It supports cross-subscription scenarios where ESU licenses can be located in different subscriptions than the ARC servers.
 Its main targets are servers that are exempted from ESU costs like VMs on Azure VMWare Services or servers that are described in tne following article:
 https://learn.microsoft.com/en-us/azure/azure-arc/servers/deliver-extended-security-updates#additional-scenarios
 
 .NOTES
 File Name : ManageESUAssignments.ps1
 Author    : David De Backer
-Version   : 0.9
-Date      : 12-November-2023
-Update    : 13-November-2023
+Version   : 1.1
+Date      : 12-November-2023  
+Update    : 10-October-2025
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
@@ -29,6 +30,10 @@ Product   : Azure ARC
 
 .CHANGELOG
 v1.0 - Initial release
+v1.1 - Added support for cross-subscription license assignments. ESU licenses can now be located in different subscriptions than ARC servers.
+       Added backward compatibility with existing CSV format.
+       Added optional -licenseSubscriptionId parameter and LicenseSubscriptionId CSV column.
+       CSV LicenseSubscriptionId column always takes precedence over command line parameter when provided.
 
 .LINK
 To get more information on Azure ARC ESU license REST API please visit:
@@ -42,16 +47,25 @@ https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-
 -location "EastUS" `
 -csvFilePath "C:\Temp\ESU Association File.csv"
 
+.EXAMPLE-2
+./ManageESUAssignments -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+-licenseSubscriptionId "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy" `
+-tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+-appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+-clientSecret "your_application_secret_value" `
+-location "EastUS" `
+-csvFilePath "C:\Temp\ESU Association File.csv"
 
-
-This example will assign or unassign (unlink) ESU licenses to/from ARC server objects based on the information provided in the CSV file.
+These examples will assign or unassign (unlink) ESU licenses to/from ARC server objects based on the information provided in the CSV file.
+Example 2 shows how to specify a different subscription for ESU licenses.
 
 You will need to provide the following information in the CSV file:
 LicenseName: The name of the ESU license to used.
 licenseResourceGroupName: The name of the resource group where the ESU license object is located.
 ServerResourceGroupName: The name of the resource group where the ARC server object is located.
-ARCServerName: The name of the ARC server object.
+Name (or ARCServerName): The name of the ARC server object.
 AssignESULicense: TRUE or FALSE depending on if you want to assign or unlink the license from the ARC server object.
+LicenseSubscriptionId (Optional): The subscription ID where the license is located. This column always takes precedence over command line parameters. If not provided, uses script parameter or defaults to ARC server subscription.
 
 #>
 
@@ -60,10 +74,15 @@ AssignESULicense: TRUE or FALSE depending on if you want to assign or unlink the
 ##############################
 
 param(
-    [Parameter(Mandatory=$true, HelpMessage="The ID of the subscription where the license will be created.")]
+    [Parameter(Mandatory=$true, HelpMessage="The ID of the subscription where the ARC servers are located.")]
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid subscription ID.")]
     [Alias("sub")]
     [string]$subscriptionId,
+
+    [Parameter(Mandatory=$false, HelpMessage="The ID of the subscription where the ESU licenses are located. If not provided, will use the same subscription as ARC servers.")]
+    [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid subscription ID.")]
+    [Alias("licenseSub")]
+    [string]$licenseSubscriptionId,
 
     [Parameter(Mandatory=$true, HelpMessage="The tenant ID of the Microsoft Entra instance used for authentication.")]
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid tenant ID.")]
@@ -120,6 +139,8 @@ function AssignESULicense {
         [string]$appID,
         [string]$clientSecret,
         [string]$tenantId,
+        [string]$subscriptionId,
+        [string]$licenseSubscriptionId,
         [string]$licenseResourceGroupName,
         [string]$licenseName,
         [string]$ARCServerName,
@@ -129,7 +150,7 @@ function AssignESULicense {
     )
 
     $apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$serverResourceGroupName/providers/Microsoft.HybridCompute/machines/$ARCServerName/licenseProfiles/default`?api-version=2023-06-20-preview"
-    $licenseID = "/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName" 
+    $licenseID = "/subscriptions/$licenseSubscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName" 
     $method = "PUT"
 
     # Gets a bearer token from the App
@@ -168,12 +189,15 @@ function AssignESULicense {
     $requestBodyJson = $requestBody | ConvertTo-Json -Depth 5
 
     # Sends the PUT request to update the license
-    $response = Invoke-RestMethod -Uri $apiEndpoint -Method $method -Headers $headers -Body $requestBodyJson
-
-    Write-Host ""
-    # Sends the response to STDOUT, which would be captured by the calling script if any.
-    # Feel free to comment out that line if you don't need to see the response.
-    #$response
+    try {
+        Invoke-RestMethod -Uri $apiEndpoint -Method $method -Headers $headers -Body $requestBodyJson | Out-Null
+        Write-Host "Operation completed successfully" -ForegroundColor Green
+        Write-Host ""
+    }
+    catch {
+        Write-Error "Failed to update license assignment: $_"
+        Write-Host ""
+    }
 }
 
 function Get-AzureADBearerToken {
@@ -239,13 +263,33 @@ $data = Import-Csv -Path $csvFilePath
 
 foreach ($row in $data) {
          
+        # Determine which subscription to use for the license
+        # Priority: 1) CSV LicenseSubscriptionId column (always takes precedence), 2) Script parameter, 3) ARC server subscription (backward compatibility)
+        
+        if ($row.PSObject.Properties['LicenseSubscriptionId'] -and ![string]::IsNullOrWhiteSpace($row.LicenseSubscriptionId)) {
+            # CSV column always takes precedence if provided
+            $currentLicenseSubscriptionId = $row.LicenseSubscriptionId
+            Write-Verbose "Using license subscription from CSV: $currentLicenseSubscriptionId"
+        }
+        elseif (![string]::IsNullOrWhiteSpace($licenseSubscriptionId)) {
+            # Use command line parameter if no CSV value
+            $currentLicenseSubscriptionId = $licenseSubscriptionId
+            Write-Verbose "Using license subscription from parameter: $currentLicenseSubscriptionId"
+        }
+        else {
+            # Fall back to ARC server subscription for backward compatibility
+            $currentLicenseSubscriptionId = $subscriptionId
+            Write-Verbose "Using ARC server subscription for license: $currentLicenseSubscriptionId"
+        }
+
         #Assign the license to the server if requested from the CSV file (AssignESULicense column shoud say TRUE for assignment or FALSE for unlinking)
         switch ($row.AssignESULicense) {
             "True" {
-                Write-Host "Assigning ESU license ("$row.LicenseName") to server ("$row.name")"
+                Write-Host "Assigning ESU license ("$row.LicenseName") to server ("$row.name") [License Sub: $currentLicenseSubscriptionId]"
                 
                 $params = @{
                     'subscriptionId' = $subscriptionId
+                    'licenseSubscriptionId' = $currentLicenseSubscriptionId
                     'tenantId' = $tenantId
                     'appID' = $appID
                     'clientSecret' = $clientSecret
@@ -260,10 +304,11 @@ foreach ($row in $data) {
               }
 
             "False" {
-                Write-Host "Unlinking ESU license ("$row.LicenseName") from server ("$row.name")"
+                Write-Host "Unlinking ESU license ("$row.LicenseName") from server ("$row.name") [License Sub: $currentLicenseSubscriptionId]"
 
                 $params = @{
                     'subscriptionId' = $subscriptionId
+                    'licenseSubscriptionId' = $currentLicenseSubscriptionId
                     'tenantId' = $tenantId
                     'appID' = $appID
                     'clientSecret' = $clientSecret
