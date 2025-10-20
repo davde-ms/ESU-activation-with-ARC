@@ -24,9 +24,9 @@ The script supports two authentication methods:
 .NOTES
 File Name : ManageESUAssignments.ps1
 Author    : David De Backer
-Version   : 1.2
-Date      : 12-November-2023  
-Update    : 16-October-2025
+Version   : 1.3
+Date      : 10-October-2025  
+Update    : 20-October-2025
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
