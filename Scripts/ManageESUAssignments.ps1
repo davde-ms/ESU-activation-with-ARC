@@ -40,6 +40,21 @@ v1.1 - Added support for cross-subscription license assignments. ESU licenses ca
        CSV LicenseSubscriptionId column always takes precedence over command line parameter when provided.
 v1.2 - Added support for user token authentication. You can now provide a Microsoft Entra ID authentication token instead of service principal credentials.
        Made tenantId, appID, and clientSecret parameters optional when using token authentication.
+v1.3 - Major optimization and reliability improvements:
+       • Enhanced error handling with detailed logging and severity levels (INFO, WARNING, ERROR, SUCCESS)
+       • Added comprehensive input validation for CSV files and data integrity checks
+       • Implemented progress tracking with real-time progress bar and operation counters
+       • Added dry-run mode (-DryRun parameter) for testing without making actual changes
+       • Enhanced authentication with retry logic and better token validation
+       • Added Test-CSVRowData function for validating each CSV row before processing
+       • Improved Write-Logfile function with color-coded console output
+       • Added configuration constants for easier maintenance and API version management
+       • Implemented proper exit codes (0 for success, 1 for errors) for automation scenarios
+       • Added detailed summary report with success/failure/skipped operation counts
+       • Enhanced parameter validation with better error messages and file existence checks
+       • Improved API error response capture for better debugging
+       • Added graceful error recovery to continue processing on individual row failures
+
 
 .LINK
 To get more information on Azure ARC ESU license REST API please visit:
@@ -69,9 +84,19 @@ $authToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/
 -csvFilePath "C:\Temp\ESU Association File.csv" `
 -userToken $authToken
 
+.EXAMPLE-4
+./ManageESUAssignments -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+-tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+-appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+-clientSecret "your_application_secret_value" `
+-location "EastUS" `
+-csvFilePath "C:\Temp\ESU Association File.csv" `
+-DryRun
+
 These examples will assign or unassign (unlink) ESU licenses to/from ARC server objects based on the information provided in the CSV file.
 Example 2 shows how to specify a different subscription for ESU licenses.
 Example 3 shows how to use Microsoft Entra ID token authentication instead of service principal credentials.
+Example 4 shows how to perform a dry run to test the script without making actual changes.
 
 You will need to provide the following information in the CSV file:
 LicenseName: The name of the ESU license to used.
@@ -116,6 +141,15 @@ param(
     [string]$location,
 
     [Parameter (Mandatory=$true, HelpMessage="The full path to the CSV file containing the list of ESU eligible resources.")]
+    [ValidateScript({
+        if (-not (Test-Path $_ -PathType Leaf)) {
+            throw "CSV file does not exist: $_"
+        }
+        if (-not ($_ -match '\.csv$')) {
+            throw "File must have .csv extension: $_"
+        }
+        return $true
+    })]
     [Alias("csv")]
     [string] $csvFilePath,
 
@@ -125,7 +159,11 @@ param(
 
     [Parameter(Mandatory=$false, HelpMessage="The bearer token obtained from the Azure API by the user. If not provided, the script will require the appID, clientSecret and tenantId parameters.")]
     [Alias("token")]
-    [System.Object]$userToken
+    [System.Object]$userToken,
+
+    [Parameter(Mandatory=$false, HelpMessage="Perform a dry run without making actual changes. Shows what would be done.")]
+    [Alias("whatif")]
+    [switch]$DryRun
 )
 
 #####################################
@@ -140,6 +178,16 @@ param(
 
 # Do NOT change those variables as it might break the script. They are meant to be static.
 $global:creator = $MyInvocation.MyCommand.Name
+
+# Configuration constants
+$script:CONFIG = @{
+    ApiVersion = "2023-06-20-preview"
+    AzureResourceUrl = "https://management.azure.com/"
+    LoginEndpoint = "https://login.microsoftonline.com"
+    MaxRetryAttempts = 3
+    RetryDelaySeconds = 5
+    RequiredCSVColumns = @('LicenseName', 'licenseResourceGroupName', 'ServerResourceGroupName', 'Name', 'AssignESULicense')
+}
 
 #########################################
 # End of the variables definition block #
@@ -165,104 +213,226 @@ function AssignESULicense {
         [string]$serverResourceGroupName,
         [string]$location,
         [string]$token,
-        [switch]$unassign
+        [switch]$unassign,
+        [switch]$dryRun
     )
 
-    $apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$serverResourceGroupName/providers/Microsoft.HybridCompute/machines/$ARCServerName/licenseProfiles/default`?api-version=2023-06-20-preview"
-    $licenseID = "/subscriptions/$licenseSubscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName" 
-    $method = "PUT"
+    try {
+        # Validate required parameters
+        if ([string]::IsNullOrWhiteSpace($subscriptionId)) { throw "subscriptionId is required" }
+        if ([string]::IsNullOrWhiteSpace($licenseSubscriptionId)) { throw "licenseSubscriptionId is required" }
+        if ([string]::IsNullOrWhiteSpace($licenseResourceGroupName)) { throw "licenseResourceGroupName is required" }
+        if ([string]::IsNullOrWhiteSpace($licenseName)) { throw "licenseName is required" }
+        if ([string]::IsNullOrWhiteSpace($ARCServerName)) { throw "ARCServerName is required" }
+        if ([string]::IsNullOrWhiteSpace($serverResourceGroupName)) { throw "serverResourceGroupName is required" }
+        if ([string]::IsNullOrWhiteSpace($location)) { throw "location is required" }
 
-    # Use provided token or get a bearer token from the App
-    if ($token) {
-        $bearerToken = $token
-    } else {
-        $bearerToken = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId 
-    }
+        $apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$serverResourceGroupName/providers/Microsoft.HybridCompute/machines/$ARCServerName/licenseProfiles/default?api-version=$($script:CONFIG.ApiVersion)"
+        $licenseID = "/subscriptions/$licenseSubscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName" 
+        $method = "PUT"
 
-    # Sets the headers for the request
-    $headers = @{
-        "Authorization" = "Bearer $bearerToken"
-        "Content-Type" = "application/json"
-    }
-
-    # creates the request body depending on the action type (assign or unassign)
-    if ($unassign) {
-        $requestBody = @{
-            location = $location
-            properties = @{
-                esuProfile = @{
-                    
-                }
+        # Use provided token or get a bearer token from the App
+        if ($token) {
+            $bearerToken = $token
+        } else {
+            $bearerToken = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId 
+            if ([string]::IsNullOrWhiteSpace($bearerToken)) {
+                throw "Failed to obtain authentication token"
             }
         }
-    } 
-    else {
-        $requestBody = @{
-            location = $location
-            properties = @{
-                esuProfile = @{
-                    "assignedLicense" = $licenseID 
+
+        # Sets the headers for the request
+        $headers = @{
+            "Authorization" = "Bearer $bearerToken"
+            "Content-Type" = "application/json"
+        }
+
+        # creates the request body depending on the action type (assign or unassign)
+        if ($unassign) {
+            $requestBody = @{
+                location = $location
+                properties = @{
+                    esuProfile = @{
+                        
+                    }
                 }
             }
-        }  
-    }
+        } 
+        else {
+            $requestBody = @{
+                location = $location
+                properties = @{
+                    esuProfile = @{
+                        "assignedLicense" = $licenseID 
+                    }
+                }
+            }  
+        }
 
+        # Converts the request body to JSON
+        $requestBodyJson = $requestBody | ConvertTo-Json -Depth 5
 
-    # Converts the request body to JSON
-    $requestBodyJson = $requestBody | ConvertTo-Json -Depth 5
+        # Handle dry-run mode
+        if ($dryRun) {
+            $action = if ($unassign) { "unlink" } else { "assign" }
+            Write-Logfile "[DRY RUN] Would $action ESU license '$licenseName' to/from server '$ARCServerName'" "INFO"
+            Write-Logfile "[DRY RUN] API Endpoint: $apiEndpoint" "INFO"
+            Write-Logfile "[DRY RUN] Request Body: $requestBodyJson" "INFO"
+            return $true
+        }
 
-    # Sends the PUT request to update the license
-    try {
-        Invoke-RestMethod -Uri $apiEndpoint -Method $method -Headers $headers -Body $requestBodyJson | Out-Null
-        Write-Host "Operation completed successfully" -ForegroundColor Green
-        Write-Host ""
+        # Sends the PUT request to update the license
+        try {
+            Invoke-RestMethod -Uri $apiEndpoint -Method $method -Headers $headers -Body $requestBodyJson | Out-Null
+            
+            $action = if ($unassign) { "unlinked" } else { "assigned" }
+            Write-Logfile "ESU license '$licenseName' successfully $action to/from server '$ARCServerName'" "SUCCESS"
+            return $true
+        } catch {
+            throw $_
+        }
+        
+    } catch {
+        $action = if ($unassign) { "unlink" } else { "assign" }
+        $errorMessage = "Failed to $action ESU license '$licenseName' to/from server '$ARCServerName': $($_.Exception.Message)"
+        Write-Logfile $errorMessage "ERROR"
+        
+        # Log additional details for debugging
+        if ($_.Exception.Response) {
+            try {
+                $errorDetails = $_.Exception.Response.GetResponseStream()
+                $reader = New-Object System.IO.StreamReader($errorDetails)
+                $responseBody = $reader.ReadToEnd()
+                Write-Logfile "API Error Details: $responseBody" "ERROR"
+            } catch {
+                Write-Logfile "Could not read error response details" "WARNING"
+            }
+        }
+        return $false
     }
-    catch {
-        Write-Error "Failed to update license assignment: $_"
-        Write-Host ""
+}
+
+function Test-CSVRowData {
+    param(
+        [PSCustomObject]$row,
+        [int]$rowNumber
+    )
+    
+    $isValid = $true
+    $errors = @()
+    
+    # Check required fields
+    $requiredFields = @{
+        'LicenseName' = $row.LicenseName
+        'licenseResourceGroupName' = $row.licenseResourceGroupName
+        'ServerResourceGroupName' = $row.ServerResourceGroupName
+        'Name' = $row.Name
+        'AssignESULicense' = $row.AssignESULicense
     }
+    
+    foreach ($field in $requiredFields.GetEnumerator()) {
+        if ([string]::IsNullOrWhiteSpace($field.Value)) {
+            $errors += "Missing or empty required field: $($field.Key)"
+            $isValid = $false
+        }
+    }
+    
+    # Validate AssignESULicense values
+    if ($row.AssignESULicense -notin @('True', 'False', 'true', 'false', 'TRUE', 'FALSE')) {
+        $errors += "AssignESULicense must be 'True' or 'False', got: '$($row.AssignESULicense)'"
+        $isValid = $false
+    }
+    
+    # Validate subscription ID format if provided
+    if ($row.PSObject.Properties['LicenseSubscriptionId'] -and 
+        ![string]::IsNullOrWhiteSpace($row.LicenseSubscriptionId) -and
+        $row.LicenseSubscriptionId -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') {
+        $errors += "Invalid LicenseSubscriptionId format: '$($row.LicenseSubscriptionId)'"
+        $isValid = $false
+    }
+    
+    if (-not $isValid) {
+        Write-Logfile "Row $rowNumber validation errors: $($errors -join '; ')" "ERROR"
+    }
+    
+    return $isValid
 }
 
 function Get-AzureADBearerToken {
     param(
         [string]$appID,
         [string]$clientSecret,
-        [string]$tenantId
+        [string]$tenantId,
+        [int]$retryCount = 3,
+        [int]$retryDelaySeconds = 5
     )
 
     # Defines token authorization endpoint
-    $oAuthEndpoint = "https://login.microsoftonline.com/$tenantId/oauth2/token"
+    $oAuthEndpoint = "$($script:CONFIG.LoginEndpoint)/$tenantId/oauth2/token"
 
     # Builds the request body
     $authbody = @{
         grant_type = "client_credentials"
         client_id = $appID
         client_secret = $clientSecret
-        resource = "https://management.azure.com/"
+        resource = $script:CONFIG.AzureResourceUrl
     }
     
-    # Obtains the token
+    # Obtains the token with retry logic
     Write-Verbose "Authenticating..."
-    try { 
+    
+    for ($attempt = 1; $attempt -le $script:CONFIG.MaxRetryAttempts; $attempt++) {
+        try { 
             $response = Invoke-WebRequest -Method Post -Uri $oAuthEndpoint -ContentType "application/x-www-form-urlencoded" -Body $authbody
             $accessToken = ($response.Content | ConvertFrom-Json).access_token
+            
+            if ([string]::IsNullOrWhiteSpace($accessToken)) {
+                throw "Authentication response did not contain a valid access token"
+            }
+            
+            Write-Verbose "Authentication successful"
             return $accessToken
+        }
+        catch { 
+            $errorMessage = "Authentication attempt $attempt failed: $($_.Exception.Message)"
+            Write-Logfile $errorMessage "WARNING"
+            
+            if ($attempt -eq $script:CONFIG.MaxRetryAttempts) {
+                Write-Logfile "All authentication attempts failed. Exiting." "ERROR"
+                return $null
+            } else {
+                Write-Logfile "Retrying in $($script:CONFIG.RetryDelaySeconds) seconds..." "INFO"
+                Start-Sleep -Seconds $script:CONFIG.RetryDelaySeconds
+            }
+        }    
     }
     
-    catch { 
-        Write-Error "Error obtaining Bearer token: $_"
-        return $null
-     }    
+    return $null
 }
 
 function Write-Logfile  {
     param(
     [Parameter (Mandatory=$true)]
     [Alias("m")]
-    [string] $message
+    [string] $message,
+    
+    [Parameter(Mandatory=$false)]
+    [ValidateSet("INFO", "WARNING", "ERROR", "SUCCESS")]
+    [string] $level = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Write-Output ("[$timestamp] " + $message)
+    $logMessage = "[$timestamp] [$level] $message"
+    
+    # Output to console with appropriate colors
+    switch ($level) {
+        "ERROR" { Write-Host $logMessage -ForegroundColor Red }
+        "WARNING" { Write-Host $logMessage -ForegroundColor Yellow }
+        "SUCCESS" { Write-Host $logMessage -ForegroundColor Green }
+        default { Write-Host $logMessage }
+    }
+    
+    # Also write to transcript if active
+    Write-Output $logMessage
 }
 
 #######################################
@@ -299,14 +469,54 @@ if ($userToken) {
 
 Write-Host ""
 Write-Host "=============================================="
+if ($DryRun) {
+    Write-Host "DRY RUN MODE - No actual changes will be made"
+    Write-Host "=============================================="
+}
 Write-Host "Starting ESU license assignments from CSV file"
 Write-Host "=============================================="
 
 If (![string]::IsNullOrWhiteSpace($logFileName)) {Start-Transcript -Path $logFileName}
 
-$data = Import-Csv -Path $csvFilePath
+# Validate CSV file and import data
+try {
+    $data = Import-Csv -Path $csvFilePath
+    if ($data.Count -eq 0) {
+        Write-Logfile "CSV file is empty or has no data rows" "ERROR"
+        exit 1
+    }
+    Write-Logfile "Successfully imported $($data.Count) rows from CSV file" "INFO"
+} catch {
+    Write-Logfile "Failed to import CSV file: $($_.Exception.Message)" "ERROR"
+    exit 1
+}
+
+# Validate required CSV columns
+$missingColumns = $script:CONFIG.RequiredCSVColumns | Where-Object { $_ -notin $data[0].PSObject.Properties.Name }
+if ($missingColumns) {
+    Write-Logfile "Missing required CSV columns: $($missingColumns -join ', ')" "ERROR"
+    exit 1
+}
+
+# Initialize counters for summary
+$successCount = 0
+$errorCount = 0
+$skipCount = 0
+
+# Process each row with progress tracking
+$totalRows = $data.Count
+$currentRow = 0
 
 foreach ($row in $data) {
+    $currentRow++
+    $percentComplete = [math]::Round(($currentRow / $totalRows) * 100, 1)
+    Write-Progress -Activity "Processing ESU License Assignments" -Status "Processing row $currentRow of $totalRows ($percentComplete%)" -PercentComplete $percentComplete
+    
+    # Validate row data
+    if (-not (Test-CSVRowData -row $row -rowNumber $currentRow)) {
+        $skipCount++
+        continue
+    }
          
         # Determine which subscription to use for the license
         # Priority: 1) CSV LicenseSubscriptionId column (always takes precedence), 2) Script parameter, 3) ARC server subscription (backward compatibility)
@@ -330,7 +540,7 @@ foreach ($row in $data) {
         #Assign the license to the server if requested from the CSV file (AssignESULicense column shoud say TRUE for assignment or FALSE for unlinking)
         switch ($row.AssignESULicense) {
             "True" {
-                Write-Host "Assigning ESU license ("$row.LicenseName") to server ("$row.name") [License Sub: $currentLicenseSubscriptionId]"
+                Write-Logfile "Assigning ESU license ($($row.LicenseName)) to server ($($row.name)) [License Sub: $currentLicenseSubscriptionId]" "INFO"
                 
                 $params = @{
                     'subscriptionId' = $subscriptionId
@@ -344,13 +554,15 @@ foreach ($row in $data) {
                     'serverResourceGroupName' = $row.ServerResourceGroupName
                     'ARCServerName' = $row.Name
                     'location' = $location
+                    'dryRun' = $DryRun
                 }
                 
-                AssignESULicense @params
+                $result = AssignESULicense @params
+                if ($result) { $successCount++ } else { $errorCount++ }
               }
 
             "False" {
-                Write-Host "Unlinking ESU license ("$row.LicenseName") from server ("$row.name") [License Sub: $currentLicenseSubscriptionId]"
+                Write-Logfile "Unlinking ESU license ($($row.LicenseName)) from server ($($row.name)) [License Sub: $currentLicenseSubscriptionId]" "INFO"
 
                 $params = @{
                     'subscriptionId' = $subscriptionId
@@ -365,21 +577,52 @@ foreach ($row in $data) {
                     'ARCServerName' = $row.Name
                     'location' = $location
                     'unassign' = $true
+                    'dryRun' = $DryRun
                 }
 
-                AssignESULicense @params
+                $result = AssignESULicense @params
+                if ($result) { $successCount++ } else { $errorCount++ }
               }
 
             Default {
-                Write-Host "Missing license assignment action definition for server "$row.name" and license "$row.LicenseName""
-                Write-Host ""
+                Write-Logfile "Missing or invalid license assignment action for server '$($row.name)' and license '$($row.LicenseName)'. Expected 'True' or 'False', got '$($row.AssignESULicense)'" "WARNING"
+                $skipCount++
             }
         }
 
     }   
+
+# Complete progress tracking
+Write-Progress -Activity "Processing ESU License Assignments" -Completed
+
+# Display summary
+Write-Host ""
+Write-Host "=============================================="
+if ($DryRun) {
+    Write-Host "DRY RUN - ESU License Assignment Summary"
+} else {
+    Write-Host "ESU License Assignment Summary"
+}
+Write-Host "=============================================="
+Write-Logfile "Total rows processed: $totalRows" "INFO"
+Write-Logfile "Successful operations: $successCount" "SUCCESS"
+Write-Logfile "Failed operations: $errorCount" $(if ($errorCount -gt 0) { "ERROR" } else { "INFO" })
+Write-Logfile "Skipped operations: $skipCount" $(if ($skipCount -gt 0) { "WARNING" } else { "INFO" })
+
+if ($DryRun) {
+    Write-Logfile "Dry run completed successfully. No actual changes were made." "INFO"
+    $exitCode = 0
+} elseif ($errorCount -gt 0) {
+    Write-Logfile "Script completed with errors. Please review the log for details." "WARNING"
+    $exitCode = 1
+} else {
+    Write-Logfile "Script completed successfully." "SUCCESS"
+    $exitCode = 0
+}
     
-      
 If (![string]::IsNullOrWhiteSpace($logFileName)) {Stop-Transcript}
+
+exit $exitCode
 
 
 
