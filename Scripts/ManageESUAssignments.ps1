@@ -24,9 +24,9 @@ The script supports two authentication methods:
 .NOTES
 File Name : ManageESUAssignments.ps1
 Author    : David De Backer
-Version   : 1.3
+Version   : 1.4
 Date      : 10-October-2025  
-Update    : 20-October-2025
+Update    : 27-October-2025
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
@@ -54,6 +54,11 @@ v1.3 - Major optimization and reliability improvements:
        • Enhanced parameter validation with better error messages and file existence checks
        • Improved API error response capture for better debugging
        • Added graceful error recovery to continue processing on individual row failures
+v1.4 - Breaking change for parameter clarity:
+       • Renamed -subscriptionId parameter to -arcServerSubscriptionId for better clarity
+       • Updated all internal references and documentation to use the new parameter name
+       • Added backward compatibility alias 'subscriptionId' to maintain compatibility with existing scripts
+       • Updated all examples in documentation to reflect the new parameter name
 
 
 .LINK
@@ -61,7 +66,7 @@ To get more information on Azure ARC ESU license REST API please visit:
 https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-updates
 
 .EXAMPLE-1
-./ManageESUAssignments -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+./ManageESUAssignments -arcServerSubscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -clientSecret "your_application_secret_value" `
@@ -69,7 +74,7 @@ https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-
 -csvFilePath "C:\Temp\ESU Association File.csv"
 
 .EXAMPLE-2
-./ManageESUAssignments -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+./ManageESUAssignments -arcServerSubscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -licenseSubscriptionId "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy" `
 -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
@@ -79,13 +84,13 @@ https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-
 
 .EXAMPLE-3
 $authToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/
-./ManageESUAssignments -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+./ManageESUAssignments -arcServerSubscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -location "EastUS" `
 -csvFilePath "C:\Temp\ESU Association File.csv" `
 -userToken $authToken
 
 .EXAMPLE-4
-./ManageESUAssignments -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+./ManageESUAssignments -arcServerSubscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -clientSecret "your_application_secret_value" `
@@ -115,8 +120,8 @@ LicenseSubscriptionId (Optional): The subscription ID where the license is locat
 param(
     [Parameter(Mandatory=$true, HelpMessage="The ID of the subscription where the ARC servers are located.")]
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid subscription ID.")]
-    [Alias("sub")]
-    [string]$subscriptionId,
+    [Alias("sub", "subscriptionId")]
+    [string]$arcServerSubscriptionId,
 
     [Parameter(Mandatory=$false, HelpMessage="The ID of the subscription where the ESU licenses are located. If not provided, will use the same subscription as ARC servers.")]
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid subscription ID.")]
@@ -205,7 +210,7 @@ function AssignESULicense {
         [string]$appID,
         [string]$clientSecret,
         [string]$tenantId,
-        [string]$subscriptionId,
+        [string]$arcServerSubscriptionId,
         [string]$licenseSubscriptionId,
         [string]$licenseResourceGroupName,
         [string]$licenseName,
@@ -219,7 +224,7 @@ function AssignESULicense {
 
     try {
         # Validate required parameters
-        if ([string]::IsNullOrWhiteSpace($subscriptionId)) { throw "subscriptionId is required" }
+        if ([string]::IsNullOrWhiteSpace($arcServerSubscriptionId)) { throw "arcServerSubscriptionId is required" }
         if ([string]::IsNullOrWhiteSpace($licenseSubscriptionId)) { throw "licenseSubscriptionId is required" }
         if ([string]::IsNullOrWhiteSpace($licenseResourceGroupName)) { throw "licenseResourceGroupName is required" }
         if ([string]::IsNullOrWhiteSpace($licenseName)) { throw "licenseName is required" }
@@ -227,7 +232,7 @@ function AssignESULicense {
         if ([string]::IsNullOrWhiteSpace($serverResourceGroupName)) { throw "serverResourceGroupName is required" }
         if ([string]::IsNullOrWhiteSpace($location)) { throw "location is required" }
 
-        $apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$serverResourceGroupName/providers/Microsoft.HybridCompute/machines/$ARCServerName/licenseProfiles/default?api-version=$($script:CONFIG.ApiVersion)"
+        $apiEndpoint = "https://management.azure.com/subscriptions/$arcServerSubscriptionId/resourceGroups/$serverResourceGroupName/providers/Microsoft.HybridCompute/machines/$ARCServerName/licenseProfiles/default?api-version=$($script:CONFIG.ApiVersion)"
         $licenseID = "/subscriptions/$licenseSubscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName" 
         $method = "PUT"
 
@@ -533,7 +538,7 @@ foreach ($row in $data) {
         }
         else {
             # Fall back to ARC server subscription for backward compatibility
-            $currentLicenseSubscriptionId = $subscriptionId
+            $currentLicenseSubscriptionId = $arcServerSubscriptionId
             Write-Verbose "Using ARC server subscription for license: $currentLicenseSubscriptionId"
         }
 
@@ -543,7 +548,7 @@ foreach ($row in $data) {
                 Write-Logfile "Assigning ESU license ($($row.LicenseName)) to server ($($row.name)) [License Sub: $currentLicenseSubscriptionId]" "INFO"
                 
                 $params = @{
-                    'subscriptionId' = $subscriptionId
+                    'arcServerSubscriptionId' = $arcServerSubscriptionId
                     'licenseSubscriptionId' = $currentLicenseSubscriptionId
                     'tenantId' = $tenantId
                     'appID' = $appID
@@ -565,7 +570,7 @@ foreach ($row in $data) {
                 Write-Logfile "Unlinking ESU license ($($row.LicenseName)) from server ($($row.name)) [License Sub: $currentLicenseSubscriptionId]" "INFO"
 
                 $params = @{
-                    'subscriptionId' = $subscriptionId
+                    'arcServerSubscriptionId' = $arcServerSubscriptionId
                     'licenseSubscriptionId' = $currentLicenseSubscriptionId
                     'tenantId' = $tenantId
                     'appID' = $appID
