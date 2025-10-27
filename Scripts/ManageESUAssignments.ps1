@@ -111,6 +111,27 @@ Name (or ARCServerName): The name of the ARC server object.
 AssignESULicense: TRUE or FALSE depending on if you want to assign or unlink the license from the ARC server object.
 LicenseSubscriptionId (Optional): The subscription ID where the license is located. This column always takes precedence over command line parameters. If not provided, uses script parameter or defaults to ARC server subscription.
 
+TROUBLESHOOTING 403 FORBIDDEN ERRORS:
+If you receive 403 Forbidden errors, check the following:
+
+1. Service Principal Permissions (ARC Server Subscription):
+   - Assign 'Azure Connected Machine Resource Administrator' role at subscription or resource group level
+   - Or assign 'Contributor' role at subscription or resource group level
+   
+2. Service Principal Permissions (License Subscription, if different):
+   - Assign 'Contributor' role at subscription or resource group level where ESU licenses are located
+   
+3. Resource Existence:
+   - Verify ARC server exists: az connectedmachine show --name "ServerName" --resource-group "RGName" --subscription "SubID"
+   - Verify ESU license exists: az rest --method GET --url "https://management.azure.com/subscriptions/SUBID/resourceGroups/RGNAME/providers/Microsoft.HybridCompute/licenses/LICENSENAME?api-version=2023-06-20-preview"
+   
+4. Cross-Subscription Access:
+   - When license and ARC server are in different subscriptions, ensure service principal has appropriate roles in BOTH subscriptions
+   
+5. Resource Names:
+   - Ensure resource names in CSV match exactly (case-sensitive)
+   - Check for extra spaces or special characters in CSV data
+
 #>
 
 ##############################
@@ -277,12 +298,28 @@ function AssignESULicense {
         # Converts the request body to JSON
         $requestBodyJson = $requestBody | ConvertTo-Json -Depth 5
 
+        # Validate resource access before attempting operation
+        Write-Logfile "Validating access to ARC server '$ARCServerName'..." "INFO"
+        $arcServerAccess = Test-AzureResourceAccess -subscriptionId $arcServerSubscriptionId -resourceGroupName $serverResourceGroupName -resourceName $ARCServerName -resourceType "Microsoft.HybridCompute/machines" -bearerToken $bearerToken
+        
+        Write-Logfile "Validating access to ESU license '$licenseName'..." "INFO"
+        $licenseAccess = Test-AzureResourceAccess -subscriptionId $licenseSubscriptionId -resourceGroupName $licenseResourceGroupName -resourceName $licenseName -resourceType "Microsoft.HybridCompute/licenses" -bearerToken $bearerToken
+        
+        if (-not $arcServerAccess) {
+            throw "Cannot access ARC server '$ARCServerName' in resource group '$serverResourceGroupName'. Check permissions and resource existence."
+        }
+        
+        if (-not $licenseAccess) {
+            throw "Cannot access ESU license '$licenseName' in resource group '$licenseResourceGroupName'. Check permissions and resource existence."
+        }
+
         # Handle dry-run mode
         if ($dryRun) {
             $action = if ($unassign) { "unlink" } else { "assign" }
             Write-Logfile "[DRY RUN] Would $action ESU license '$licenseName' to/from server '$ARCServerName'" "INFO"
             Write-Logfile "[DRY RUN] API Endpoint: $apiEndpoint" "INFO"
             Write-Logfile "[DRY RUN] Request Body: $requestBodyJson" "INFO"
+            Write-Logfile "[DRY RUN] Resource validation passed for both ARC server and ESU license" "SUCCESS"
             return $true
         }
 
@@ -304,6 +341,9 @@ function AssignESULicense {
         
         # Log additional details for debugging
         if ($_.Exception.Response) {
+            $statusCode = $_.Exception.Response.StatusCode
+            Write-Logfile "HTTP Status Code: $statusCode" "ERROR"
+            
             try {
                 $errorDetails = $_.Exception.Response.GetResponseStream()
                 $reader = New-Object System.IO.StreamReader($errorDetails)
@@ -312,7 +352,74 @@ function AssignESULicense {
             } catch {
                 Write-Logfile "Could not read error response details" "WARNING"
             }
+            
+            # Provide specific guidance for 403 errors
+            if ($statusCode -eq 403) {
+                Write-Logfile "403 Forbidden Error - Possible causes:" "ERROR"
+                Write-Logfile "1. Service Principal lacks 'Azure Connected Machine Resource Administrator' role on ARC server subscription" "ERROR"
+                Write-Logfile "2. Service Principal lacks 'Contributor' or 'Owner' role on license subscription" "ERROR"
+                Write-Logfile "3. ARC server resource '$ARCServerName' does not exist in resource group '$serverResourceGroupName'" "ERROR"
+                Write-Logfile "4. License resource '$licenseName' does not exist in resource group '$licenseResourceGroupName'" "ERROR"
+                Write-Logfile "5. Cross-subscription permissions not properly configured" "ERROR"
+            }
         }
+        return $false
+    }
+}
+
+function Test-ServicePrincipalPermissions {
+    param(
+        [string]$subscriptionId,
+        [string]$bearerToken
+    )
+    
+    Write-Logfile "Checking service principal permissions on subscription '$subscriptionId'..." "INFO"
+    
+    $headers = @{
+        "Authorization" = "Bearer $bearerToken"
+        "Content-Type" = "application/json"
+    }
+    
+    # Try to list role assignments to validate permissions
+    $roleAssignmentsUri = "https://management.azure.com/subscriptions/$subscriptionId/providers/Microsoft.Authorization/roleAssignments?api-version=2022-04-01&`$filter=atScope()"
+    
+    try {
+        Invoke-RestMethod -Uri $roleAssignmentsUri -Method GET -Headers $headers | Out-Null
+        Write-Logfile "Service principal has sufficient permissions to read role assignments" "SUCCESS"
+        return $true
+    } catch {
+        $statusCode = $_.Exception.Response.StatusCode
+        Write-Logfile "Cannot read role assignments on subscription: HTTP $statusCode" "WARNING"
+        
+        if ($statusCode -eq 403) {
+            Write-Logfile "Service principal may lack 'Reader' role at subscription level" "WARNING"
+        }
+        return $false
+    }
+}
+
+function Test-AzureResourceAccess {
+    param(
+        [string]$subscriptionId,
+        [string]$resourceGroupName,
+        [string]$resourceName,
+        [string]$resourceType,
+        [string]$bearerToken
+    )
+    
+    $headers = @{
+        "Authorization" = "Bearer $bearerToken"
+        "Content-Type" = "application/json"
+    }
+    
+    $resourceUri = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/$resourceType/$resourceName"
+    
+    try {
+        Invoke-RestMethod -Uri "$resourceUri`?api-version=2022-11-01" -Method GET -Headers $headers | Out-Null
+        return $true
+    } catch {
+        $statusCode = $_.Exception.Response.StatusCode
+        Write-Logfile "Cannot access $resourceType '$resourceName' in RG '$resourceGroupName': HTTP $statusCode" "WARNING"
         return $false
     }
 }
