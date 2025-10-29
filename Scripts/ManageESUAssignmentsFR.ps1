@@ -563,8 +563,6 @@ Clear-Host
 if ($userToken) {
     if ($userToken.ExpiresOn -gt (Get-Date)) {
         Write-Host "Utilisation du jeton d'authentification Microsoft Entra ID fourni" -ForegroundColor Green
-        #$token = $userToken.Token
-        #Variable $token modifiée pour correspondre au nouveau format de sortie de Get-AzAccessToken car elle a changé d'une chaîne à un type SecureString
         $token = ConvertFrom-SecureString -SecureString $userToken.Token -AsPlainText
     } else {
         Write-Host "Le jeton utilisateur fourni a expiré. Veuillez fournir un jeton valide.`nArrêt." -ForegroundColor Red

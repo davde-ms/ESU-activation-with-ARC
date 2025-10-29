@@ -196,9 +196,7 @@ function Get-AzureADBearerToken {
 # Check if the token is still valid
 if ($userToken) {
     if ($userToken.ExpiresOn -gt (Get-Date)) {
-        Write-Host "Using provided Microsoft Entra ID authentication token" -ForegroundColor Green
-        #$bearerToken = $userToken.Token
-        #Modified $bearerToken variable to match the new output format of the Get-AzAccessToken as it changed from a string to a SecureString type
+        Write-Host "Using provided Microsoft Entra ID authentication token" -ForegroundColor Green        
         $bearerToken = ConvertFrom-SecureString -SecureString $userToken.Token -AsPlainText
     } else {
         Write-Host "The provided user token has expired. Please provide a valid token.`nExiting." -ForegroundColor Red
