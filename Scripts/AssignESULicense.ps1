@@ -13,16 +13,24 @@ Assigns an ESU license to an ARC server object.
 This script will assign an ARC based ESU license to an ARC server requiring ESU acvitation.
 License assignment should be done with another script and so will be removal/unlinking of the license when/if required.
 
+The script supports two authentication methods:
+1. Service Principal authentication (requires tenantId, appID and clientSecret)
+2. User token authentication (requires a valid Microsoft Entra ID authentication token)
+
 .NOTES
 File Name : AssignESULicense.ps1
 Author    : David De Backer
-Version   : 1.3
+Version   : 1.4
 Date      : 17-October-2023
-Update    : 22-October-2023
+Update    : 29-October-2025
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
 Product   : Azure ARC
+
+.CHANGELOG
+v1.4 - Added support for user token authentication. You can now provide a Microsoft Entra ID authentication token instead of service principal credentials.
+       Made tenantId, appID, and clientSecret parameters optional when using token authentication.
 
 .LINK
 To get more information on Azure ARC ESU license REST API please visit:
@@ -39,7 +47,19 @@ https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-
 -ARCServerName "Win2012" `
 -location "EastUS" 
 
-This example will assign a license object named Standard-8v to an ARC server object named Win2012 or unlink it when using the -unassign switch
+.EXAMPLE-2
+$authToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/
+./AssignESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+-licenseResourceGroupName "rg-ARC-ESULicenses" `
+-licenseName "Standard-8vcores" `
+-serverResourceGroupName "rg-arservers" `
+-ARCServerName "Win2012" `
+-location "EastUS" `
+-userToken $authToken
+
+These examples will assign a license object named Standard-8vcores to an ARC server object named Win2012 or unlink it when using the -unassign switch.
+Example 1 shows service principal authentication.
+Example 2 shows how to use Microsoft Entra ID token authentication instead of service principal credentials.
 
 
 
@@ -54,15 +74,15 @@ param(
     [Alias("sub")]
     [string]$subscriptionId,
 
-    [Parameter(Mandatory=$true, HelpMessage="The tenant ID of the Microsoft Entra instance used for authentication.")]
+    [Parameter(Mandatory=$false, HelpMessage="The tenant ID of the Microsoft Entra instance used for authentication.")]
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid tenant ID.")]
     [string]$tenantId,
 
-    [Parameter(Mandatory=$true, HelpMessage="The application (client) ID as shown under App Registrations that will be used to authenticate to the Azure API.")]
+    [Parameter(Mandatory=$false, HelpMessage="The application (client) ID as shown under App Registrations that will be used to authenticate to the Azure API.")]
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid application ID.")]
     [string]$appID,
 
-    [Parameter(Mandatory=$true, HelpMessage="A valid (non expired) client secret for App Registration that will be used to authenticate to the Azure API.")]
+    [Parameter(Mandatory=$false, HelpMessage="A valid (non expired) client secret for App Registration that will be used to authenticate to the Azure API.")]
     [Alias("s","secret","sec")]
     [string]$clientSecret,
 
@@ -92,6 +112,10 @@ param(
     [ValidateNotNullOrEmpty()]
     [Alias("l","loc")]
     [string]$location,
+    
+    [Parameter(Mandatory=$false, HelpMessage="The bearer token obtained from the Azure API by the user. If not provided, the script will require the appID, clientSecret and tenantId parameters.")]
+    [Alias("token")]
+    [System.Object]$userToken,
     
     [Parameter(Mandatory=$false)]
     [Alias("u")]
@@ -167,8 +191,26 @@ function Get-AzureADBearerToken {
 # Main script block #
 #####################
 
-# Gets a bearer token from the App
-$bearerToken = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId 
+# Gets an authorization token either from the user provided one or from the Azure App Registration if one was provided as part of the command line.
+
+# Check if the token is still valid
+if ($userToken) {
+    if ($userToken.ExpiresOn -gt (Get-Date)) {
+        Write-Host "Using provided Microsoft Entra ID authentication token" -ForegroundColor Green
+        #$bearerToken = $userToken.Token
+        #Modified $bearerToken variable to match the new output format of the Get-AzAccessToken as it changed from a string to a SecureString type
+        $bearerToken = ConvertFrom-SecureString -SecureString $userToken.Token -AsPlainText
+    } else {
+        Write-Host "The provided user token has expired. Please provide a valid token.`nExiting." -ForegroundColor Red
+        exit
+    }
+} elseif ($tenantId -and $appID -and $clientSecret) {
+    Write-Host "Getting authentication token from Microsoft Entra ID" -ForegroundColor Green
+    $bearerToken = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId 
+} else {
+    Write-Host "You need to provide either the tenant, appID and clientSecrets parameters or a valid authentication token object.`nExiting." -ForegroundColor Red
+    exit
+} 
 
 # Sets the headers for the request
 $headers = @{

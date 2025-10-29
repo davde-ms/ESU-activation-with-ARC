@@ -15,16 +15,24 @@ License deletion should only be done when it is not required anymore and cannot 
 Deleting a license will sever the association between that license and the ARC server object previously linked to it.
 Deleting a license will stop the monthly billing for the ESU associated with that license.
 
+The script supports two authentication methods:
+1. Service Principal authentication (requires tenantId, appID and clientSecret)
+2. User token authentication (requires a valid Microsoft Entra ID authentication token)
+
 .NOTES
 File Name : DeleteESULicense.ps1
 Author    : David De Backer
-Version   : 1.0
+Version   : 1.1
 Date      : 19-October-2023
-Update    : 22-October-2023
+Update    : 29-October-2025
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
 Product   : Azure ARC
+
+.CHANGELOG
+v1.1 - Added support for user token authentication. You can now provide a Microsoft Entra ID authentication token instead of service principal credentials.
+       Made tenantId, appID, and clientSecret parameters optional when using token authentication.
 
 .LINK
 To get more information on Azure ARC ESU license REST API please visit:
@@ -38,11 +46,16 @@ https://learn.microsoft.com/en-us/azure/azure-arc/servers/api-extended-security-
 -licenseResourceGroupName "rg-ARC-ESULicenses" `
 -licenseName "Standard-8vcores"
 
-This example will create a license object that is Deactivated with a virtual cores count of 8 and of type Standard
+.EXAMPLE-2
+$authToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/
+./DeleteESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+-licenseResourceGroupName "rg-ARC-ESULicenses" `
+-licenseName "Standard-8vcores" `
+-userToken $authToken
 
-To modify an existing license object, use the same script while providing different values.
-Note that you can only change the NUMBER of cores associated to a license as well as the ACTIVATION state.
-You CAN NEITHER modify the EDITION nor can you modify the TYPE of the cores configured for the license.
+These examples will delete the license object named Standard-8vcores.
+Example 1 shows service principal authentication.
+Example 2 shows how to use Microsoft Entra ID token authentication instead of service principal credentials.
 
 #>
 ##############################
@@ -54,15 +67,15 @@ param(
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid subscription ID.")]
     [string]$subscriptionId,
 
-    [Parameter(Mandatory=$true, HelpMessage="The tenant ID of the Microsoft Entra instance used for authentication.")]
+    [Parameter(Mandatory=$false, HelpMessage="The tenant ID of the Microsoft Entra instance used for authentication.")]
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid tenant ID.")]
     [string]$tenantId,
 
-    [Parameter(Mandatory=$true, HelpMessage="The application (client) ID as shown under App Registrations that will be used to authenticate to the Azure API.")]
+    [Parameter(Mandatory=$false, HelpMessage="The application (client) ID as shown under App Registrations that will be used to authenticate to the Azure API.")]
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid application ID.")]
     [string]$appID,
 
-    [Parameter(Mandatory=$true, HelpMessage="A valid (non expired) client secret for App Registration that will be used to authenticate to the Azure API.")]
+    [Parameter(Mandatory=$false, HelpMessage="A valid (non expired) client secret for App Registration that will be used to authenticate to the Azure API.")]
     [Alias("secret","s")]
     [string]$clientSecret,
 
@@ -75,7 +88,11 @@ param(
     [ValidateNotNullOrEmpty()]
     [ValidatePattern('^(?!.*\.$)[a-zA-Z0-9_()\-.]{1,90}$', ErrorMessage="The resource group name '{0}' did not pass validation (1-90 alphanumeric characters)")]
     [Alias("ln","lic","license")]
-    [string]$licenseName
+    [string]$licenseName,
+
+    [Parameter(Mandatory=$false, HelpMessage="The bearer token obtained from the Azure API by the user. If not provided, the script will require the appID, clientSecret and tenantId parameters.")]
+    [Alias("token")]
+    [System.Object]$userToken
 )
 
 #####################################
@@ -145,8 +162,26 @@ function Get-AzureADBearerToken {
 # Main script block #
 #####################
 
-# Gets a bearer token from the App
-$bearerToken = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId 
+# Gets an authorization token either from the user provided one or from the Azure App Registration if one was provided as part of the command line.
+
+# Check if the token is still valid
+if ($userToken) {
+    if ($userToken.ExpiresOn -gt (Get-Date)) {
+        Write-Host "Using provided Microsoft Entra ID authentication token" -ForegroundColor Green
+        #$bearerToken = $userToken.Token
+        #Modified $bearerToken variable to match the new output format of the Get-AzAccessToken as it changed from a string to a SecureString type
+        $bearerToken = ConvertFrom-SecureString -SecureString $userToken.Token -AsPlainText
+    } else {
+        Write-Host "The provided user token has expired. Please provide a valid token.`nExiting." -ForegroundColor Red
+        exit
+    }
+} elseif ($tenantId -and $appID -and $clientSecret) {
+    Write-Host "Getting authentication token from Microsoft Entra ID" -ForegroundColor Green
+    $bearerToken = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId 
+} else {
+    Write-Host "You need to provide either the tenant, appID and clientSecrets parameters or a valid authentication token object.`nExiting." -ForegroundColor Red
+    exit
+} 
 
 # Sets the headers for the request
 $headers = @{
