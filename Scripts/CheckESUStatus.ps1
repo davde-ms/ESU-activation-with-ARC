@@ -287,6 +287,7 @@ function Get-ESULicenseStatus {
                 }
                 
                 Write-Logfile "Server '$ARCServerName' has ESU license assigned: $($licenseStatus.LicenseName)" "SUCCESS"
+                Write-Host "  License URI: $assignedLicense" -ForegroundColor Cyan
             } else {
                 $licenseStatus.Status = "No License Assigned"
                 Write-Logfile "Server '$ARCServerName' has no ESU license assigned" "WARNING"
@@ -542,7 +543,6 @@ foreach ($result in $results) {
     
     if ($result.Status -eq "Licensed") {
         Write-Host "  License: $($result.LicenseName) | License RG: $($result.LicenseResourceGroup)" -ForegroundColor Gray
-        Write-Host "  License URI: $($result.LicenseResourceId)" -ForegroundColor Cyan
     }
     
     if ($result.Status -eq "Error") {
