@@ -542,6 +542,7 @@ foreach ($result in $results) {
     
     if ($result.Status -eq "Licensed") {
         Write-Host "  License: $($result.LicenseName) | License RG: $($result.LicenseResourceGroup)" -ForegroundColor Gray
+        Write-Host "  License URI: $($result.LicenseResourceId)" -ForegroundColor Cyan
     }
     
     if ($result.Status -eq "Error") {
