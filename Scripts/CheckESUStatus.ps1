@@ -287,7 +287,8 @@ function Get-ESULicenseStatus {
                 }
                 
                 Write-Logfile "Server '$ARCServerName' has ESU license assigned: $($licenseStatus.LicenseName)" "SUCCESS"
-                Write-Host "  License URI: $assignedLicense" -ForegroundColor Cyan
+                Write-Host "License URI: $assignedLicense" -ForegroundColor Cyan
+                Write-Host ""
             } else {
                 $licenseStatus.Status = "No License Assigned"
                 Write-Logfile "Server '$ARCServerName' has no ESU license assigned" "WARNING"
@@ -389,8 +390,8 @@ function Write-Logfile {
         [string] $level = "INFO"
     )
     
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMessage = "[$timestamp] [$level] $message"
+    # Format message without timestamp for clean output
+    $logMessage = "[$level] $message"
     
     # Output to console with appropriate colors
     switch ($level) {
