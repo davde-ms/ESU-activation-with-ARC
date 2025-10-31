@@ -24,7 +24,7 @@ That being said, let's get started!
 - A delegation of rights to the resource group that holds the licenses as well as a delegation of rights to the resource group(s) that contain the Azure ARC servers. Please check the [Delegating access to Azure resources](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-steps) to delegate access to the resource groups if you need assistance. The required delegated rights will be documented in the next section.
 - A computer with Powershell 7.x or higher installed. Please check the [Installing PowerShell on Windows](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-core-on-windows) to install Powershell 7.x or higher. The current version of the scripts do not use the AZ Powershell module, but it is recommended to install it for future use. Please check the [Install Azure PowerShell on Windows](https://learn.microsoft.com/en-us/powershell/azure/install-azps-windows) to install the AZ Powershell module if you want to.
 
-> **Note**: the ManageESULicenses.ps1 script can now work with a user provided credentials object and as such the service principal is no longer required to its execution. You will have to provide the tenantID, appID and clientSecret parameters OR a valid Microsoft Entra ID authentication object that has the rights to create and assign ESU licenses. Please check the [ManageESULicenses.ps1](#manageesulicensesps1) section for more information.
+> **Note**: Multiple scripts now support **user token authentication** as an alternative to service principal authentication. These scripts (AssignESULicense.ps1, CreateESULicense.ps1, DeleteESULicense.ps1, CheckESUStatus.ps1, and ManageESULicenses.ps1) can work with a user provided Microsoft Entra ID authentication token, so the service principal is no longer required for their execution. You can provide either the tenantID, appID and clientSecret parameters OR a valid Microsoft Entra ID authentication token that has the rights to manage ESU licenses.
 
 ## Azure rights required for the scripts to work
 
@@ -43,13 +43,14 @@ Once the role is created, assign it to the security principal and apply it to th
 
 ## How to use the scripts
 
-There are currently 5 scripts in this repository (located in the Scripts folder):
+There are currently 6 scripts in this repository (located in the Scripts folder):
 
 - AssignESULicense.ps1 (assigns an existing ESU license to an Azure ARC server)
 - CreateESULicense.ps1 (creates a new ESU license)
 - DeleteESULicense.ps1 (deletes an existing ESU license)
-- ManageESULicenses.ps1 (creates and optionally assigns ESU licenses in bulk, taking its information from a CSV file)
-- ManageESUAssignments.ps1 (assigns ESU licenses in bulk, taking its information from a CSV file, supports cross-subscription scenarios)
+- CheckESUStatus.ps1 (checks the ESU license status for Azure ARC servers)
+- ManageESULicenses.ps1 (creates and optionally assigns ESU licenses in bulk, taking its input from a CSV file)
+- ManageESUAssignments.ps1 (assigns ESU licenses in bulk, taking its input from a CSV file, supports cross-subscription scenarios)
 
 ## AssignESULicense.ps1
 
@@ -70,6 +71,8 @@ where:
 - location is the Azure region where you ARC objects are deployed.
 
 You can use the -u at the end of the command line to UNLINK an existing license from an Azure ARC server. If you do not specify the -u parameter, the script will link the license to the Azure ARC server (default behavior).
+
+> **Note:** This script now supports **user token authentication** as an alternative to service principal authentication. You can use `Get-AzAccessToken -ResourceUrl https://management.azure.com/` to obtain a token and pass it using the `-userToken` parameter instead of providing tenantId, appID, and clientSecret.
 
 ## CreateESULicense.ps1
 
@@ -100,6 +103,8 @@ You can type the exact cores your host or VM has and the script will automatical
 
 All other parameters are immutable and cannot be changed once the license is created.
 
+> **Note:** This script now supports **user token authentication** as an alternative to service principal authentication. You can use `Get-AzAccessToken -ResourceUrl https://management.azure.com/` to obtain a token and pass it using the `-userToken` parameter instead of providing tenantId, appID, and clientSecret.
+
 ## DeleteESULicense.ps1
 
 This script will delete an ESU license. When you delete a license, it will be removed from the Azure ARC server it was assigned to and stop the billing tied to that license.
@@ -118,6 +123,52 @@ where:
 - clientSecret is the secret key of the service principal you created in the prerequisites section.
 - licenseResourceGroupName is the name of the resource group that contains the ESU license you want to delete.
 - licenseName is the name of the ESU license you want to delete.
+
+> **Note:** This script now supports **user token authentication** as an alternative to service principal authentication. You can use `Get-AzAccessToken -ResourceUrl https://management.azure.com/` to obtain a token and pass it using the `-userToken` parameter instead of providing tenantId, appID, and clientSecret.
+
+## CheckESUStatus.ps1
+
+This script will check the ESU license status for Azure ARC servers. It validates whether ARC servers have valid ESU licenses applied by making REST API calls to Azure and provides detailed status information about ESU license assignments.
+
+> **Note:** This script is **read-only** and does not make any changes to your ESU licenses or servers. It only retrieves and displays license status information.
+
+Here is the command line you should use to run it for a single server:
+
+    ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server" -location "EastUS"
+
+For bulk checking using a CSV file:
+
+    ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -csvFilePath "C:\Temp\ARC Servers to Check.csv" -location "EastUS"
+
+where:
+
+- subscriptionId is the subscription ID of the Azure subscription where your ARC servers are located.
+- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
+- appID is the application ID of the service principal you created in the prerequisites section.
+- clientSecret is the secret key of the service principal you created in the prerequisites section.
+- serverResourceGroupName is the name of the resource group that contains the Azure ARC server you want to check (for single server checks).
+- ARCServerName is the name of the Azure ARC server you want to check ESU license status for (for single server checks).
+- location is the Azure region where your ARC objects are deployed.
+- csvFilePath is the path to the CSV file that contains the list of ARC servers to check (for bulk processing).
+
+### CSV File Format for CheckESUStatus.ps1
+
+For bulk processing, the CSV file should contain the following columns:
+
+- **Name** (or **ARCServerName**): The name of the ARC server to check
+- **ServerResourceGroupName**: The resource group containing the ARC server
+- **SubscriptionId** (optional): Override subscription for specific servers
+
+### Output Information
+
+The script provides comprehensive status information including:
+
+- **License Status**: Licensed, No License Assigned, No ESU Profile, or Error
+- **License Details**: License name, resource group, and **full license URI**
+- **Summary Report**: Total servers checked, licensed servers, unlicensed servers, and errors
+- **Export Options**: Results can be exported to CSV using the `-exportCsvPath` parameter
+
+> **Note:** This script supports **user token authentication** as an alternative to service principal authentication. You can use `Get-AzAccessToken -ResourceUrl https://management.azure.com/` to obtain a token and pass it using the `-userToken` parameter instead of providing tenantId, appID, and clientSecret.
 
 ## ManageESUAssignments.ps1
 
