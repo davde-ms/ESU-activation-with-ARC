@@ -398,9 +398,6 @@ function Write-Logfile {
         "SUCCESS" { Write-Host $logMessage -ForegroundColor Green }
         default { Write-Host $logMessage }
     }
-    
-    # Also write to transcript if active
-    Write-Output $logMessage
 }
 
 #######################################
@@ -425,23 +422,23 @@ if (-not $csvFilePath -and (-not $ARCServerName -or -not $serverResourceGroupNam
 # Check if the token is still valid
 if ($userToken) {
     if ($userToken.ExpiresOn -gt (Get-Date)) {
-        Write-Host "Using provided Microsoft Entra ID authentication token" -ForegroundColor Green
+        Write-Logfile "Using provided Microsoft Entra ID authentication token" "INFO"
         #$token = $userToken.Token
         #Modified $token variable to match the new output format of the Get-AzAccessToken as it changed from a string to a SecureString type
         $token = ConvertFrom-SecureString -SecureString $userToken.Token -AsPlainText
     } else {
-        Write-Host "The provided user token has expired. Please provide a valid token.`nExiting." -ForegroundColor Red
+        Write-Logfile "The provided user token has expired. Please provide a valid token." "ERROR"
         exit 1
     }
 } elseif ($tenantId -and $appID -and $clientSecret) {
-    Write-Host "Getting authentication token from Microsoft Entra ID" -ForegroundColor Green
+    Write-Logfile "Getting authentication token from Microsoft Entra ID" "INFO"
     $token = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId 
     if ([string]::IsNullOrWhiteSpace($token)) {
-        Write-Host "Failed to obtain authentication token. Exiting." -ForegroundColor Red
+        Write-Logfile "Failed to obtain authentication token. Exiting." "ERROR"
         exit 1
     }
 } else {
-    Write-Host "You need to provide either the tenant, appID and clientSecrets parameters or a valid authentication token object.`nExiting." -ForegroundColor Red
+    Write-Logfile "You need to provide either the tenant, appID and clientSecrets parameters or a valid authentication token object." "ERROR"
     exit 1
 }
 
@@ -509,10 +506,6 @@ Write-Host ""
 Write-Host "=============================================="
 Write-Host "ESU License Status Summary"
 Write-Host "=============================================="
-
-# Debug: Show results array details
-Write-Verbose "Results array count: $($results.Count)"
-Write-Verbose "Results array type: $($results.GetType().Name)"
 
 $totalServers = $results.Count
 $licensedServers = ($results | Where-Object { $_.Status -eq "Licensed" }).Count
