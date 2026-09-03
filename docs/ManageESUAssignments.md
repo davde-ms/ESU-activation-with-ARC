@@ -1,35 +1,78 @@
 # ManageESUAssignments.ps1
 
-This script will assign ESU licenses in bulk, taking its information from a CSV file.
+This script assigns or unassigns existing ESU licenses in bulk from a CSV file. It supports one license assigned to multiple Azure Arc-enabled servers and licenses stored in a different subscription from the servers.
 
-> **The main goal for this script is to enable one (license) to many (Azure ARC servers) assignments. This is useful if/when you have a large number of Azure ARC servers that need to be assigned to the same license.**
+## Authentication
 
+Use either service principal credentials or a user-provided Microsoft Entra token.
 
-Here is the command line you should use to run it:
-    
-    ./ManageESUAssignments.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
+### Service principal
 
-Where:
+```powershell
+./ManageESUAssignments.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
+```
+
+### User token
+
+```powershell
+$authToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/
+./ManageESUAssignments.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv" -userToken $authToken
+```
+
+If both authentication methods are provided, `-userToken` is used.
+
+## Parameters
 
 | Parameter | Description |
 | --- | --- |
-| subscriptionId | The subscription ID of the Azure subscription you want to use. |
-| tenantId | The tenant ID of the Microsoft Entra ID tenant you want to use. |
-| appID | The application ID of the service principal you created in the prerequisites section. |
-| clientSecret | The secret key of the service principal you created in the prerequisites section. |
-| location | The Azure region where you ARC objects are deployed. |
-| csvFilePath | The path to the CSV file that contains the information about the ESU licenses assignments you want to apply to Azure ARC servers. |
+| arcServerSubscriptionId | Subscription containing the Azure Arc-enabled servers. `-subscriptionId` remains available as a backward-compatible alias. |
+| licenseSubscriptionId | Optional subscription containing the ESU licenses. Used when a CSV row does not provide `LicenseSubscriptionId`. |
+| tenantId | Microsoft Entra tenant ID used for service principal authentication. |
+| appID | Application ID used for service principal authentication. |
+| clientSecret | Client secret used for service principal authentication. |
+| location | Azure region used by the assignment request. |
+| csvFilePath | Path to the CSV assignment file. |
+| logFileName | Optional transcript log path. |
+| userToken | Token object returned by `Get-AzAccessToken`. |
+| DryRun | Validates inputs and resource access without sending a mutation request. |
 
-> The CSV file has to be **manually** created and should contain the following columns:
+## Cross-subscription assignments
 
-| Column Name | Value |
-| --- | --- |
-| Name | The name of the Azure ARC server you want to assign the ESU license to. |
-| ServerResourceGroupName | The name of the resource group that contains the Azure ARC server you want to assign the ESU license to. |
-| LicenseName | The name of the ESU license you want to assign to the Azure ARC server. |
-| LicenseResourceGroupName | The name of the resource group that contains the ESU license you want to assign to the Azure ARC server. |
-| AssignESULicense | Set it to **True** if you want the license to be assigned to the Azure ARC server or **False** to unlink the license from the Azure ARC server. |
+Use `-licenseSubscriptionId` when all licenses are in another subscription:
 
-Here is an example of the expected format of the CSV file:
+```powershell
+./ManageESUAssignments.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -licenseSubscriptionId "00000000-0000-0000-0000-000000000004" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
+```
 
-![CSV File Layout](/media/ManageESUAssignments_CSV_example.jpg)
+The license subscription is selected in this order:
+
+1. The CSV row's `LicenseSubscriptionId` value.
+2. The `-licenseSubscriptionId` parameter.
+3. The Azure Arc server subscription supplied through `-arcServerSubscriptionId`.
+
+The identity must have the required access to both subscriptions when they differ.
+
+## CSV format
+
+The CSV file must be created manually.
+
+| Column | Required | Description |
+| --- | --- | --- |
+| Name or ARCServerName | Yes | Name of the Azure Arc-enabled server. |
+| ServerResourceGroupName | Yes | Resource group containing the server. |
+| LicenseName | Yes | Name of the existing ESU license. |
+| LicenseResourceGroupName | Yes | Resource group containing the ESU license. |
+| AssignESULicense | Yes | `True` assigns the license; `False` unassigns it. |
+| LicenseSubscriptionId | No | Subscription containing this row's license. Overrides the command-line value. |
+
+![CSV File Layout](../media/ManageESUAssignments_CSV_example.jpg)
+
+## Dry-run mode
+
+Add `-DryRun` to validate the CSV data, authentication, and resource access before applying assignments:
+
+```powershell
+./ManageESUAssignments.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv" -DryRun
+```
+
+Dry-run mode can send read-only `GET` requests to validate access and resource existence. It does not send `PUT`, `PATCH`, or `DELETE` requests.

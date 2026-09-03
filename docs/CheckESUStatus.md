@@ -1,6 +1,6 @@
 # CheckESUStatus.ps1
 
-This script will check the ESU license status for Azure ARC servers. It validates whether ARC servers have valid ESU licenses applied by making REST API calls to Azure and provides detailed status information about ESU license assignments.
+This script checks whether Azure ARC servers have an ESU license resource assigned by making REST API calls to Azure and provides detailed status information about that assignment.
 
 > **Note:** This script is read-only and does not make any changes to your ESU licenses or servers. It only retrieves and displays license status information.
 
@@ -8,16 +8,16 @@ Here are the command lines you should use to run it:
 
 ## Single Server Check (Service Principal Authentication)
 
-    ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server"
+    ./CheckESUStatus -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server"
 
 ## Single Server Check (User Token Authentication)
 
     $authToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/
-    ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server" -userToken $authToken
+    ./CheckESUStatus -subscriptionId "00000000-0000-0000-0000-000000000001" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server" -userToken $authToken
 
 ## Bulk Server Check (CSV File)
 
-    ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -csvFilePath "C:\Temp\ARC Servers to Check.csv"
+    ./CheckESUStatus -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -csvFilePath "C:\Temp\ARC Servers to Check.csv"
 
 ## Parameters
 
@@ -62,9 +62,9 @@ Here is an example of the expected format of the CSV file:
 
 | Name            | ServerResourceGroupName | SubscriptionId                       |
 | --------------- | ----------------------- | ------------------------------------ |
-| WIN-2K12R2-01   | rg-arcservers           | xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx |
+| WIN-2K12R2-01   | rg-arcservers           | 00000000-0000-0000-0000-000000000001 |
 | WIN-2K12R2-02   | rg-arcservers-prod      |                                      |
-| SRV-DATABASE-01 | rg-database-servers     | yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy |
+| SRV-DATABASE-01 | rg-database-servers     | 00000000-0000-0000-0000-000000000004 |
 
 > **Note:** If SubscriptionId is not provided for a server in the CSV, the script will use the subscriptionId parameter value for that server.
 
@@ -99,7 +99,7 @@ For each server with a license, the script shows:
 
 Use the `-exportCsvPath` parameter to export detailed results to a CSV file:
 
-    ./CheckESUStatus -subscriptionId "xxx" -tenantId "xxx" -appID "xxx" -clientSecret "xxx" -csvFilePath "C:\servers.csv" -exportCsvPath "C:\Results\ESU-Status-Report.csv"
+    ./CheckESUStatus -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -csvFilePath "C:\servers.csv" -exportCsvPath "C:\Results\ESU-Status-Report.csv"
 
 The exported CSV contains all server details including license URIs, status, timestamps, and error messages.
 
@@ -107,7 +107,7 @@ The exported CSV contains all server details including license URIs, status, tim
 
 Use the `-logFileName` parameter to create a transcript log of the script execution:
 
-    ./CheckESUStatus -subscriptionId "xxx" -tenantId "xxx" -appID "xxx" -clientSecret "xxx" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server" -logFileName "C:\Logs\ESU-Check.log"
+    ./CheckESUStatus -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server" -logFileName "C:\Logs\ESU-Check.log"
 
 ## Sample Output
 
@@ -120,7 +120,7 @@ Starting ESU License Status Check
 [INFO] Checking ESU license status for server 'WIN-2K12R2-01' in resource group 'rg-arcservers'
 [SUCCESS] Server 'WIN-2K12R2-01' has ESU license assigned: ESU-WIN-2K12R2-01
 
-License URI: /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg-esulicenses/providers/Microsoft.HybridCompute/licenses/ESU-WIN-2K12R2-01
+License URI: /subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-esulicenses/providers/Microsoft.HybridCompute/licenses/ESU-WIN-2K12R2-01
 
 ==============================================
 ESU License Status Summary

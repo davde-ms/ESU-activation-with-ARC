@@ -5,7 +5,7 @@ This script will create, assign and manage ESU licenses in bulk, taking its info
 
 Here is the command line you should use to run it:
     
-    ./ManageESULicenses.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" - edition "Standard" -csvFilePath "C:\foldername\ESULicenses.csv" -licenseNamePrefix "ESU-" -licenseNameSuffix "-marketing"
+    ./ManageESULicenses.ps1 -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" -edition "Standard" -csvFilePath "C:\foldername\ESULicenses.csv" -licenseNamePrefix "ESU-" -licenseNameSuffix "-marketing"
 
 
 Where:
@@ -45,16 +45,16 @@ by providing the required information in the CSV file.
 - ServerResourceGroupName: the name of the resource group that contains the Azure ARC server.
 - AssignESULicense: Set it to **True** if you want the license to be assigned to the Azure ARC server, **False** to unlink the license from the Azure ARC server or omit the value altogether to create a license without assigning it.
 
-> **Note:** The AssignedESULicense column is **optional** and is used IF/WHEN you want to manage license assignment as part of the script execution. Note that it is NOT automatically created when using Azure Graph Explorer to generate the CSV file. You will need to **manually** add it to the CSV file if you want to manage assignment of license as part of the execution of this script.
+> **Note:** The AssignESULicense column is **optional** and is used IF/WHEN you want to manage license assignment as part of the script execution. Note that it is NOT automatically created when using Azure Graph Explorer to generate the CSV file. You will need to **manually** add it to the CSV file if you want to manage assignment of license as part of the execution of this script.
 
 - ESUException: **IF** your server is eligible to receive Extended Security Updates patches at no additional cost, set it to whichever value that matches the use case. Those scenarios are detailed in the [Additional scenarios section of the Deliver Extended Security Updates for Windows Server 2012](https://learn.microsoft.com/en-us/azure/azure-arc/servers/deliver-extended-security-updates#additional-scenarios) article. If your server is not eligible for free ESU, omit the value altogether. Please make sure you fully understand the scenarios and their requirements before setting this value. Failure to do so could lead to either excessive billing or non-compliance with Microsoft's licensing regulations.
 
 > **VERY IMPORTANT:** Make sure **NOT** to list servers that are eligible to receive ESUs at no additional cost in the CSV file, as those servers **should be assigned to an existing billable license** that has been properly tagged and not have their own license created. Failure to do so will lead to excessive billing.
-The ability to bulk assign existing license will come shortly.
+L'attribution en bloc de licences existantes est prise en charge par [ManageESUAssignments.ps1](ManageESUAssignmentsFR.md).
 
 Here is an example of the expected format of the CSV file:
 
-![Example CSV file](/media/ManageESULicenses_CSV_Example.jpg)
+![Example CSV file](../media/ManageESULicenses_CSV_Example.jpg)
 
     
 ### **Automatically**:
