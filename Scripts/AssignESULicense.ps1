@@ -196,19 +196,23 @@ function Get-AzureADBearerToken {
 # Check if the token is still valid
 if ($userToken) {
     if ($userToken.ExpiresOn -gt (Get-Date)) {
-        Write-Host "Using provided Microsoft Entra ID authentication token" -ForegroundColor Green        
+        Write-Host "Using provided Microsoft Entra ID authentication token" -ForegroundColor Green
         $bearerToken = ConvertFrom-SecureString -SecureString $userToken.Token -AsPlainText
     } else {
         Write-Host "The provided user token has expired. Please provide a valid token.`nExiting." -ForegroundColor Red
-        exit
+        exit 1
     }
 } elseif ($tenantId -and $appID -and $clientSecret) {
     Write-Host "Getting authentication token from Microsoft Entra ID" -ForegroundColor Green
-    $bearerToken = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId 
+    $bearerToken = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId
+    if ([string]::IsNullOrWhiteSpace($bearerToken)) {
+        Write-Host "Failed to obtain an authentication token.`nExiting." -ForegroundColor Red
+        exit 1
+    }
 } else {
     Write-Host "You need to provide either the tenant, appID and clientSecrets parameters or a valid authentication token object.`nExiting." -ForegroundColor Red
-    exit
-} 
+    exit 1
+}
 
 # Sets the headers for the request
 $headers = @{

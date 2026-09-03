@@ -207,7 +207,10 @@ $global:creator = $MyInvocation.MyCommand.Name
 
 # Configuration constants
 $script:CONFIG = @{
-    ApiVersion = "2023-06-20-preview"
+    # ESU contracts: https://learn.microsoft.com/azure/azure-arc/servers/api-extended-security-updates
+    MachineApiVersion = "2023-06-20-preview"
+    LicenseApiVersion = "2023-06-20-preview"
+    LicenseProfileApiVersion = "2023-06-20-preview"
     AzureResourceUrl = "https://management.azure.com/"
     LoginEndpoint = "https://login.microsoftonline.com"
     MaxRetryAttempts = 3
@@ -253,7 +256,7 @@ function AssignESULicense {
         if ([string]::IsNullOrWhiteSpace($serverResourceGroupName)) { throw "serverResourceGroupName is required" }
         if ([string]::IsNullOrWhiteSpace($location)) { throw "location is required" }
 
-        $apiEndpoint = "https://management.azure.com/subscriptions/$arcServerSubscriptionId/resourceGroups/$serverResourceGroupName/providers/Microsoft.HybridCompute/machines/$ARCServerName/licenseProfiles/default?api-version=$($script:CONFIG.ApiVersion)"
+        $apiEndpoint = "https://management.azure.com/subscriptions/$arcServerSubscriptionId/resourceGroups/$serverResourceGroupName/providers/Microsoft.HybridCompute/machines/$ARCServerName/licenseProfiles/default?api-version=$($script:CONFIG.LicenseProfileApiVersion)"
         $licenseID = "/subscriptions/$licenseSubscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName" 
         $method = "PUT"
 
@@ -411,11 +414,22 @@ function Test-AzureResourceAccess {
         "Authorization" = "Bearer $bearerToken"
         "Content-Type" = "application/json"
     }
+
+    $apiVersions = @{
+        "Microsoft.HybridCompute/machines" = $script:CONFIG.MachineApiVersion
+        "Microsoft.HybridCompute/licenses" = $script:CONFIG.LicenseApiVersion
+    }
+
+    if (-not $apiVersions.ContainsKey($resourceType)) {
+        Write-Logfile "Unsupported resource type for access validation: '$resourceType'" "WARNING"
+        return $false
+    }
     
     $resourceUri = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/$resourceType/$resourceName"
+    $apiVersion = $apiVersions[$resourceType]
     
     try {
-        Invoke-RestMethod -Uri "$resourceUri`?api-version=2022-11-01" -Method GET -Headers $headers | Out-Null
+        Invoke-RestMethod -Uri "$resourceUri`?api-version=$apiVersion" -Method GET -Headers $headers | Out-Null
         return $true
     } catch {
         $statusCode = $_.Exception.Response.StatusCode
@@ -468,6 +482,27 @@ function Test-CSVRowData {
     }
     
     return $isValid
+}
+
+function Resolve-LicenseSubscriptionId {
+    param(
+        [PSCustomObject]$row,
+        [string]$licenseSubscriptionId,
+        [string]$arcServerSubscriptionId
+    )
+
+    if ($row.PSObject.Properties['LicenseSubscriptionId'] -and ![string]::IsNullOrWhiteSpace($row.LicenseSubscriptionId)) {
+        Write-Verbose "Using license subscription from CSV: $($row.LicenseSubscriptionId)"
+        return $row.LicenseSubscriptionId
+    }
+
+    if (![string]::IsNullOrWhiteSpace($licenseSubscriptionId)) {
+        Write-Verbose "Using license subscription from parameter: $licenseSubscriptionId"
+        return $licenseSubscriptionId
+    }
+
+    Write-Verbose "Using ARC server subscription for license: $arcServerSubscriptionId"
+    return $arcServerSubscriptionId
 }
 
 function Get-AzureADBearerToken {
@@ -543,8 +578,7 @@ function Write-Logfile  {
         default { Write-Host $logMessage }
     }
     
-    # Also write to transcript if active
-    Write-Output $logMessage
+    # Write-Host output is captured by Start-Transcript when active.
 }
 
 #######################################
@@ -567,14 +601,18 @@ if ($userToken) {
         $token = ConvertFrom-SecureString -SecureString $userToken.Token -AsPlainText
     } else {
         Write-Host "The provided user token has expired. Please provide a valid token.`nExiting." -ForegroundColor Red
-        exit
+        exit 1
     }
 } elseif ($tenantId -and $appID -and $clientSecret) {
     Write-Host "Getting authentication token from Microsoft Entra ID" -ForegroundColor Green
     $token = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId 
+    if ([string]::IsNullOrWhiteSpace($token)) {
+        Write-Host "Failed to obtain an authentication token.`nExiting." -ForegroundColor Red
+        exit 1
+    }
 } else {
     Write-Host "You need to provide either the tenant, appID and clientSecrets parameters or a valid authentication token object.`nExiting." -ForegroundColor Red
-    exit
+    exit 1
 }
 
 Write-Host ""
@@ -628,24 +666,8 @@ foreach ($row in $data) {
         continue
     }
          
-        # Determine which subscription to use for the license
-        # Priority: 1) CSV LicenseSubscriptionId column (always takes precedence), 2) Script parameter, 3) ARC server subscription (backward compatibility)
-        
-        if ($row.PSObject.Properties['LicenseSubscriptionId'] -and ![string]::IsNullOrWhiteSpace($row.LicenseSubscriptionId)) {
-            # CSV column always takes precedence if provided
-            $currentLicenseSubscriptionId = $row.LicenseSubscriptionId
-            Write-Verbose "Using license subscription from CSV: $currentLicenseSubscriptionId"
-        }
-        elseif (![string]::IsNullOrWhiteSpace($licenseSubscriptionId)) {
-            # Use command line parameter if no CSV value
-            $currentLicenseSubscriptionId = $licenseSubscriptionId
-            Write-Verbose "Using license subscription from parameter: $currentLicenseSubscriptionId"
-        }
-        else {
-            # Fall back to ARC server subscription for backward compatibility
-            $currentLicenseSubscriptionId = $arcServerSubscriptionId
-            Write-Verbose "Using ARC server subscription for license: $currentLicenseSubscriptionId"
-        }
+        # Priority: CSV value, script parameter, then ARC server subscription for backward compatibility.
+        $currentLicenseSubscriptionId = Resolve-LicenseSubscriptionId -row $row -licenseSubscriptionId $licenseSubscriptionId -arcServerSubscriptionId $arcServerSubscriptionId
 
         #Assign the license to the server if requested from the CSV file (AssignESULicense column shoud say TRUE for assignment or FALSE for unlinking)
         switch ($row.AssignESULicense) {
