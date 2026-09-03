@@ -2,11 +2,17 @@ $subscriptionId = '00000000-0000-0000-0000-000000000001'
 $tenantId = '00000000-0000-0000-0000-000000000002'
 $appId = '00000000-0000-0000-0000-000000000003'
 $csvPath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-assignments-$PID.csv"
+$licenseCsvPath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-licenses-$PID.csv"
 
 @'
 LicenseName,licenseResourceGroupName,ServerResourceGroupName,Name,AssignESULicense
 license-01,license-rg,server-rg,server-01,True
 '@ | Set-Content -Path $csvPath
+
+@'
+Name,Cores,IsVirtual,AgentVersion,ServerResourceGroupName,AssignESULicense,ESUException
+server-01,8,Virtual,1.34,server-rg,True,
+'@ | Set-Content -Path $licenseCsvPath
 
 $scriptCases = @(
     @{
@@ -28,6 +34,10 @@ $scriptCases = @(
     @{
         Path = Join-Path $PSScriptRoot '..\Scripts\ManageESUAssignmentsFR.ps1'
         Arguments = "-arcServerSubscriptionId '$subscriptionId' -location 'eastus' -csvFilePath '$csvPath'"
+    },
+    @{
+        Path = Join-Path $PSScriptRoot '..\Scripts\ManageESULicenses.ps1'
+        Arguments = "-subscriptionId '$subscriptionId' -licenseResourceGroupName 'license-rg' -location 'eastus' -state Deactivated -edition Standard -csvFilePath '$licenseCsvPath' -programYear 'Year 1'"
     }
 )
 
@@ -118,4 +128,4 @@ Describe 'DeleteESULicense parameter aliases' {
     }
 }
 
-Remove-Item -Path $csvPath -ErrorAction SilentlyContinue
+Remove-Item -Path $csvPath, $licenseCsvPath -ErrorAction SilentlyContinue

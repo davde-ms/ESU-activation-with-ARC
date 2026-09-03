@@ -33,3 +33,23 @@ Ce script crée ou met à jour une licence ESU.
 Le script applique automatiquement les exigences minimales et paires relatives au nombre de cœurs.
 
 Le script peut être réexécuté avec les mêmes paramètres de base pour modifier `state` ou `coreCount`. Les autres propriétés sont immuables après la création.
+
+## Aperçu et confirmation
+
+Ajoutez `-WhatIf` pour prévisualiser la cible et l'opération normalisée sans envoyer la mise à jour REST Azure. Après vérification, exécutez sans `-WhatIf`. Ajoutez `-Confirm` pour demander une confirmation PowerShell avant la création ou la modification.
+
+```powershell
+./CreateESULicense.ps1 <paramètres> -WhatIf
+./CreateESULicense.ps1 <paramètres> -Confirm
+```
+
+## Résolution des problèmes
+
+| Message ou symptôme | Vérification recommandée |
+| --- | --- |
+| Jeton d'authentification absent ou expiré | Fournissez les trois paramètres du principal de service ou obtenez un nouvel objet de jeton avec `Get-AzAccessToken`. |
+| Réponse `401` ou `403` | Vérifiez que l'identité peut créer ou modifier les licences ESU dans le groupe de ressources cible. |
+| Réponse `404` | Vérifiez l'abonnement et le groupe de ressources de la licence. |
+| Conflit ou propriété immuable | Conservez l'édition, le type de cœurs et la région de la licence existante; seules les propriétés prises en charge peuvent être modifiées. |
+| Échec de validation du nombre de cœurs | Utilisez un entier positif dans les limites acceptées par ce script et une combinaison édition/type de cœurs prise en charge. |
+| Le script retourne le code `1` | Lisez le dernier message d'échec, corrigez l'entrée ou l'autorisation, puis relancez avec `-WhatIf`. |

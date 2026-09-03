@@ -108,6 +108,26 @@ foreach ($scriptPath in $scriptPaths) {
             Test-CSVRowData -row $row -rowNumber 1 | Should Be $true
         }
 
+        It 'rejects unsupported license and Arc server names' {
+            $invalidLicenseRow = [pscustomobject]@{
+                LicenseName = 'license/01'
+                licenseResourceGroupName = 'license-rg'
+                ServerResourceGroupName = 'server-rg'
+                Name = 'server-01'
+                AssignESULicense = 'True'
+            }
+            $invalidServerRow = [pscustomobject]@{
+                LicenseName = 'license-01'
+                licenseResourceGroupName = 'license-rg'
+                ServerResourceGroupName = 'server-rg'
+                Name = ('s' * 55)
+                AssignESULicense = 'True'
+            }
+
+            Test-CSVRowData -row $invalidLicenseRow -rowNumber 1 | Should Be $false
+            Test-CSVRowData -row $invalidServerRow -rowNumber 2 | Should Be $false
+        }
+
         It 'uses the requested authentication retry count and delay' {
             Mock Invoke-WebRequest { throw 'mocked authentication failure' }
             Mock Start-Sleep {}
@@ -346,7 +366,7 @@ function Invoke-AssignmentScenario {
     param(
         [string]$Path,
         [string]$CsvPath,
-        [ValidateSet('InvalidCsv', 'DryRunValidationFailure', 'SuccessfulDryRun', 'SuccessfulAssignment', 'AssignmentRestFailure')]
+        [ValidateSet('InvalidCsv', 'DryRunValidationFailure', 'SuccessfulDryRun', 'SuccessfulWhatIf', 'SuccessfulAssignment', 'AssignmentRestFailure')]
         [string]$Scenario,
         [string]$LogFilePath
     )
@@ -356,11 +376,13 @@ function Invoke-AssignmentScenario {
     $restBehavior = switch ($Scenario) {
         'DryRunValidationFailure' { "throw 'mocked resource validation failure'" }
         'SuccessfulDryRun' { '$null' }
+        'SuccessfulWhatIf' { "if (`$Method -eq 'PUT') { [Environment]::Exit(9) }" }
         'SuccessfulAssignment' { '$null' }
         'AssignmentRestFailure' { "if (`$Method -eq 'PUT') { throw 'mocked assignment failure' }" }
         default { '[Environment]::Exit(9)' }
     }
     $dryRunArgument = if ($Scenario -in @('DryRunValidationFailure', 'SuccessfulDryRun')) { '-DryRun' } else { '' }
+    if ($Scenario -eq 'SuccessfulWhatIf') { $dryRunArgument = '-WhatIf' }
     $logFileArgument = if ([string]::IsNullOrWhiteSpace($LogFilePath)) {
         ''
     } else {
@@ -416,6 +438,13 @@ foreach ($scriptPath in $scriptPaths) {
 
             $result.ExitCode | Should Be 0
             $result.Output | Should Match 'server-01'
+        }
+
+        It 'performs read-only validation without mutation during WhatIf' {
+            $result = Invoke-AssignmentScenario -Path $scriptPath -CsvPath $validCsvPath -Scenario SuccessfulWhatIf
+
+            $result.ExitCode | Should Be 0
+            $result.Output | Should Match 'What if:'
         }
 
         It 'counts a successful assignment and returns exit code 0' {

@@ -16,7 +16,7 @@ It retrieves information from a CSV file and the command line for tasks like lic
 .NOTES
 File Name : ManageESULicenses.ps1
 Author    : David De Backer, Courtney Vallentyne
-Version   : 4.3
+Version   : 4.5
 Date      : 23-October-2023
 Update    : 03-September-2026
 Tested on : PowerShell Version 7.6.5
@@ -33,6 +33,8 @@ v4.0 - Added support for program year and invoice ID for ESU licenses (for billi
 v 4.1 - Added support for the new Get-AzAccessToken cmdlet output to obtain the token and modified the script to use the new output format of the cmdlet.
 v 4.2 - Added Year 3 support, associated changes.
 v4.3 - Clarified invoice ID guidance for applicable Volume Licensing transitions and removed obsolete token-format comments and token console output.
+v4.4 - Added full CSV preflight validation, dry-run and WhatIf previews, paginated license counting, reliable failure exits, and operation summaries.
+v4.5 - Fixed subscription parameter binding for live bulk operations and added preflight validation for generated license and assignment server names.
 
 .LINK
 To get more information on Azure ARC ESU license REST API please visit:
@@ -67,6 +69,7 @@ Make sure you read the documentation before using this script.
 #Parameters definition block #
 ##############################
 
+[CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter(Mandatory=$true, HelpMessage="The ID of the subscription where the license will be created.")]
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid subscription ID.")]
@@ -133,9 +136,11 @@ param(
 
     [Parameter(Mandatory=$false, HelpMessage="The program year for ESU licensing. Valid values are 'Year 1', 'Year 2', or 'Year 3'. When specifying Year 2 or Year 3, all previous years will be automatically included as required by Azure.")]
     [ValidateSet("Year 1", "Year 2", "Year 3", ErrorMessage="Value '{0}' is invalid. Try one of: '{1}'")]
-    [string]$programYear
+    [string]$programYear = "Year 1",
 
-
+    [Parameter(Mandatory=$false, HelpMessage="Validate the CSV and display the planned operations without creating, modifying, assigning, or unlinking licenses. Read-only Azure validation is still performed.")]
+    [Alias("Preview")]
+    [switch]$DryRun
 )
 #####################################
 #End of Parameters definition block #
@@ -192,9 +197,140 @@ function Get-ProgramYearArray {
     }
 }
 
+function ConvertTo-ESULicensePlan {
+    param(
+        [array]$csvData,
+        [string]$edition,
+        [string]$licenseNamePrefix,
+        [string]$licenseNameSuffix
+    )
+
+    if ($null -eq $csvData -or $csvData.Count -eq 0) {
+        throw "CSV validation failed: the file contains no data rows."
+    }
+
+    $requiredColumns = @('Name', 'Cores', 'IsVirtual', 'AgentVersion')
+    $availableColumns = @($csvData[0].PSObject.Properties.Name)
+    $missingColumns = @($requiredColumns | Where-Object { $_ -notin $availableColumns })
+    if ($missingColumns.Count -gt 0) {
+        throw "CSV validation failed: missing required column(s): $($missingColumns -join ', ')."
+    }
+
+    $errors = [System.Collections.Generic.List[string]]::new()
+    $plans = [System.Collections.Generic.List[object]]::new()
+
+    for ($index = 0; $index -lt $csvData.Count; $index++) {
+        $row = $csvData[$index]
+        $rowNumber = $index + 2
+        $rowErrors = [System.Collections.Generic.List[string]]::new()
+        $serverName = [string]$row.Name
+        $machineType = [string]$row.IsVirtual
+        $assignmentValue = [string]$row.AssignESULicense
+        $serverResourceGroupName = [string]$row.ServerResourceGroupName
+        $licenseName = "$licenseNamePrefix$serverName$licenseNameSuffix"
+
+        if ([string]::IsNullOrWhiteSpace($serverName)) {
+            $rowErrors.Add("Row $rowNumber, column 'Name': a non-empty value is required.")
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($licenseName) -and $licenseName -notmatch '^[a-zA-Z0-9-_\.]+$') {
+            $rowErrors.Add("Row $rowNumber, column 'Name': final license name '$licenseName' can contain only letters, numbers, hyphens, underscores, and periods.")
+        }
+
+        [int]$inputCores = 0
+        $coresValid = [int]::TryParse([string]$row.Cores, [ref]$inputCores) -and $inputCores -gt 0
+        if (-not $coresValid) {
+            $rowErrors.Add("Row $rowNumber, column 'Cores': '$($row.Cores)' must be a positive whole number.")
+        }
+
+        $coreType = $null
+        [int]$normalizedCores = 0
+        switch ($machineType.ToLowerInvariant()) {
+            'virtual' {
+                $coreType = 'vCore'
+                if ($edition -eq 'Datacenter') {
+                    $rowErrors.Add("Row $rowNumber, column 'IsVirtual': virtual-core licenses must use Standard edition.")
+                }
+                if ($coresValid) {
+                    $normalizedCores = [math]::Max(8, [math]::Ceiling($inputCores / 2) * 2)
+                }
+            }
+            'physical' {
+                $coreType = 'pCore'
+                if ($coresValid) {
+                    $normalizedCores = [math]::Max(16, [math]::Ceiling($inputCores / 2) * 2)
+                }
+            }
+            default {
+                $rowErrors.Add("Row $rowNumber, column 'IsVirtual': '$machineType' must be Virtual or Physical.")
+            }
+        }
+
+        if ($coresValid -and $normalizedCores -gt 10000) {
+            $rowErrors.Add("Row $rowNumber, column 'Cores': the normalized license size of $normalizedCores exceeds the 10,000-core limit.")
+        }
+
+        [version]$agentVersion = $null
+        if (-not [version]::TryParse([string]$row.AgentVersion, [ref]$agentVersion)) {
+            $rowErrors.Add("Row $rowNumber, column 'AgentVersion': '$($row.AgentVersion)' is not a valid version.")
+        }
+
+        $assignmentAction = switch ($assignmentValue.ToLowerInvariant()) {
+            'true' { 'Assign' }
+            'false' { 'Unlink' }
+            '' { 'None' }
+            default {
+                $rowErrors.Add("Row $rowNumber, column 'AssignESULicense': '$assignmentValue' must be True, False, or empty.")
+                'Invalid'
+            }
+        }
+
+        if ($assignmentAction -in @('Assign', 'Unlink') -and [string]::IsNullOrWhiteSpace($serverResourceGroupName)) {
+            $rowErrors.Add("Row $rowNumber, column 'ServerResourceGroupName': a value is required when AssignESULicense is True or False.")
+        }
+
+        if ($assignmentAction -in @('Assign', 'Unlink') -and $serverName -notmatch '^[a-zA-Z0-9-_\.]{1,54}$') {
+            $rowErrors.Add("Row $rowNumber, column 'Name': Azure Arc server names used for assignment or unlinking must be 1-54 characters and contain only letters, numbers, hyphens, underscores, and periods.")
+        }
+
+        if ($rowErrors.Count -gt 0) {
+            foreach ($rowError in $rowErrors) {
+                $errors.Add($rowError)
+            }
+            continue
+        }
+
+        $plans.Add([pscustomobject]@{
+            RowNumber = $rowNumber
+            ServerName = $serverName
+            LicenseName = $licenseName
+            InputCores = $inputCores
+            CoreCount = $normalizedCores
+            CoreType = $coreType
+            AgentVersion = $agentVersion
+            CreationAction = if ($agentVersion -lt [version]'1.34') { 'SkipAgentVersion' } else { 'CreateOrModify' }
+            AssignmentAction = $assignmentAction
+            ServerResourceGroupName = $serverResourceGroupName
+            ESUException = [string]$row.ESUException
+        })
+    }
+
+    $duplicateLicenseNames = @($plans | Group-Object -Property LicenseName | Where-Object Count -gt 1)
+    foreach ($duplicate in $duplicateLicenseNames) {
+        $errors.Add("CSV rows resolve to duplicate license name '$($duplicate.Name)'. Use unique names or adjust the prefix and suffix.")
+    }
+
+    if ($errors.Count -gt 0) {
+        throw "CSV validation failed:`n - $($errors -join "`n - ")"
+    }
+
+    return $plans.ToArray()
+}
+
 function AssignESULicense {
 
     param (
+        [string]$subscriptionId,
         [string]$token,
         [string]$licenseResourceGroupName,
         [string]$licenseName,
@@ -241,12 +377,13 @@ function AssignESULicense {
     $requestBodyJson = $requestBody | ConvertTo-Json -Depth 8
 
     # Sends the PUT request to update the license
-    $response = Invoke-RestMethod -Uri $apiEndpoint -Method $method -Headers $headers -Body $requestBodyJson
+    $null = Invoke-RestMethod -Uri $apiEndpoint -Method $method -Headers $headers -Body $requestBodyJson
 
     Write-Host ""
     # Sends the response to STDOUT, which would be captured by the calling script if any.
     # Feel free to comment out that line if you don't need to see the response.
     #$response
+    return $true
 }
 
 function Get-AzureADBearerToken {
@@ -283,6 +420,7 @@ function Get-AzureADBearerToken {
 
 function CreateESULicense {
     param (
+        [string]$subscriptionId,
         [string]$token,
         [string]$location,
         [string]$licenseResourceGroupName,
@@ -337,15 +475,16 @@ if ($ESULicenseException -ne $false) {$requestBody['tags']['ESU Usage'] = $ESULi
 # Converts the request body to JSON
 $requestBodyJson = $requestBody | ConvertTo-Json -Depth 8 
 
-$requestBodyJson 
+Write-Verbose $requestBodyJson
 
 # Sends the PUT request to update the license
-$response = Invoke-RestMethod -Uri $apiEndpoint -Method PUT -Headers $headers -Body $requestBodyJson
+$null = Invoke-RestMethod -Uri $apiEndpoint -Method PUT -Headers $headers -Body $requestBodyJson
 
 # Sends the response to STDOUT, which would be captured by the calling script if any
 #return $response
 Write-Host "Creating or modifying $licenseName license with $coreCount $coreType"
 Write-Host ""
+return $true
 
 }
 
@@ -353,7 +492,7 @@ function CountResources {
     param (
         [string]$token,
         [string]$licenseResourceGroupName,
-        [array]$csvData
+        [array]$licensePlans
     )
     $resourceType = "Microsoft.HybridCompute/licenses"
     $apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/resources?api-version=2022-01-01"
@@ -363,27 +502,21 @@ function CountResources {
         "Content-Type" = "application/json"
     }
 
-    # List resources in the specified resource group
-    $foundResources = Invoke-RestMethod -Uri $apiEndpoint -Method GET -Headers $headers
-    $existingESULicensesCount = ($foundResources.value | Where-Object { $_.type -eq $resourceType }).Count
-    
-    # Initialize a currently existing license counter
-    $rowCount = $csvData.Count
-    $matchesFound = 0
-
-   # Loop through each entry in $data
-    foreach ($entry in $csvData) {
-        # Check if a resource with the same name as the entry exists
-        #Write-Host "Checking if license for $($entry.name) already exists"
-        foreach ($resource in $foundResources.value) {
-            if ($resource.name -eq "$licenseNamePrefix$($entry.name)$licenseNameSuffix" -and $resource.type -eq $resourceType) {
-                #If a matching resource is found, increment the counter
-                #Write-Host "Found a matching license for $($entry.name) at`n$($resource.id)"
-                $matchesFound++
-            }
+    $resources = [System.Collections.Generic.List[object]]::new()
+    $nextLink = $apiEndpoint
+    while (-not [string]::IsNullOrWhiteSpace($nextLink)) {
+        $page = Invoke-RestMethod -Uri $nextLink -Method GET -Headers $headers
+        foreach ($resource in @($page.value)) {
+            $resources.Add($resource)
         }
+        $nextLink = [string]$page.nextLink
     }
-    $newESULicensesToCreate = $rowCount - $matchesFound
+
+    $existingLicenses = @($resources | Where-Object { $_.type -eq $resourceType })
+    $existingESULicensesCount = $existingLicenses.Count
+    $existingNames = @($existingLicenses | ForEach-Object { $_.name })
+    $requestedNames = @($licensePlans | Where-Object CreationAction -eq 'CreateOrModify' | ForEach-Object { $_.LicenseName } | Select-Object -Unique)
+    $newESULicensesToCreate = @($requestedNames | Where-Object { $_ -notin $existingNames }).Count
     return $existingESULicensesCount, $newESULicensesToCreate
 
 }
@@ -408,7 +541,16 @@ function Write-Logfile  {
 # Main script block #
 #####################
 Clear-Host
-# Gets an authorization token either from the user provided one or from the Azure App Registration if one was provided as part of the command line.
+
+try {
+    $data = @(Import-Csv -Path $csvFilePath -ErrorAction Stop)
+    $licensePlans = @(ConvertTo-ESULicensePlan -csvData $data -edition $edition -licenseNamePrefix $licenseNamePrefix -licenseNameSuffix $licenseNameSuffix)
+} catch {
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "Validated CSV rows: $($licensePlans.Count)" -ForegroundColor Green
 
 # Check if the token is still valid
 if ($userToken) {
@@ -417,23 +559,27 @@ if ($userToken) {
         $token = ConvertFrom-SecureString -SecureString $userToken.Token -AsPlainText
     } else {
         Write-Host "The provided user token has expired. Please provide a valid token.`nExiting." -ForegroundColor Red
-        exit
+        exit 1
     }
 } elseif ($tenantId -and $appID -and $clientSecret) {
     Write-Host "Getting authentication token from Microsoft Entra ID" -ForegroundColor Green
-    $token = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId 
+    $token = Get-AzureADBearerToken -appID $appID -clientSecret $clientSecret -tenantId $tenantId
+    if ([string]::IsNullOrWhiteSpace($token)) {
+        Write-Host "Failed to obtain an authentication token.`nExiting." -ForegroundColor Red
+        exit 1
+    }
 } else {
-    Write-Host "You need to provide either the tenant, appID and clientSecrets parameters or a valid authentication token object.`nExiting."
-    exit
+    Write-Host "You need to provide either the tenant, appID and clientSecret parameters or a valid authentication token object.`nExiting." -ForegroundColor Red
+    exit 1
 }
 
-#Import the CSV file and count the number of rows (potential number of licenses to be created)
-$data = Import-Csv -Path $csvFilePath
-$rowCount = $data.Count
-Write-Host "Number of entries in CSV file: " $rowCount
-
 #Check the number of licenses already created in the resource group
-$result = CountResources -token $token -licenseResourceGroupName $licenseResourceGroupName -csvData $data
+try {
+    $result = CountResources -token $token -licenseResourceGroupName $licenseResourceGroupName -licensePlans $licensePlans
+} catch {
+    Write-Host "Failed to read existing ESU licenses: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
 $existingESULicensesCount = $result[0]
 $newESULicensesToCreate = $result[1]
 
@@ -443,7 +589,7 @@ Write-Host "Number of new licenses to create in $licenseResourceGroupName : $new
 if (($existingESULicensesCount + $newESULicensesToCreate) -gt $maxNumberofLicenseObjectsperRG) {
     Write-Host "The number of licenses to create ($newESULicensesToCreate) plus the existing ones ($existingESULicensesCount) exceeds the limit of $maxNumberofLicenseObjectsperRG objects per resource group."
     Write-Host "Please choose another resource group to store the licenses to be created and try again."
-    exit
+    exit 1
 }
 
 
@@ -458,104 +604,102 @@ Write-Host "Creating licenses for program years: $($programYearsArray -join ', '
 
 If (![string]::IsNullOrWhiteSpace($logFileName)) {Start-Transcript -Path $logFileName}
 
-foreach ($row in $data) {
-
-    #Check if the agent version is compatible with ESU activation through ARC
-    $agentVersion = [system.version]$row.agentVersion
-    if ($agentVersion -lt 1.34) {
-        Write-Host "Agent version is " $agentVersion "for " $row.name
-        Write-Host "Minimum version required for ESU activation through ARC agent is 1.34. Skipping license creation."
-        Write-Host ""
-    }
-    else {
-        
-        #Build the license name based on the prefix and suffix provided in the parameters (if any)
-        $LicenseName = $licenseNamePrefix + $row.name + $licenseNameSuffix
-        Write-Host "Agent version is " $agentVersion "for " $row.name ". Going for license creation."
-        #Adjust coreCount and translate coreType to the right values required for the license based on the input from the CSV file
-        $cores = [int]$row.cores
-
-        #Check if the machine has been tagged for a licence exception (Dev/test, AVS hosted, etc.)
-        If (![string]::IsNullOrWhiteSpace($row.ESUException)) {
-            $ESUException = $row.ESUException
-        }
-        else {
-            $ESUException = $false
-        }
-       
-        switch ($row.isVirtual) {
-            
-            "Virtual" {
-                Write-Host "VIRTUAL core count is " $cores "for " $row.name
-                if ($cores -lt 8 -or $cores % 2 -ne 0) {
-                    $row.cores = [math]::Max(8, [math]::Ceiling($cores / 2) * 2)  
-                }
-                $coreType = "vCore"
-                CreateESULicense -subscriptionId $subscriptionId -token $token -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException -invoiceId $invoiceId -programYears $programYearsArray
-                ; break
-            } 
-            "Physical" {
-                Write-Host "PHYSICAL core count is " $cores "for " $row.name
-                if ($cores -lt 16 -or $cores % 2 -ne 0) {
-                    $row.cores = [math]::Max(16, [math]::Ceiling($cores / 2) * 2)  
-                }
-                $coreType = "pCore"
-                CreateESULicense -subscriptionId $subscriptionId -token $token -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $LicenseName  -state $state -edition $edition -CoreType $coreType -CoreCount $row.cores -ESULicenseException $ESUException -invoiceId $invoiceId -programYears $programYearsArray
-                ; break
-            } 
-            Default {
-                Write-Host "Cannot create license because of unknown machine type for $row"
-            }
-        }
-
-        #Assign the license to the server if requested from the CSV file (AssignESULicense column shoud say TRUE for assignment or FALSE for unlinking)
-        switch ($row.AssignESULicense) {
-            "True" {
-                Write-Host "Assigning ESU license ($LicenseName) to server ("$row.name")"
-                
-                $params = @{
-                    'subscriptionId' = $subscriptionId
-                    'token' = $token
-                    'licenseResourceGroupName' = $licenseResourceGroupName
-                    'licenseName' = $LicenseName
-                    'serverResourceGroupName' = $row.serverResourceGroupName
-                    'ARCServerName' = $row.name
-                    'location' = $location
-                }
-                
-                AssignESULicense @params
-              }
-
-            "False" {
-                Write-Host "Unlinking ESU license ($LicenseName) from server ("$row.name")"
-
-                $params = @{
-                    'subscriptionId' = $subscriptionId
-                    'token' = $token
-                    'licenseResourceGroupName' = $licenseResourceGroupName
-                    'licenseName' = $LicenseName
-                    'serverResourceGroupName' = $row.serverResourceGroupName
-                    'ARCServerName' = $row.name
-                    'location' = $location
-                    'unassign' = $true
-                }
-
-                AssignESULicense @params
-              }
-
-            Default {
-                Write-Host "Skipping license assignment for server ("$row.name")"
-                Write-Host ""
-            }
-        }
-
-    }   
-    
-      
+$summary = [ordered]@{
+    TotalRows = $licensePlans.Count
+    LicensesCreatedOrModified = 0
+    AssignmentsCompleted = 0
+    UnlinksCompleted = 0
+    SkippedAgentVersion = 0
+    PreviewedOperations = 0
+    Failures = 0
 }
 
+Write-Host ""
+Write-Host "Validated operation plan"
+$licensePlans | Select-Object RowNumber, ServerName, LicenseName, CoreType, CoreCount, AgentVersion, CreationAction, AssignmentAction | Format-Table -AutoSize | Out-Host
+
+if ($DryRun) {
+    $eligiblePlans = @($licensePlans | Where-Object CreationAction -eq 'CreateOrModify')
+    $summary.SkippedAgentVersion = @($licensePlans | Where-Object CreationAction -eq 'SkipAgentVersion').Count
+    $summary.PreviewedOperations = $eligiblePlans.Count + @($eligiblePlans | Where-Object AssignmentAction -ne 'None').Count
+} else {
+    foreach ($planItem in $licensePlans) {
+        if ($planItem.CreationAction -eq 'SkipAgentVersion') {
+            Write-Host "Skipping '$($planItem.ServerName)': agent version $($planItem.AgentVersion) is below 1.34." -ForegroundColor Yellow
+            $summary.SkippedAgentVersion++
+            continue
+        }
+
+        $licenseReady = $false
+        if ($PSCmdlet.ShouldProcess($planItem.LicenseName, "Create or modify $edition ESU license with $($planItem.CoreCount) $($planItem.CoreType)")) {
+            try {
+                $exceptionValue = if ([string]::IsNullOrWhiteSpace($planItem.ESUException)) { $false } else { $planItem.ESUException }
+                CreateESULicense -subscriptionId $subscriptionId -token $token -location $location -licenseResourceGroupName $licenseResourceGroupName -licenseName $planItem.LicenseName -state $state -edition $edition -CoreType $planItem.CoreType -CoreCount $planItem.CoreCount -ESULicenseException $exceptionValue -invoiceId $invoiceId -programYears $programYearsArray | Out-Null
+                $summary.LicensesCreatedOrModified++
+                $licenseReady = $true
+            } catch {
+                Write-Host "Row $($planItem.RowNumber): failed to create or modify license '$($planItem.LicenseName)': $($_.Exception.Message)" -ForegroundColor Red
+                $summary.Failures++
+                continue
+            }
+        } else {
+            $summary.PreviewedOperations++
+            if ($WhatIfPreference) {
+                $licenseReady = $true
+            }
+        }
+
+        if (-not $licenseReady -or $planItem.AssignmentAction -eq 'None') {
+            continue
+        }
+
+        $assignmentVerb = if ($planItem.AssignmentAction -eq 'Assign') { 'Assign' } else { 'Unlink' }
+        if ($PSCmdlet.ShouldProcess($planItem.ServerName, "$assignmentVerb ESU license '$($planItem.LicenseName)'")) {
+            $params = @{
+                subscriptionId = $subscriptionId
+                token = $token
+                licenseResourceGroupName = $licenseResourceGroupName
+                licenseName = $planItem.LicenseName
+                serverResourceGroupName = $planItem.ServerResourceGroupName
+                ARCServerName = $planItem.ServerName
+                location = $location
+                unassign = $planItem.AssignmentAction -eq 'Unlink'
+            }
+
+            try {
+                AssignESULicense @params | Out-Null
+                if ($planItem.AssignmentAction -eq 'Assign') {
+                    $summary.AssignmentsCompleted++
+                } else {
+                    $summary.UnlinksCompleted++
+                }
+            } catch {
+                Write-Host "Row $($planItem.RowNumber): failed to $($assignmentVerb.ToLowerInvariant()) license '$($planItem.LicenseName)' for '$($planItem.ServerName)': $($_.Exception.Message)" -ForegroundColor Red
+                $summary.Failures++
+            }
+        } else {
+            $summary.PreviewedOperations++
+        }
+    }
+}
 
 If (![string]::IsNullOrWhiteSpace($logFileName)) {Stop-Transcript}
+
+Write-Host ""
+Write-Host "ESU License Operation Summary"
+Write-Host "Total validated rows: $($summary.TotalRows)"
+Write-Host "Licenses created or modified: $($summary.LicensesCreatedOrModified)"
+Write-Host "Assignments completed: $($summary.AssignmentsCompleted)"
+Write-Host "Unlinks completed: $($summary.UnlinksCompleted)"
+Write-Host "Skipped for agent version: $($summary.SkippedAgentVersion)"
+Write-Host "Previewed or declined operations: $($summary.PreviewedOperations)"
+Write-Host "Failures: $($summary.Failures)"
+
+if ($summary.Failures -gt 0) {
+    exit 1
+}
+
+exit 0
 
 
 

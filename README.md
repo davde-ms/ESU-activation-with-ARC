@@ -22,7 +22,7 @@ That being said, let's get started!
 - An Microsoft Entra Enterprise application and service principal that will be used to authenticate to Azure. Please check the [Create an Azure service principal with Azure CLI](https://learn.microsoft.com/en-us/entra/identity-platform/howto-create-service-principal-portal) to create a service principal.
 - The Microsoft Entra application ID and secret key for the service principal created above.
 - A delegation of rights to the resource group that holds the licenses as well as a delegation of rights to the resource group(s) that contain the Azure ARC servers. Please check the [Delegating access to Azure resources](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-steps) to delegate access to the resource groups if you need assistance. The required delegated rights will be documented in the next section.
-- A computer with Powershell 7.x or higher installed. Please check the [Installing PowerShell on Windows](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-core-on-windows) to install Powershell 7.x or higher. The current version of the scripts do not use the AZ Powershell module, but it is recommended to install it for future use. Please check the [Install Azure PowerShell on Windows](https://learn.microsoft.com/en-us/powershell/azure/install-azps-windows) to install the AZ Powershell module if you want to.
+- A computer with Powershell 7.x or higher installed. Please check [Install PowerShell 7 on Windows](https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell-on-windows) to install Powershell 7.x or higher. The current version of the scripts do not use the AZ Powershell module, but it is recommended to install it for future use. Please check the [Install Azure PowerShell on Windows](https://learn.microsoft.com/en-us/powershell/azure/install-azps-windows) to install the AZ Powershell module if you want to.
 
 > **Note**: Multiple scripts now support **user token authentication** as an alternative to service principal authentication. These scripts (AssignESULicense.ps1, CreateESULicense.ps1, DeleteESULicense.ps1, CheckESUStatus.ps1, ManageESUAssignments.ps1, and ManageESULicenses.ps1) can work with a user provided Microsoft Entra ID authentication token, so the service principal is no longer required for their execution. You can provide either the tenantID, appID and clientSecret parameters OR a valid Microsoft Entra ID authentication token that has the rights to manage ESU licenses.
 
@@ -37,7 +37,7 @@ The following rights have to be delegated on the resource groups you plan on usi
 - "Microsoft.HybridCompute/machines/licenseProfiles/write"
 - "Microsoft.HybridCompute/machines/licenseProfiles/delete"
 
-There is a custom role definition located in the Custom Roles folder in this repository that can be used to create a custom role with the required rights. Please check the [Create a custom role using Azure PowerShell](https://docs.microsoft.com/en-us/azure/role-based-access-control/custom-roles-powershell#create-a-custom-role-using-azure-powershell) to create a custom role with the custom role definition.
+There is a custom role definition located in the Custom Roles folder in this repository that can be used to create a custom role with the required rights. Please check [Create a custom role with a JSON template](https://learn.microsoft.com/en-us/azure/role-based-access-control/custom-roles-powershell#create-a-custom-role-with-json-template) to create a custom role with the custom role definition.
 
 Once the role is created, assign it to the security principal and apply it to the all resource groups storing the licenses or the Azure ARC Server objects. For example, if you have 3 resource groups, one for the licenses and two for the Azure ARC servers, you will need to assign the custom role to the security principal and apply it to all three resource groups. **Important Note**: For cross-subscription scenarios, ensure the service principal has appropriate rights in all relevant subscriptions (ARC servers subscription and ESU licenses subscription).
 
@@ -45,12 +45,33 @@ Once the role is created, assign it to the security principal and apply it to th
 
 There are currently 6 scripts in this repository (located in the Scripts folder):
 
-- AssignESULicense.ps1 (assigns an existing ESU license to an Azure ARC server)
-- CreateESULicense.ps1 (creates a new ESU license)
-- DeleteESULicense.ps1 (deletes an existing ESU license)
-- CheckESUStatus.ps1 (checks the ESU license status for Azure ARC servers)
-- ManageESULicenses.ps1 (creates and optionally assigns ESU licenses in bulk, taking its input from a CSV file)
-- ManageESUAssignments.ps1 (assigns ESU licenses in bulk, taking its input from a CSV file, supports cross-subscription scenarios)
+- [AssignESULicense.ps1](docs/English/AssignESULicense.md) (assigns an existing ESU license to an Azure ARC server)
+- [CreateESULicense.ps1](docs/English/CreateESULicense.md) (creates a new ESU license)
+- [DeleteESULicense.ps1](docs/English/DeleteESULicense.md) (deletes an existing ESU license)
+- [CheckESUStatus.ps1](docs/English/CheckESUStatus.md) (checks the ESU license status for Azure ARC servers)
+- [ManageESULicenses.ps1](docs/English/ManageESULicenses.md) (creates and optionally assigns ESU licenses in bulk, taking its input from a CSV file)
+- [ManageESUAssignments.ps1](docs/English/ManageESUAssignments.md) (assigns ESU licenses in bulk, taking its input from a CSV file, supports cross-subscription scenarios)
+
+### Which script should I use?
+
+| Goal | Script | Start here |
+| --- | --- | --- |
+| Check current ESU assignment status without making changes | `CheckESUStatus.ps1` | [Guide](docs/English/CheckESUStatus.md) and [CSV template](samples/CheckESUStatus.csv) |
+| Create or update one ESU license | `CreateESULicense.ps1` | Review the licensing model before choosing edition, core type, and core count. |
+| Assign or unlink one existing license | `AssignESULicense.ps1` | Use when you already know the server and license resource. |
+| Create or update licenses in bulk, with optional assignment or unlinking | `ManageESULicenses.ps1` | [Guide](docs/English/ManageESULicenses.md) and [CSV template](samples/ManageESULicenses.csv) |
+| Assign or unlink existing licenses in bulk, including cross-subscription licenses | `ManageESUAssignments.ps1` | [Guide](docs/English/ManageESUAssignments.md) and [CSV template](samples/ManageESUAssignments.csv) |
+| Delete an existing license | `DeleteESULicense.ps1` | Review the deletion and billing warning before running it. |
+
+### Safe customer workflow
+
+1. Run `CheckESUStatus.ps1` first to inventory current assignments. It is read-only.
+2. Copy the relevant template from the [`samples`](samples/) folder and replace every fictitious value with reviewed customer data.
+3. Preview the plan before making changes. Use `-DryRun` with `ManageESUAssignments.ps1` or `ManageESULicenses.ps1`; both scripts also support `-WhatIf` and `-Confirm`.
+4. Review the normalized core counts, edition/core-type choice, generated license names, and assignment or unlink actions shown in the plan and summary.
+5. Run the same reviewed command without `-DryRun` or `-WhatIf` only when the plan is correct. Use `-Confirm` when you want an interactive prompt for each operation.
+
+`ManageESUAssignments.ps1 -DryRun` validates the CSV and resource access with read-only Azure `GET` requests; it sends no mutation request. `ManageESULicenses.ps1 -DryRun` validates the complete CSV and uses read-only Azure `GET` requests to count existing and new licenses; it does not create, modify, assign, unlink, or delete resources.
 
 ## AssignESULicense.ps1
 
@@ -109,7 +130,7 @@ All other parameters are immutable and cannot be changed once the license is cre
 
 This script will delete an ESU license. When you delete a license, it will be removed from the Azure ARC server it was assigned to and stop the billing tied to that license.
 
-> **Deleting an activated license and then recreating it is STRONGLY DISCOURAGED. This is because all activated licenses will incur the monthly ESU fee beginning on October 10, 2023. If you delete a license and subsequently recreate it, you will be charged for the new license from October 10, 2023 onwards, rather than from the time of its initial creation or activation.**
+> **Deleting or deactivating a license can remain billable for up to five calendar days. If you delete and then recreate an ESU license, back-billing still applies for the corresponding period; deletion does not exempt you from those charges. Confirm the current impact in the [official ESU billing guidance](https://learn.microsoft.com/azure/azure-arc/servers/billing-extended-security-updates#billing-associated-with-modifications-to-an-azure-arc-esu-license) before proceeding.**
 
 Here is the command line you should use to run it:
 
@@ -250,10 +271,12 @@ The creation of the CSV file can be done in 2 ways:
 
 > **Note:** The AssignESULicense column is **optional** and is used IF/WHEN you want to manage license assignment as part of the script execution. Note that it is NOT automatically created when using Azure Graph Explorer to generate the CSV file. You will need to **manually** add it to the CSV file if you want to manage assignment of license as part of the execution of this script.
 
-- ESUException: **IF** your server is eligible to receive Extended Security Updates patches at no additional cost, set it to whichever value that matches the use case. Those scenarios are detailed in the [Additional scenarios section of the Deliver Extended Security Updates for Windows Server 2012](https://learn.microsoft.com/en-us/azure/azure-arc/servers/deliver-extended-security-updates#additional-scenarios) article. If your server is not eligible for free ESU, omit the value altogether. Please make sure you fully understand the scenarios and their requirements before setting this value. Failure to do so could lead to either excessive billing or non-compliance with Microsoft's licensing regulations.
+- ESUException: Optional text copied to the license resource's `ESU Usage` tag. Establish eligibility for any no-cost or evaluation scenario separately under the applicable Microsoft licensing terms before using this field.
 
-> **VERY IMPORTANT:** Make sure **NOT** to list servers that are eligible to receive ESUs at no additional cost in the CSV file, as those servers **should be assigned to an existing billable license** that has been properly tagged and not have their own license created. Failure to do so will lead to excessive billing.
-> Bulk assignment of existing licenses is supported by [ManageESUAssignments.ps1](docs/ManageESUAssignments.md).
+> **Billing warning:** Tags do not establish eligibility and do not affect billing. Microsoft states that billing is tied to the number of cores associated with the activated license regardless of tags. Do not provision cores for machines whose eligibility for a no-cost scenario has been established separately. See the [official license provisioning guidance](https://learn.microsoft.com/azure/azure-arc/servers/license-extended-security-updates).
+> Bulk assignment of existing licenses is supported by [ManageESUAssignments.ps1](docs/English/ManageESUAssignments.md).
+
+Start with the copy-ready [ManageESULicenses CSV template](samples/ManageESULicenses.csv).
 
 Here is an example of the expected format of the CSV file:
 

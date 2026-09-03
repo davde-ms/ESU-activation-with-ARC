@@ -23,7 +23,7 @@ Le script prend en charge deux méthodes d'authentification :
 .NOTES
 Nom du fichier : ManageESUAssignmentsFR.ps1
 Auteur         : David De Backer
-Version        : 1.5
+Version        : 1.6
 Date           : 10-Octobre-2025  
 Mise à jour    : 03-Septembre-2026
 Testé sur      : PowerShell Version 7.6.5
@@ -61,6 +61,7 @@ v1.4 - Changement majeur pour la clarté des paramètres :
 v1.5 - Renforcement de la gestion des résultats, des compteurs récapitulatifs et des codes de sortie d'échec pour l'automatisation.
     Ajout de versions d'API propres aux ressources et de validations préalables à privilèges minimaux pour les profils de licence et les licences, sans lecture des attributions de rôles.
     Ajout de la compatibilité CSV Name/ARCServerName, de diagnostics sans identifiants d'abonnement et de tests hors ligne étendus.
+v1.6 - Ajout de la prise en charge standard de WhatIf et Confirm tout en conservant la validation des ressources en lecture seule avec DryRun.
 
 
 .LINK
@@ -139,6 +140,7 @@ Si vous recevez des erreurs 403 Forbidden, vérifiez les points suivants :
 #Bloc de définition des paramètres #
 ##############################
 
+[CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter(Mandatory=$true, HelpMessage="L'ID de l'abonnement où se trouvent les serveurs ARC.")]
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="L'entrée '{0}' doit être un ID d'abonnement valide.")]
@@ -189,7 +191,7 @@ param(
     [System.Object]$userToken,
 
     [Parameter(Mandatory=$false, HelpMessage="Effectuer une simulation sans apporter de modifications réelles. Montre ce qui serait fait.")]
-    [Alias("whatif")]
+    [Alias("Preview")]
     [switch]$DryRun
 )
 
@@ -415,13 +417,14 @@ function Test-CSVRowData {
     
     $isValid = $true
     $errors = @()
+    $arcServerName = Resolve-ARCServerName -row $row
     
     # Vérifie les champs requis
     $requiredFields = @{
         'LicenseName' = $row.LicenseName
         'licenseResourceGroupName' = $row.licenseResourceGroupName
         'ServerResourceGroupName' = $row.ServerResourceGroupName
-        'Name ou ARCServerName' = Resolve-ARCServerName -row $row
+        'Name ou ARCServerName' = $arcServerName
         'AssignESULicense' = $row.AssignESULicense
     }
     
@@ -430,6 +433,18 @@ function Test-CSVRowData {
             $errors += "Champ requis manquant ou vide : $($field.Key)"
             $isValid = $false
         }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($row.LicenseName) -and
+        $row.LicenseName -notmatch '^[a-zA-Z0-9-_\.]+$') {
+        $errors += "LicenseName contient des caractères non pris en charge : '$($row.LicenseName)'"
+        $isValid = $false
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($arcServerName) -and
+        $arcServerName -notmatch '^[a-zA-Z0-9-_\.]{1,54}$') {
+        $errors += "Name ou ARCServerName doit contenir uniquement des lettres, chiffres, traits d'union, traits de soulignement ou points, et ne pas dépasser 54 caractères : '$arcServerName'"
+        $isValid = $false
     }
     
     # Valide les valeurs AssignESULicense
@@ -677,9 +692,14 @@ foreach ($row in $data) {
                     'serverResourceGroupName' = $row.ServerResourceGroupName
                     'ARCServerName' = $currentARCServerName
                     'location' = $location
-                    'dryRun' = $DryRun
+                    'dryRun' = $DryRun -or $WhatIfPreference
                 }
-                
+
+                $approved = if ($DryRun) { $true } else { $PSCmdlet.ShouldProcess($currentARCServerName, "Attribuer la licence ESU '$($row.LicenseName)'") }
+                if (-not $approved -and -not $WhatIfPreference) {
+                    $skipCount++
+                    continue
+                }
                 $result = AssignESULicense @params
                 if ($result) { $successCount++ } else { $errorCount++ }
               }
@@ -700,9 +720,14 @@ foreach ($row in $data) {
                     'ARCServerName' = $currentARCServerName
                     'location' = $location
                     'unassign' = $true
-                    'dryRun' = $DryRun
+                    'dryRun' = $DryRun -or $WhatIfPreference
                 }
 
+                $approved = if ($DryRun) { $true } else { $PSCmdlet.ShouldProcess($currentARCServerName, "Dissocier la licence ESU '$($row.LicenseName)'") }
+                if (-not $approved -and -not $WhatIfPreference) {
+                    $skipCount++
+                    continue
+                }
                 $result = AssignESULicense @params
                 if ($result) { $successCount++ } else { $errorCount++ }
               }
@@ -721,7 +746,7 @@ Write-Progress -Activity "Traitement des affectations de licences ESU" -Complete
 # Affiche le résumé
 Write-Host ""
 Write-Host "=============================================="
-if ($DryRun) {
+if ($DryRun -or $WhatIfPreference) {
     Write-Host "SIMULATION - Résumé des affectations de licences ESU"
 } else {
     Write-Host "Résumé des affectations de licences ESU"
@@ -733,13 +758,13 @@ Write-Logfile "Opérations échouées : $errorCount" $(if ($errorCount -gt 0) { 
 Write-Logfile "Opérations ignorées : $skipCount" $(if ($skipCount -gt 0) { "WARNING" } else { "INFO" })
 
 if ($errorCount -gt 0) {
-    if ($DryRun) {
+    if ($DryRun -or $WhatIfPreference) {
         Write-Logfile "Simulation terminée avec des erreurs de validation. Aucune modification réelle n'a été apportée." "WARNING"
     } else {
         Write-Logfile "Script terminé avec des erreurs. Veuillez consulter le journal pour les détails." "WARNING"
     }
     $exitCode = 1
-} elseif ($DryRun) {
+} elseif ($DryRun -or $WhatIfPreference) {
     Write-Logfile "Simulation terminée avec succès. Aucune modification réelle n'a été apportée." "INFO"
     $exitCode = 0
 } else {

@@ -34,7 +34,7 @@ If both authentication methods are provided, `-userToken` is used.
 | csvFilePath | Path to the CSV assignment file. |
 | logFileName | Optional transcript log path. |
 | userToken | Token object returned by `Get-AzAccessToken`. |
-| DryRun | Validates inputs and resource access without sending a mutation request. |
+| DryRun | Validates inputs and resource access without sending a mutation request. `-Preview` is an alias. |
 
 ## Cross-subscription assignments
 
@@ -56,6 +56,8 @@ The identity must have the required access to both subscriptions when they diffe
 
 The CSV file must be created manually.
 
+Start with the copy-ready [ManageESUAssignments CSV template](../../samples/ManageESUAssignments.csv). All included names and subscription IDs are fictitious and must be replaced.
+
 | Column | Required | Description |
 | --- | --- | --- |
 | Name or ARCServerName | Yes | Name of the Azure Arc-enabled server. |
@@ -65,7 +67,7 @@ The CSV file must be created manually.
 | AssignESULicense | Yes | `True` assigns the license; `False` unassigns it. |
 | LicenseSubscriptionId | No | Subscription containing this row's license. Overrides the command-line value. |
 
-![CSV File Layout](../media/ManageESUAssignments_CSV_example.jpg)
+![CSV File Layout](../../media/ManageESUAssignments_CSV_example.jpg)
 
 ## Dry-run mode
 
@@ -76,3 +78,23 @@ Add `-DryRun` to validate the CSV data, authentication, and resource access befo
 ```
 
 Dry-run mode can send read-only `GET` requests to validate access and resource existence. It does not send `PUT`, `PATCH`, or `DELETE` requests.
+
+## WhatIf and confirmation
+
+Use `-WhatIf` for PowerShell-native previews. It performs the same read-only resource validation as `-DryRun`, displays each proposed assignment or unlink, and sends no mutation request. Use `-Confirm` to approve each operation during a live run.
+
+```powershell
+./ManageESUAssignments.ps1 <parameters> -WhatIf
+./ManageESUAssignments.ps1 <parameters> -Confirm
+```
+
+## Troubleshooting
+
+| Message or symptom | What to check |
+| --- | --- |
+| CSV validation fails | Start from the sample file and check the required headers, server names, resource groups, license names, and `True`/`False` action values. |
+| Authentication token is missing or expired | Supply all three service principal parameters, or obtain a new `Get-AzAccessToken` token object. |
+| Resource access validation fails | Verify the identity can read the Arc license profile and, for assignment, the ESU license in the resolved subscription. |
+| `401` or `403` response | Check permissions in both the server and license subscriptions. |
+| `404` response | Check each row's resource groups, names, and optional `LicenseSubscriptionId`. |
+| Summary reports failures | Correct every failed row, then rerun the complete CSV with `-DryRun` or `-WhatIf` before a live run. |

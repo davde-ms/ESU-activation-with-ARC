@@ -22,7 +22,7 @@ The script supports two authentication methods:
 .NOTES
 File Name : DeleteESULicense.ps1
 Author    : David De Backer
-Version   : 1.2
+Version   : 1.3
 Date      : 19-October-2023
 Update    : 03-September-2026
 Tested on : PowerShell Version 7.6.5
@@ -34,6 +34,7 @@ Product   : Azure ARC
 v1.1 - Added support for user token authentication. You can now provide a Microsoft Entra ID authentication token instead of service principal credentials.
        Made tenantId, appID, and clientSecret parameters optional when using token authentication.
 v1.2 - Authentication validation now returns exit code 1 for missing credentials, expired user tokens, and failed service principal token acquisition.
+v1.3 - Added standard WhatIf and Confirm support and reliable nonzero exits for REST failures.
     Added the sec compatibility alias for clientSecret and focused offline authentication tests.
 
 .LINK
@@ -64,6 +65,7 @@ Example 2 shows how to use Microsoft Entra ID token authentication instead of se
 #Parameters definition block #
 ##############################
 
+[CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter(Mandatory=$true, HelpMessage="The ID of the subscription where the license will be created.")]
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid subscription ID.")]
@@ -193,11 +195,17 @@ $headers = @{
     "Content-Type" = "application/json"
 }
 
-# Sends the PUT request to update the license
-$response = Invoke-RestMethod -Uri $apiEndpoint -Method $method -Headers $headers
+if (-not $PSCmdlet.ShouldProcess($licenseName, "Delete ESU license")) {
+    return
+}
 
-# Sends the response to STDOUT, which would be captured by the calling script if any
-$response
+try {
+    $response = Invoke-RestMethod -Uri $apiEndpoint -Method $method -Headers $headers -ErrorAction Stop
+    $response
+} catch {
+    Write-Host "Failed to delete ESU license '$licenseName': $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
 
 ############################
 # End of Main script block #

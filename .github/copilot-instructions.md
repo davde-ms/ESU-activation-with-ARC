@@ -4,7 +4,7 @@
 
 - This repository provides PowerShell 7 scripts for creating, assigning, checking, managing, and deleting Windows Server 2012/R2 Extended Security Update (ESU) licenses through Azure Arc.
 - Treat ESU edition, core type, core count, activation state, program year, invoice ID, and exception handling as billing- and compliance-sensitive behavior. Do not infer or silently change licensing decisions.
-- Use `README.md` and `docs/*.md` for documented behavior. The scripts in `Scripts/` are the implementation source of truth when documentation and code disagree; call out the discrepancy rather than guessing.
+- Use `README.md` and `docs/**/*.md` for documented behavior. The scripts in `Scripts/` are the implementation source of truth when documentation and code disagree; call out the discrepancy rather than guessing.
 
 ## Work Approach
 

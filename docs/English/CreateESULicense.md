@@ -46,3 +46,23 @@ You can type the exact number of cores your host or VM has and the script will a
 - **coreCount** (allows you to change the number of cores of the license if you have need to increase or decrease it)
 
 > **All other parameters are immutable and cannot be changed once the license is created.**
+
+## Preview and confirmation
+
+Add `-WhatIf` to preview the license target and normalized operation without sending the Azure REST update. Run without `-WhatIf` after reviewing the action. Add `-Confirm` when you want PowerShell to ask before creation or modification.
+
+```powershell
+./CreateESULicense.ps1 <parameters> -WhatIf
+./CreateESULicense.ps1 <parameters> -Confirm
+```
+
+## Troubleshooting
+
+| Message or symptom | What to check |
+| --- | --- |
+| Authentication token is missing or expired | Supply all three service principal parameters, or obtain a new `Get-AzAccessToken` token object. |
+| `401` or `403` response | Verify the identity can create or update ESU licenses in the target resource group. |
+| `404` response | Check the subscription and license resource group names. |
+| Conflict or immutable-property response | Keep the existing license's edition, core type, and location; only supported properties can be updated. |
+| Core-count validation fails | Use a positive whole number within the ranges accepted by this script and a supported edition/core-type combination. |
+| Script exits with code `1` | Read the final failure message, correct the input or permission, and rerun with `-WhatIf`. |

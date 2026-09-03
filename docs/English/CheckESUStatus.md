@@ -49,6 +49,8 @@ Here are the command lines you should use to run it:
 
 When using the `-csvFilePath` parameter for bulk processing, the CSV file should contain the following columns:
 
+Start with the copy-ready [CheckESUStatus CSV template](../../samples/CheckESUStatus.csv). All included names and subscription IDs are fictitious and must be replaced.
+
 ### Required Columns:
 
 - **Name** (or **ARCServerName**): The name of the ARC server to check
@@ -166,4 +168,4 @@ The script includes comprehensive error handling for common scenarios:
 - **CSV File Issues**: Missing files or invalid format
 - **Network Issues**: Connection problems with Azure APIs
 
-[]: # Path: docs/CheckESUStatus.md
+[]: # Path: docs/English/CheckESUStatus.md

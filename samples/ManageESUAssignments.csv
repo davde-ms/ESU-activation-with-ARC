@@ -1,0 +1,3 @@
+Name,ServerResourceGroupName,LicenseName,LicenseResourceGroupName,AssignESULicense,LicenseSubscriptionId
+ws2012r2-app-01,rg-arc-servers,esu-standard-shared-01,rg-arc-esu-licenses,True,22222222-2222-2222-2222-222222222222
+ws2012r2-db-01,rg-arc-database,esu-standard-shared-01,rg-arc-esu-licenses,True,

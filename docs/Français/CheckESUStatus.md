@@ -7,7 +7,7 @@ Ce script vérifie l'état des licences ESU des serveurs avec Azure Arc. Il util
 ## Vérification d'un serveur avec un principal de service
 
 ```powershell
-./CheckESUStatus -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server"
+./CheckESUStatus -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "votre_valeur_secrète_application" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server"
 ```
 
 ## Vérification d'un serveur avec un jeton utilisateur
@@ -20,7 +20,7 @@ $authToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/
 ## Vérification en bloc avec un fichier CSV
 
 ```powershell
-./CheckESUStatus -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -csvFilePath "C:\Temp\ARC Servers to Check.csv"
+./CheckESUStatus -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "votre_valeur_secrète_application" -csvFilePath "C:\Temp\ARC Servers to Check.csv"
 ```
 
 ## Paramètres
@@ -50,6 +50,8 @@ Si les deux méthodes d'authentification sont fournies, `userToken` est utilisé
 ## Format du fichier CSV
 
 Le fichier CSV utilisé avec `-csvFilePath` doit contenir les colonnes suivantes.
+
+Commencez avec le [modèle CSV CheckESUStatus](../../samples/CheckESUStatus.csv) prêt à copier. Tous les noms et ID d'abonnement fournis sont fictifs et doivent être remplacés.
 
 ### Colonnes obligatoires
 
@@ -86,7 +88,7 @@ Le résumé indique le nombre total de serveurs vérifiés, le nombre de serveur
 Utilisez `-exportCsvPath` pour exporter les résultats détaillés :
 
 ```powershell
-./CheckESUStatus -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -csvFilePath "C:\servers.csv" -exportCsvPath "C:\Results\ESU-Status-Report.csv"
+./CheckESUStatus -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "votre_valeur_secrète_application" -csvFilePath "C:\servers.csv" -exportCsvPath "C:\Results\ESU-Status-Report.csv"
 ```
 
 Le fichier exporté contient les détails des serveurs et des licences, l'état, l'horodatage et les messages d'erreur. Une erreur d'export entraîne un code de sortie différent de zéro.
@@ -96,7 +98,7 @@ Le fichier exporté contient les détails des serveurs et des licences, l'état,
 Utilisez `-logFileName` pour créer un journal de transcription :
 
 ```powershell
-./CheckESUStatus -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server" -logFileName "C:\Logs\ESU-Check.log"
+./CheckESUStatus -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "votre_valeur_secrète_application" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server" -logFileName "C:\Logs\ESU-Check.log"
 ```
 
 ## Exemple de sortie

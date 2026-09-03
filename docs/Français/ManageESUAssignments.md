@@ -9,7 +9,7 @@ Utilisez soit les informations d'identification d'un principal de service, soit 
 ### Principal de service
 
 ```powershell
-./ManageESUAssignmentsFR.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
+./ManageESUAssignmentsFR.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "votre_valeur_secrète_application" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
 ```
 
 ### Jeton utilisateur
@@ -34,14 +34,14 @@ Si les deux méthodes d'authentification sont fournies, `-userToken` est utilis�
 | csvFilePath | Chemin du fichier CSV d'attribution. |
 | logFileName | Chemin facultatif du journal de transcription. |
 | userToken | Objet de jeton renvoyé par `Get-AzAccessToken`. |
-| DryRun | Valide les entrées et l'accès aux ressources sans envoyer de requête de modification. |
+| DryRun | Valide les entrées et l'accès aux ressources sans envoyer de requête de modification. `-Preview` est un alias. |
 
 ## Attributions inter-abonnements
 
 Utilisez `-licenseSubscriptionId` lorsque toutes les licences se trouvent dans un autre abonnement :
 
 ```powershell
-./ManageESUAssignmentsFR.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -licenseSubscriptionId "00000000-0000-0000-0000-000000000004" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
+./ManageESUAssignmentsFR.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -licenseSubscriptionId "00000000-0000-0000-0000-000000000004" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "votre_valeur_secrète_application" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
 ```
 
 L'abonnement de la licence est sélectionné dans l'ordre suivant :
@@ -56,6 +56,8 @@ L'identité doit disposer des droits requis dans les deux abonnements lorsqu'ils
 
 Le fichier CSV doit être créé manuellement.
 
+Commencez avec le [modèle CSV ManageESUAssignments](../../samples/ManageESUAssignments.csv) prêt à copier. Tous les noms et ID d'abonnement fournis sont fictifs et doivent être remplacés.
+
 | Colonne | Obligatoire | Description |
 | --- | --- | --- |
 | Name ou ARCServerName | Oui | Nom du serveur avec Azure Arc. |
@@ -65,14 +67,34 @@ Le fichier CSV doit être créé manuellement.
 | AssignESULicense | Oui | `True` attribue la licence; `False` la dissocie. |
 | LicenseSubscriptionId | Non | Abonnement contenant la licence de cette ligne. Remplace la valeur de la ligne de commande. |
 
-![Exemple de fichier CSV](../media/ManageESUAssignments_CSV_example.jpg)
+![Exemple de fichier CSV](../../media/ManageESUAssignments_CSV_example.jpg)
 
 ## Mode de simulation
 
 Ajoutez `-DryRun` pour valider les données CSV, l'authentification et l'accès aux ressources avant d'appliquer les attributions :
 
 ```powershell
-./ManageESUAssignmentsFR.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv" -DryRun
+./ManageESUAssignmentsFR.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "votre_valeur_secrète_application" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv" -DryRun
 ```
 
 Le mode de simulation peut envoyer des requêtes `GET` en lecture seule afin de valider l'accès et l'existence des ressources. Il n'envoie aucune requête `PUT`, `PATCH` ou `DELETE`.
+
+## WhatIf et confirmation
+
+Utilisez `-WhatIf` pour l'aperçu PowerShell standard. Il effectue la même validation des ressources en lecture seule que `-DryRun`, affiche chaque attribution ou dissociation proposée et n'envoie aucune requête de modification. Utilisez `-Confirm` pour approuver chaque opération pendant une exécution réelle.
+
+```powershell
+./ManageESUAssignmentsFR.ps1 <paramètres> -WhatIf
+./ManageESUAssignmentsFR.ps1 <paramètres> -Confirm
+```
+
+## Résolution des problèmes
+
+| Message ou symptôme | Vérification recommandée |
+| --- | --- |
+| Échec de validation du CSV | Repartez du modèle et vérifiez les en-têtes obligatoires, les noms de serveur, les groupes de ressources, les noms de licence et les valeurs d'action `True`/`False`. |
+| Jeton d'authentification absent ou expiré | Fournissez les trois paramètres du principal de service ou obtenez un nouvel objet de jeton avec `Get-AzAccessToken`. |
+| Échec de validation de l'accès aux ressources | Vérifiez que l'identité peut lire le profil de licence Arc et, pour une attribution, la licence ESU dans l'abonnement résolu. |
+| Réponse `401` ou `403` | Vérifiez les autorisations dans les abonnements du serveur et de la licence. |
+| Réponse `404` | Vérifiez les groupes de ressources, les noms et le champ facultatif `LicenseSubscriptionId` de chaque ligne. |
+| Le récapitulatif signale des échecs | Corrigez chaque ligne en échec, puis relancez tout le CSV avec `-DryRun` ou `-WhatIf` avant une exécution réelle. |

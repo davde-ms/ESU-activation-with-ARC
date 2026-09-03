@@ -20,7 +20,7 @@ The script supports two authentication methods:
 .NOTES
 File Name : AssignESULicense.ps1
 Author    : David De Backer
-Version   : 1.5
+Version   : 1.6
 Date      : 17-October-2023
 Update    : 03-September-2026
 Tested on : PowerShell Version 7.6.5
@@ -32,6 +32,7 @@ Product   : Azure ARC
 v1.4 - Added support for user token authentication. You can now provide a Microsoft Entra ID authentication token instead of service principal credentials.
        Made tenantId, appID, and clientSecret parameters optional when using token authentication.
 v1.5 - Authentication validation now returns exit code 1 for missing credentials, expired user tokens, and failed service principal token acquisition.
+v1.6 - Added standard WhatIf and Confirm support and reliable nonzero exits for REST failures.
     Added focused offline tests that verify authentication failures stop before any Azure REST request.
 
 .LINK
@@ -70,6 +71,7 @@ Example 2 shows how to use Microsoft Entra ID token authentication instead of se
 #Parameters definition block #
 ##############################
 
+[CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter(Mandatory=$true, HelpMessage="The ID of the subscription where the license will be created.")]
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid subscription ID.")]
@@ -248,12 +250,18 @@ else {
 # Converts the request body to JSON
 $requestBodyJson = $requestBody | ConvertTo-Json -Depth 5
 
-# Sends the PUT request to update the license
-$response = Invoke-RestMethod -Uri $apiEndpoint -Method $method -Headers $headers -Body $requestBodyJson
+$action = if ($unassign) { "Unlink ESU license '$licenseName'" } else { "Assign ESU license '$licenseName'" }
+if (-not $PSCmdlet.ShouldProcess($ARCServerName, $action)) {
+    return
+}
 
-# Sends the response to STDOUT, which would be captured by the calling script if any.
-# Feel free to comment out that line if you don't need to see the response.
-$response
+try {
+    $response = Invoke-RestMethod -Uri $apiEndpoint -Method $method -Headers $headers -Body $requestBodyJson -ErrorAction Stop
+    $response
+} catch {
+    Write-Host "Failed to $($action.ToLowerInvariant()) for server '$ARCServerName': $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
 
 ############################
 # End of Main script block #

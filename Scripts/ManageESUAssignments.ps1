@@ -24,7 +24,7 @@ The script supports two authentication methods:
 .NOTES
 File Name : ManageESUAssignments.ps1
 Author    : David De Backer
-Version   : 1.5
+Version   : 1.6
 Date      : 10-October-2025  
 Update    : 03-September-2026
 Tested on : PowerShell Version 7.6.5
@@ -62,6 +62,7 @@ v1.4 - Breaking change for parameter clarity:
 v1.5 - Hardened assignment result handling, summary counters, and failure exit codes for automation.
     Added resource-specific API versions and least-privilege license-profile and license preflight validation without role-assignment reads.
     Added Name/ARCServerName CSV compatibility, subscription-safe diagnostics, and expanded offline dry-run and REST tests.
+v1.6 - Added standard WhatIf and Confirm support while retaining DryRun read-only resource validation.
 
 
 .LINK
@@ -140,6 +141,7 @@ If you receive 403 Forbidden errors, check the following:
 #Parameters definition block #
 ##############################
 
+[CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter(Mandatory=$true, HelpMessage="The ID of the subscription where the ARC servers are located.")]
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid subscription ID.")]
@@ -190,7 +192,7 @@ param(
     [System.Object]$userToken,
 
     [Parameter(Mandatory=$false, HelpMessage="Perform a dry run without making actual changes. Shows what would be done.")]
-    [Alias("whatif")]
+    [Alias("Preview")]
     [switch]$DryRun
 )
 
@@ -416,13 +418,14 @@ function Test-CSVRowData {
     
     $isValid = $true
     $errors = @()
+    $arcServerName = Resolve-ARCServerName -row $row
     
     # Check required fields
     $requiredFields = @{
         'LicenseName' = $row.LicenseName
         'licenseResourceGroupName' = $row.licenseResourceGroupName
         'ServerResourceGroupName' = $row.ServerResourceGroupName
-        'Name or ARCServerName' = Resolve-ARCServerName -row $row
+        'Name or ARCServerName' = $arcServerName
         'AssignESULicense' = $row.AssignESULicense
     }
     
@@ -431,6 +434,18 @@ function Test-CSVRowData {
             $errors += "Missing or empty required field: $($field.Key)"
             $isValid = $false
         }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($row.LicenseName) -and
+        $row.LicenseName -notmatch '^[a-zA-Z0-9-_\.]+$') {
+        $errors += "LicenseName contains unsupported characters: '$($row.LicenseName)'"
+        $isValid = $false
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($arcServerName) -and
+        $arcServerName -notmatch '^[a-zA-Z0-9-_\.]{1,54}$') {
+        $errors += "Name or ARCServerName must contain only letters, numbers, hyphens, underscores, or periods and be no more than 54 characters: '$arcServerName'"
+        $isValid = $false
     }
     
     # Validate AssignESULicense values
@@ -678,9 +693,14 @@ foreach ($row in $data) {
                     'serverResourceGroupName' = $row.ServerResourceGroupName
                     'ARCServerName' = $currentARCServerName
                     'location' = $location
-                    'dryRun' = $DryRun
+                    'dryRun' = $DryRun -or $WhatIfPreference
                 }
-                
+
+                $approved = if ($DryRun) { $true } else { $PSCmdlet.ShouldProcess($currentARCServerName, "Assign ESU license '$($row.LicenseName)'") }
+                if (-not $approved -and -not $WhatIfPreference) {
+                    $skipCount++
+                    continue
+                }
                 $result = AssignESULicense @params
                 if ($result) { $successCount++ } else { $errorCount++ }
               }
@@ -701,9 +721,14 @@ foreach ($row in $data) {
                     'ARCServerName' = $currentARCServerName
                     'location' = $location
                     'unassign' = $true
-                    'dryRun' = $DryRun
+                    'dryRun' = $DryRun -or $WhatIfPreference
                 }
 
+                $approved = if ($DryRun) { $true } else { $PSCmdlet.ShouldProcess($currentARCServerName, "Unlink ESU license '$($row.LicenseName)'") }
+                if (-not $approved -and -not $WhatIfPreference) {
+                    $skipCount++
+                    continue
+                }
                 $result = AssignESULicense @params
                 if ($result) { $successCount++ } else { $errorCount++ }
               }
@@ -722,7 +747,7 @@ Write-Progress -Activity "Processing ESU License Assignments" -Completed
 # Display summary
 Write-Host ""
 Write-Host "=============================================="
-if ($DryRun) {
+if ($DryRun -or $WhatIfPreference) {
     Write-Host "DRY RUN - ESU License Assignment Summary"
 } else {
     Write-Host "ESU License Assignment Summary"
@@ -734,13 +759,13 @@ Write-Logfile "Failed operations: $errorCount" $(if ($errorCount -gt 0) { "ERROR
 Write-Logfile "Skipped operations: $skipCount" $(if ($skipCount -gt 0) { "WARNING" } else { "INFO" })
 
 if ($errorCount -gt 0) {
-    if ($DryRun) {
+    if ($DryRun -or $WhatIfPreference) {
         Write-Logfile "Dry run completed with validation errors. No actual changes were made." "WARNING"
     } else {
         Write-Logfile "Script completed with errors. Please review the log for details." "WARNING"
     }
     $exitCode = 1
-} elseif ($DryRun) {
+} elseif ($DryRun -or $WhatIfPreference) {
     Write-Logfile "Dry run completed successfully. No actual changes were made." "INFO"
     $exitCode = 0
 } else {
