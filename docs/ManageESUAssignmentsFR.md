@@ -1,4 +1,4 @@
-# ManageESUAssignments.ps1
+# ManageESUAssignmentsFR.ps1
 
 Ce script attribue ou dissocie en bloc des licences ESU existantes à partir d'un fichier CSV. Il permet d'attribuer une même licence à plusieurs serveurs avec Azure Arc et prend en charge les licences stockées dans un abonnement différent de celui des serveurs.
 
@@ -9,14 +9,14 @@ Utilisez soit les informations d'identification d'un principal de service, soit 
 ### Principal de service
 
 ```powershell
-./ManageESUAssignments.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
+./ManageESUAssignmentsFR.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
 ```
 
 ### Jeton utilisateur
 
 ```powershell
 $authToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/
-./ManageESUAssignments.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv" -userToken $authToken
+./ManageESUAssignmentsFR.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv" -userToken $authToken
 ```
 
 Si les deux méthodes d'authentification sont fournies, `-userToken` est utilisé.
@@ -41,7 +41,7 @@ Si les deux méthodes d'authentification sont fournies, `-userToken` est utilis�
 Utilisez `-licenseSubscriptionId` lorsque toutes les licences se trouvent dans un autre abonnement :
 
 ```powershell
-./ManageESUAssignments.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -licenseSubscriptionId "00000000-0000-0000-0000-000000000004" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
+./ManageESUAssignmentsFR.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -licenseSubscriptionId "00000000-0000-0000-0000-000000000004" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
 ```
 
 L'abonnement de la licence est sélectionné dans l'ordre suivant :
@@ -72,7 +72,7 @@ Le fichier CSV doit être créé manuellement.
 Ajoutez `-DryRun` pour valider les données CSV, l'authentification et l'accès aux ressources avant d'appliquer les attributions :
 
 ```powershell
-./ManageESUAssignments.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv" -DryRun
+./ManageESUAssignmentsFR.ps1 -arcServerSubscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv" -DryRun
 ```
 
 Le mode de simulation peut envoyer des requêtes `GET` en lecture seule afin de valider l'accès et l'existence des ressources. Il n'envoie aucune requête `PUT`, `PATCH` ou `DELETE`.

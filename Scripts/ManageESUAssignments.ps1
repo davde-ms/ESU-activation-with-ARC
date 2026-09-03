@@ -299,16 +299,18 @@ function AssignESULicense {
         # Validate resource access before attempting operation
         Write-Logfile "Validating access to ARC server '$ARCServerName'..." "INFO"
         $arcServerAccess = Test-AzureResourceAccess -subscriptionId $arcServerSubscriptionId -resourceGroupName $serverResourceGroupName -resourceName $ARCServerName -resourceType "Microsoft.HybridCompute/machines" -bearerToken $bearerToken
-        
-        Write-Logfile "Validating access to ESU license '$licenseName'..." "INFO"
-        $licenseAccess = Test-AzureResourceAccess -subscriptionId $licenseSubscriptionId -resourceGroupName $licenseResourceGroupName -resourceName $licenseName -resourceType "Microsoft.HybridCompute/licenses" -bearerToken $bearerToken
-        
+
         if (-not $arcServerAccess) {
             throw "Cannot access ARC server '$ARCServerName' in resource group '$serverResourceGroupName'. Check permissions and resource existence."
         }
-        
-        if (-not $licenseAccess) {
-            throw "Cannot access ESU license '$licenseName' in resource group '$licenseResourceGroupName'. Check permissions and resource existence."
+
+        if (-not $unassign) {
+            Write-Logfile "Validating access to ESU license '$licenseName'..." "INFO"
+            $licenseAccess = Test-AzureResourceAccess -subscriptionId $licenseSubscriptionId -resourceGroupName $licenseResourceGroupName -resourceName $licenseName -resourceType "Microsoft.HybridCompute/licenses" -bearerToken $bearerToken
+
+            if (-not $licenseAccess) {
+                throw "Cannot access ESU license '$licenseName' in resource group '$licenseResourceGroupName'. Check permissions and resource existence."
+            }
         }
 
         # Handle dry-run mode
@@ -317,7 +319,8 @@ function AssignESULicense {
             Write-Logfile "[DRY RUN] Would $action ESU license '$licenseName' to/from server '$ARCServerName'" "INFO"
             Write-Logfile "[DRY RUN] API Endpoint: $apiEndpoint" "INFO"
             Write-Logfile "[DRY RUN] Request Body: $requestBodyJson" "INFO"
-            Write-Logfile "[DRY RUN] Resource validation passed for both ARC server and ESU license" "SUCCESS"
+            $validationScope = if ($unassign) { "ARC server" } else { "ARC server and ESU license" }
+            Write-Logfile "[DRY RUN] Resource validation passed for $validationScope" "SUCCESS"
             return $true
         }
 
@@ -657,6 +660,7 @@ foreach ($row in $data) {
     
     # Validate row data
     if (-not (Test-CSVRowData -row $row -rowNumber $currentRow)) {
+        $errorCount++
         $skipCount++
         continue
     }
@@ -736,12 +740,16 @@ Write-Logfile "Successful operations: $successCount" "SUCCESS"
 Write-Logfile "Failed operations: $errorCount" $(if ($errorCount -gt 0) { "ERROR" } else { "INFO" })
 Write-Logfile "Skipped operations: $skipCount" $(if ($skipCount -gt 0) { "WARNING" } else { "INFO" })
 
-if ($DryRun) {
+if ($errorCount -gt 0) {
+    if ($DryRun) {
+        Write-Logfile "Dry run completed with validation errors. No actual changes were made." "WARNING"
+    } else {
+        Write-Logfile "Script completed with errors. Please review the log for details." "WARNING"
+    }
+    $exitCode = 1
+} elseif ($DryRun) {
     Write-Logfile "Dry run completed successfully. No actual changes were made." "INFO"
     $exitCode = 0
-} elseif ($errorCount -gt 0) {
-    Write-Logfile "Script completed with errors. Please review the log for details." "WARNING"
-    $exitCode = 1
 } else {
     Write-Logfile "Script completed successfully." "SUCCESS"
     $exitCode = 0

@@ -237,6 +237,32 @@ foreach ($scriptPath in $scriptPaths) {
             Assert-MockCalled Invoke-RestMethod 0 -ParameterFilter { $Method -eq 'PUT' }
         }
 
+        It 'unlinks without requiring access to the previously assigned license' {
+            Mock Test-AzureResourceAccess { $resourceType -eq 'Microsoft.HybridCompute/machines' }
+            Mock Invoke-RestMethod {}
+
+            $output = @(AssignESULicense `
+                -arcServerSubscriptionId '00000000-0000-0000-0000-000000000001' `
+                -licenseSubscriptionId '00000000-0000-0000-0000-000000000002' `
+                -licenseResourceGroupName 'license-rg' `
+                -licenseName 'license-01' `
+                -ARCServerName 'server-01' `
+                -serverResourceGroupName 'server-rg' `
+                -location 'eastus' `
+                -token 'placeholder-token' `
+                -unassign)
+
+            $output.Count | Should Be 1
+            $output[0] | Should Be $true
+            Assert-MockCalled Test-AzureResourceAccess 1
+            Assert-MockCalled Test-AzureResourceAccess 1 -ParameterFilter {
+                $resourceType -eq 'Microsoft.HybridCompute/machines'
+            }
+            Assert-MockCalled Invoke-RestMethod 1 -ParameterFilter {
+                $Method -eq 'PUT' -and $Body -notmatch 'assignedLicense'
+            }
+        }
+
         It 'uses the documented license-profile API version and explicit license subscription' {
             Mock Test-AzureResourceAccess { $true }
             Mock Invoke-RestMethod {}
@@ -261,3 +287,74 @@ foreach ($scriptPath in $scriptPaths) {
         }
     }
 }
+
+$subscriptionId = '00000000-0000-0000-0000-000000000001'
+$validCsvPath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-assignments-valid-$PID.csv"
+$invalidCsvPath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-assignments-invalid-$PID.csv"
+
+@'
+LicenseName,licenseResourceGroupName,ServerResourceGroupName,Name,AssignESULicense
+license-01,license-rg,server-rg,server-01,True
+'@ | Set-Content -Path $validCsvPath
+
+@'
+LicenseName,licenseResourceGroupName,ServerResourceGroupName,Name,AssignESULicense
+,license-rg,server-rg,server-01,True
+'@ | Set-Content -Path $invalidCsvPath
+
+function Invoke-AssignmentScenario {
+    param(
+        [string]$Path,
+        [string]$CsvPath,
+        [ValidateSet('InvalidCsv', 'DryRunValidationFailure')]
+        [string]$Scenario
+    )
+
+    $escapedPath = $Path.Replace("'", "''")
+    $escapedCsvPath = $CsvPath.Replace("'", "''")
+    $restBehavior = if ($Scenario -eq 'DryRunValidationFailure') {
+        "throw 'mocked resource validation failure'"
+    } else {
+        '[Environment]::Exit(9)'
+    }
+    $dryRunArgument = if ($Scenario -eq 'DryRunValidationFailure') { '-DryRun' } else { '' }
+
+    $command = @"
+function global:Clear-Host {}
+function global:Write-Progress {}
+function global:Invoke-RestMethod {
+    param(`$Uri, `$Method, `$Headers, `$Body)
+    $restBehavior
+}
+`$token = [pscustomobject]@{
+    ExpiresOn = (Get-Date).AddMinutes(5)
+    Token = ConvertTo-SecureString 'placeholder-token' -AsPlainText -Force
+}
+& '$escapedPath' -arcServerSubscriptionId '$subscriptionId' -location 'eastus' -csvFilePath '$escapedCsvPath' -userToken `$token $dryRunArgument
+exit `$LASTEXITCODE
+"@
+
+    $output = & (Join-Path $PSHOME 'pwsh.exe') -NoLogo -NoProfile -NonInteractive -Command $command 2>&1 | Out-String
+    return [pscustomobject]@{
+        ExitCode = $LASTEXITCODE
+        Output = $output
+    }
+}
+
+foreach ($scriptPath in $scriptPaths) {
+    Describe "Bulk assignment process behavior in $(Split-Path $scriptPath -Leaf)" {
+        It 'returns exit code 1 when a CSV row is invalid' {
+            $result = Invoke-AssignmentScenario -Path $scriptPath -CsvPath $invalidCsvPath -Scenario InvalidCsv
+
+            $result.ExitCode | Should Be 1
+        }
+
+        It 'returns exit code 1 when dry-run resource validation fails' {
+            $result = Invoke-AssignmentScenario -Path $scriptPath -CsvPath $validCsvPath -Scenario DryRunValidationFailure
+
+            $result.ExitCode | Should Be 1
+        }
+    }
+}
+
+Remove-Item -Path $validCsvPath, $invalidCsvPath -ErrorAction SilentlyContinue

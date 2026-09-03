@@ -298,16 +298,18 @@ function AssignESULicense {
         # Valide l'accès aux ressources avant de tenter l'opération
         Write-Logfile "Validation de l'accès au serveur ARC '$ARCServerName'..." "INFO"
         $arcServerAccess = Test-AzureResourceAccess -subscriptionId $arcServerSubscriptionId -resourceGroupName $serverResourceGroupName -resourceName $ARCServerName -resourceType "Microsoft.HybridCompute/machines" -bearerToken $bearerToken
-        
-        Write-Logfile "Validation de l'accès à la licence ESU '$licenseName'..." "INFO"
-        $licenseAccess = Test-AzureResourceAccess -subscriptionId $licenseSubscriptionId -resourceGroupName $licenseResourceGroupName -resourceName $licenseName -resourceType "Microsoft.HybridCompute/licenses" -bearerToken $bearerToken
-        
+
         if (-not $arcServerAccess) {
             throw "Impossible d'accéder au serveur ARC '$ARCServerName' dans le groupe de ressources '$serverResourceGroupName'. Vérifiez les permissions et l'existence de la ressource."
         }
-        
-        if (-not $licenseAccess) {
-            throw "Impossible d'accéder à la licence ESU '$licenseName' dans le groupe de ressources '$licenseResourceGroupName'. Vérifiez les permissions et l'existence de la ressource."
+
+        if (-not $unassign) {
+            Write-Logfile "Validation de l'accès à la licence ESU '$licenseName'..." "INFO"
+            $licenseAccess = Test-AzureResourceAccess -subscriptionId $licenseSubscriptionId -resourceGroupName $licenseResourceGroupName -resourceName $licenseName -resourceType "Microsoft.HybridCompute/licenses" -bearerToken $bearerToken
+
+            if (-not $licenseAccess) {
+                throw "Impossible d'accéder à la licence ESU '$licenseName' dans le groupe de ressources '$licenseResourceGroupName'. Vérifiez les permissions et l'existence de la ressource."
+            }
         }
 
         # Gère le mode simulation
@@ -316,7 +318,8 @@ function AssignESULicense {
             Write-Logfile "[SIMULATION] $action la licence ESU '$licenseName' au/du serveur '$ARCServerName'" "INFO"
             Write-Logfile "[SIMULATION] Point de terminaison API : $apiEndpoint" "INFO"
             Write-Logfile "[SIMULATION] Corps de la requête : $requestBodyJson" "INFO"
-            Write-Logfile "[SIMULATION] Validation des ressources réussie pour le serveur ARC et la licence ESU" "SUCCESS"
+            $validationScope = if ($unassign) { "le serveur ARC" } else { "le serveur ARC et la licence ESU" }
+            Write-Logfile "[SIMULATION] Validation des ressources réussie pour $validationScope" "SUCCESS"
             return $true
         }
 
@@ -656,6 +659,7 @@ foreach ($row in $data) {
     
     # Valide les données de la ligne
     if (-not (Test-CSVRowData -row $row -rowNumber $currentRow)) {
+        $errorCount++
         $skipCount++
         continue
     }
@@ -735,12 +739,16 @@ Write-Logfile "Opérations réussies : $successCount" "SUCCESS"
 Write-Logfile "Opérations échouées : $errorCount" $(if ($errorCount -gt 0) { "ERROR" } else { "INFO" })
 Write-Logfile "Opérations ignorées : $skipCount" $(if ($skipCount -gt 0) { "WARNING" } else { "INFO" })
 
-if ($DryRun) {
+if ($errorCount -gt 0) {
+    if ($DryRun) {
+        Write-Logfile "Simulation terminée avec des erreurs de validation. Aucune modification réelle n'a été apportée." "WARNING"
+    } else {
+        Write-Logfile "Script terminé avec des erreurs. Veuillez consulter le journal pour les détails." "WARNING"
+    }
+    $exitCode = 1
+} elseif ($DryRun) {
     Write-Logfile "Simulation terminée avec succès. Aucune modification réelle n'a été apportée." "INFO"
     $exitCode = 0
-} elseif ($errorCount -gt 0) {
-    Write-Logfile "Script terminé avec des erreurs. Veuillez consulter le journal pour les détails." "WARNING"
-    $exitCode = 1
 } else {
     Write-Logfile "Script terminé avec succès." "SUCCESS"
     $exitCode = 0
