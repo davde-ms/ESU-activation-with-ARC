@@ -6,6 +6,14 @@
 - Treat ESU edition, core type, core count, activation state, program year, invoice ID, and exception handling as billing- and compliance-sensitive behavior. Do not infer or silently change licensing decisions.
 - Use `README.md` and `docs/*.md` for documented behavior. The scripts in `Scripts/` are the implementation source of truth when documentation and code disagree; call out the discrepancy rather than guessing.
 
+## Work Approach
+
+- Start substantial or multi-step work with explicit, dependency-ordered phases. Complete and validate each phase before moving to the next; keep simple requests direct when phases would add no value.
+- Use subagents for bounded research, codebase exploration, independent review, or noisy validation output when context isolation will reduce total token usage. Give each subagent a narrow question, exact scope, and required output, and do not duplicate its work in the main session without a concrete reason.
+- Select the most appropriate available model for each subagent task. Prefer a fast, lower-cost model for deterministic searches, summaries, and routine validation; use a stronger reasoning model for ambiguous, cross-cutting, billing-sensitive, or complex debugging work.
+- Optimize for total task cost and correctness, not merely the fewest calls. Do not delegate when coordination overhead would exceed the task, and never trade away required evidence, validation, or safety to save tokens.
+- Keep the main session focused on decisions, validated evidence, integration, and user-facing results. Summarize subagent findings instead of reproducing large logs or raw exploration output.
+
 ## PowerShell And Azure Conventions
 
 - Target PowerShell 7.x and preserve the existing direct Azure Resource Manager REST approach unless a task explicitly requires another implementation.
