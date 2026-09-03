@@ -16,6 +16,6 @@ Where:
 | tenantId | The tenant ID of the Microsoft Entra ID tenant you want to use. |
 | appID | The application ID of the service principal you created in the prerequisites section. |
 | clientSecret | The secret key of the service principal you created in the prerequisites section. |
-| licenseResourceGroupName | The name of the resource group that will contain the ESU license. |
-| licenseName | The name of the ESU license you want to create. |
+| licenseResourceGroupName | Nom du groupe de ressources qui contient la licence ESU à supprimer. |
+| licenseName | Nom de la licence ESU à supprimer. |
 

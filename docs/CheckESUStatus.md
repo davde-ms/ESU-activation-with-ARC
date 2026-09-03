@@ -74,7 +74,7 @@ The script provides comprehensive status information for each server:
 
 ### License Status Types:
 
-- **Licensed**: Server has a valid ESU license assigned
+- **Licensed**: The server license profile contains an assigned ESU license resource ID. This status does not independently verify the referenced license's activation or provisioning state.
 - **No License Assigned**: Server has an ESU profile but no license assigned
 - **No ESU Profile**: Server has no ESU profile configured
 - **Error**: Error occurred while checking the server
@@ -91,7 +91,7 @@ For each server with a license, the script shows:
 ### Summary Report:
 
 - Total servers checked
-- Number of servers with valid ESU licenses
+- Number of servers with assigned ESU license resource IDs
 - Number of servers without ESU licenses
 - Number of servers with errors
 

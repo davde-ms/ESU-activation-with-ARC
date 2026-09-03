@@ -5,7 +5,7 @@ This script will create, assign and manage ESU licenses in bulk, taking its info
 
 Here is the command line you should use to run it:
     
-    ./ManageESULicenses.ps1 -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" -edition "Standard" -csvFilePath "C:\foldername\ESULicenses.csv" -licenseNamePrefix "ESU-" -licenseNameSuffix "-marketing" -token $authenticationToken
+    ./ManageESULicenses.ps1 -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" -edition "Standard" -csvFilePath "C:\foldername\ESULicenses.csv" -licenseNamePrefix "ESU-" -licenseNameSuffix "-marketing" -userToken $authenticationToken -invoiceId "5555555" -programYear "Year 1"
 
 
 Where:
@@ -23,9 +23,13 @@ Where:
 | csvFilePath | The path to the CSV file that contains the information about the ESU licenses you want to create. |
 | licenseNamePrefix (optional) | The prefix that will be used to create the ESU licenses. The script will concatenate the prefix with the content of the 'Name' found in the CSV to create the license name. |
 | licenseNameSuffix (optional) | The suffix that will be used to create the ESU licenses. The script will concatenate the suffix with the content of the 'Name' found in the CSV to create the license name. |
-| token (optional) | A valid Microsoft Entra ID authentication object that has the rights to create and assign ESU licenses |
+| userToken (optional) | A valid Microsoft Entra ID authentication token object that has the rights to create and assign ESU licenses. |
+| invoiceId (optional) | The invoice number for an applicable Volume Licensing transition entitlement. |
+| programYear (optional) | The ESU Volume Licensing program year: `Year 1`, `Year 2`, or `Year 3`. Selecting Year 2 or Year 3 also includes the preceding years in the license request. |
 
-> **Note:** The token parameter offers a way for you to work without having to rely on a Service Principal for authentication. You can either provide a token OR provide the tenantID, appID and clientSecret parameters. If you provide both, **the token will be used**.
+> **Note:** The userToken parameter offers a way for you to work without having to rely on a Service Principal for authentication. You can either provide a token OR provide the tenantID, appID and clientSecret parameters. If you provide both, **the token will be used**.
+
+The `invoiceId` and `programYear` parameters populate the Volume License details sent to Azure. Microsoft requires the applicable invoice number when provisioning an Azure Arc ESU license for a Volume Licensing transition scenario.
 
 **Note**: you can use the optional parameters to add a prefix and/or suffix to the license name that will be created. If you specify "ESU-" as a prefix and "-marketing" as a suffix, the script will create licenses named "ESU-ServerName-marketing" for each server in the CSV file. That can help you differentiate licenses belonging to different departments or business units for example.
 

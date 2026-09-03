@@ -110,4 +110,12 @@ foreach ($scriptCase in $scriptCases) {
     }
 }
 
+Describe 'DeleteESULicense parameter aliases' {
+    It 'accepts sec as a clientSecret alias' {
+        $command = Get-Command (Join-Path $PSScriptRoot '..\Scripts\DeleteESULicense.ps1')
+
+        ($command.Parameters['clientSecret'].Aliases -contains 'sec') | Should Be $true
+    }
+}
+
 Remove-Item -Path $csvPath -ErrorAction SilentlyContinue

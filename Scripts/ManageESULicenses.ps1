@@ -127,7 +127,7 @@ param(
     [Alias("token")]
     [System.Object]$userToken,
 
-    [Parameter(Mandatory=$false, HelpMessage="placeholder - invoiceid.")]
+    [Parameter(Mandatory=$false, HelpMessage="The invoice number for an applicable Volume Licensing transition entitlement.")]
     [string]$invoiceId,
 
     [Parameter(Mandatory=$false, HelpMessage="The program year for ESU licensing. Valid values are 'Year 1', 'Year 2', or 'Year 3'. When specifying Year 2 or Year 3, all previous years will be automatically included as required by Azure.")]

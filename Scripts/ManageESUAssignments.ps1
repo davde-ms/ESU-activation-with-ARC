@@ -210,7 +210,7 @@ $script:CONFIG = @{
     LicenseProfileApiVersion = "2023-06-20-preview"
     AzureResourceUrl = "https://management.azure.com/"
     LoginEndpoint = "https://login.microsoftonline.com"
-    RequiredCSVColumns = @('LicenseName', 'licenseResourceGroupName', 'ServerResourceGroupName', 'Name', 'AssignESULicense')
+    RequiredCSVColumns = @('LicenseName', 'licenseResourceGroupName', 'ServerResourceGroupName', 'AssignESULicense')
 }
 
 #########################################
@@ -317,8 +317,6 @@ function AssignESULicense {
         if ($dryRun) {
             $action = if ($unassign) { "unlink" } else { "assign" }
             Write-Logfile "[DRY RUN] Would $action ESU license '$licenseName' to/from server '$ARCServerName'" "INFO"
-            Write-Logfile "[DRY RUN] API Endpoint: $apiEndpoint" "INFO"
-            Write-Logfile "[DRY RUN] Request Body: $requestBodyJson" "INFO"
             $validationScope = if ($unassign) { "ARC server" } else { "ARC server and ESU license" }
             Write-Logfile "[DRY RUN] Resource validation passed for $validationScope" "SUCCESS"
             return $true
@@ -450,7 +448,7 @@ function Test-CSVRowData {
         'LicenseName' = $row.LicenseName
         'licenseResourceGroupName' = $row.licenseResourceGroupName
         'ServerResourceGroupName' = $row.ServerResourceGroupName
-        'Name' = $row.Name
+        'Name or ARCServerName' = Resolve-ARCServerName -row $row
         'AssignESULicense' = $row.AssignESULicense
     }
     
@@ -482,6 +480,22 @@ function Test-CSVRowData {
     return $isValid
 }
 
+function Resolve-ARCServerName {
+    param(
+        [PSCustomObject]$row
+    )
+
+    if ($row.PSObject.Properties['Name'] -and ![string]::IsNullOrWhiteSpace($row.Name)) {
+        return $row.Name
+    }
+
+    if ($row.PSObject.Properties['ARCServerName'] -and ![string]::IsNullOrWhiteSpace($row.ARCServerName)) {
+        return $row.ARCServerName
+    }
+
+    return $null
+}
+
 function Resolve-LicenseSubscriptionId {
     param(
         [PSCustomObject]$row,
@@ -490,16 +504,16 @@ function Resolve-LicenseSubscriptionId {
     )
 
     if ($row.PSObject.Properties['LicenseSubscriptionId'] -and ![string]::IsNullOrWhiteSpace($row.LicenseSubscriptionId)) {
-        Write-Verbose "Using license subscription from CSV: $($row.LicenseSubscriptionId)"
+        Write-Verbose "Using license subscription from CSV"
         return $row.LicenseSubscriptionId
     }
 
     if (![string]::IsNullOrWhiteSpace($licenseSubscriptionId)) {
-        Write-Verbose "Using license subscription from parameter: $licenseSubscriptionId"
+        Write-Verbose "Using license subscription from parameter"
         return $licenseSubscriptionId
     }
 
-    Write-Verbose "Using ARC server subscription for license: $arcServerSubscriptionId"
+    Write-Verbose "Using ARC server subscription for license"
     return $arcServerSubscriptionId
 }
 
@@ -643,6 +657,10 @@ if ($missingColumns) {
     Write-Logfile "Missing required CSV columns: $($missingColumns -join ', ')" "ERROR"
     exit 1
 }
+if ('Name' -notin $data[0].PSObject.Properties.Name -and 'ARCServerName' -notin $data[0].PSObject.Properties.Name) {
+    Write-Logfile "Missing required CSV column: Name or ARCServerName" "ERROR"
+    exit 1
+}
 
 # Initialize counters for summary
 $successCount = 0
@@ -661,17 +679,18 @@ foreach ($row in $data) {
     # Validate row data
     if (-not (Test-CSVRowData -row $row -rowNumber $currentRow)) {
         $errorCount++
-        $skipCount++
         continue
     }
-         
+
+        $currentARCServerName = Resolve-ARCServerName -row $row
+
         # Priority: CSV value, script parameter, then ARC server subscription for backward compatibility.
         $currentLicenseSubscriptionId = Resolve-LicenseSubscriptionId -row $row -licenseSubscriptionId $licenseSubscriptionId -arcServerSubscriptionId $arcServerSubscriptionId
 
         #Assign the license to the server if requested from the CSV file (AssignESULicense column shoud say TRUE for assignment or FALSE for unlinking)
         switch ($row.AssignESULicense) {
             "True" {
-                Write-Logfile "Assigning ESU license ($($row.LicenseName)) to server ($($row.name)) [License Sub: $currentLicenseSubscriptionId]" "INFO"
+                Write-Logfile "Assigning ESU license ($($row.LicenseName)) to server ($currentARCServerName)" "INFO"
                 
                 $params = @{
                     'arcServerSubscriptionId' = $arcServerSubscriptionId
@@ -683,7 +702,7 @@ foreach ($row in $data) {
                     'licenseResourceGroupName' = $row.licenseResourceGroupName
                     'licenseName' = $row.LicenseName
                     'serverResourceGroupName' = $row.ServerResourceGroupName
-                    'ARCServerName' = $row.Name
+                    'ARCServerName' = $currentARCServerName
                     'location' = $location
                     'dryRun' = $DryRun
                 }
@@ -693,7 +712,7 @@ foreach ($row in $data) {
               }
 
             "False" {
-                Write-Logfile "Unlinking ESU license ($($row.LicenseName)) from server ($($row.name)) [License Sub: $currentLicenseSubscriptionId]" "INFO"
+                Write-Logfile "Unlinking ESU license ($($row.LicenseName)) from server ($currentARCServerName)" "INFO"
 
                 $params = @{
                     'arcServerSubscriptionId' = $arcServerSubscriptionId
@@ -705,7 +724,7 @@ foreach ($row in $data) {
                     'licenseResourceGroupName' = $row.licenseResourceGroupName
                     'licenseName' = $row.LicenseName
                     'serverResourceGroupName' = $row.ServerResourceGroupName
-                    'ARCServerName' = $row.Name
+                    'ARCServerName' = $currentARCServerName
                     'location' = $location
                     'unassign' = $true
                     'dryRun' = $DryRun
@@ -716,7 +735,7 @@ foreach ($row in $data) {
               }
 
             Default {
-                Write-Logfile "Missing or invalid license assignment action for server '$($row.name)' and license '$($row.LicenseName)'. Expected 'True' or 'False', got '$($row.AssignESULicense)'" "WARNING"
+                Write-Logfile "Missing or invalid license assignment action for server '$currentARCServerName' and license '$($row.LicenseName)'. Expected 'True' or 'False', got '$($row.AssignESULicense)'" "WARNING"
                 $skipCount++
             }
         }

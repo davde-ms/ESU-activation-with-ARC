@@ -76,7 +76,7 @@ param(
     [string]$appID,
 
     [Parameter(Mandatory=$false, HelpMessage="A valid (non expired) client secret for App Registration that will be used to authenticate to the Azure API.")]
-    [Alias("secret","s")]
+    [Alias("s", "secret", "sec")]
     [string]$clientSecret,
 
     [Parameter(Mandatory=$true, HelpMessage="The name of the resource group where the license will be created.")]

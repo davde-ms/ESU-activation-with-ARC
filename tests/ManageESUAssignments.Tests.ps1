@@ -23,6 +23,7 @@ function Import-FunctionsUnderTest {
     foreach ($functionName in @(
         'AssignESULicense',
         'Get-AzureADBearerToken',
+        'Resolve-ARCServerName',
         'Resolve-LicenseSubscriptionId',
         'Test-AzureResourceAccess',
         'Test-CSVRowData',
@@ -94,6 +95,19 @@ foreach ($scriptPath in $scriptPaths) {
             $output.Count | Should Be 1
             $output[0] | Should BeOfType System.Boolean
             $output[0] | Should Be $true
+        }
+
+        It 'accepts ARCServerName as the server-name CSV column' {
+            $row = [pscustomobject]@{
+                LicenseName = 'license-01'
+                licenseResourceGroupName = 'license-rg'
+                ServerResourceGroupName = 'server-rg'
+                ARCServerName = 'server-01'
+                AssignESULicense = 'True'
+            }
+
+            Resolve-ARCServerName -row $row | Should Be 'server-01'
+            Test-CSVRowData -row $row -rowNumber 1 | Should Be $true
         }
 
         It 'emits exactly one false Boolean when permission validation fails' {
@@ -237,6 +251,28 @@ foreach ($scriptPath in $scriptPaths) {
             Assert-MockCalled Invoke-RestMethod 0 -ParameterFilter { $Method -eq 'PUT' }
         }
 
+        It 'does not log subscription IDs during dry-run' {
+            Mock Test-AzureResourceAccess { $true }
+            Mock Invoke-RestMethod {}
+            Mock Write-Logfile {}
+
+            $result = AssignESULicense `
+                -arcServerSubscriptionId '00000000-0000-0000-0000-000000000001' `
+                -licenseSubscriptionId '00000000-0000-0000-0000-000000000002' `
+                -licenseResourceGroupName 'license-rg' `
+                -licenseName 'license-01' `
+                -ARCServerName 'server-01' `
+                -serverResourceGroupName 'server-rg' `
+                -location 'eastus' `
+                -token 'placeholder-token' `
+                -dryRun
+
+            $result | Should Be $true
+            Assert-MockCalled Write-Logfile 0 -ParameterFilter {
+                $message -match '00000000-0000-0000-0000-00000000000[12]'
+            }
+        }
+
         It 'unlinks without requiring access to the previously assigned license' {
             Mock Test-AzureResourceAccess { $resourceType -eq 'Microsoft.HybridCompute/machines' }
             Mock Invoke-RestMethod {}
@@ -290,12 +326,18 @@ foreach ($scriptPath in $scriptPaths) {
 
 $subscriptionId = '00000000-0000-0000-0000-000000000001'
 $validCsvPath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-assignments-valid-$PID.csv"
+$alternateNameCsvPath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-assignments-alternate-name-$PID.csv"
 $invalidCsvPath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-assignments-invalid-$PID.csv"
 
 @'
 LicenseName,licenseResourceGroupName,ServerResourceGroupName,Name,AssignESULicense
 license-01,license-rg,server-rg,server-01,True
 '@ | Set-Content -Path $validCsvPath
+
+@'
+LicenseName,licenseResourceGroupName,ServerResourceGroupName,ARCServerName,AssignESULicense
+license-01,license-rg,server-rg,server-01,True
+'@ | Set-Content -Path $alternateNameCsvPath
 
 @'
 LicenseName,licenseResourceGroupName,ServerResourceGroupName,Name,AssignESULicense
@@ -306,7 +348,7 @@ function Invoke-AssignmentScenario {
     param(
         [string]$Path,
         [string]$CsvPath,
-        [ValidateSet('InvalidCsv', 'DryRunValidationFailure')]
+        [ValidateSet('InvalidCsv', 'DryRunValidationFailure', 'SuccessfulDryRun')]
         [string]$Scenario
     )
 
@@ -314,10 +356,12 @@ function Invoke-AssignmentScenario {
     $escapedCsvPath = $CsvPath.Replace("'", "''")
     $restBehavior = if ($Scenario -eq 'DryRunValidationFailure') {
         "throw 'mocked resource validation failure'"
+    } elseif ($Scenario -eq 'SuccessfulDryRun') {
+        '$null'
     } else {
         '[Environment]::Exit(9)'
     }
-    $dryRunArgument = if ($Scenario -eq 'DryRunValidationFailure') { '-DryRun' } else { '' }
+    $dryRunArgument = if ($Scenario -in @('DryRunValidationFailure', 'SuccessfulDryRun')) { '-DryRun' } else { '' }
 
     $command = @"
 function global:Clear-Host {}
@@ -347,6 +391,13 @@ foreach ($scriptPath in $scriptPaths) {
             $result = Invoke-AssignmentScenario -Path $scriptPath -CsvPath $invalidCsvPath -Scenario InvalidCsv
 
             $result.ExitCode | Should Be 1
+            if ((Split-Path $scriptPath -Leaf) -eq 'ManageESUAssignmentsFR.ps1') {
+                $result.Output | Should Match 'Opérations échouées : 1'
+                $result.Output | Should Match 'Opérations ignorées : 0'
+            } else {
+                $result.Output | Should Match 'Failed operations: 1'
+                $result.Output | Should Match 'Skipped operations: 0'
+            }
         }
 
         It 'returns exit code 1 when dry-run resource validation fails' {
@@ -354,7 +405,14 @@ foreach ($scriptPath in $scriptPaths) {
 
             $result.ExitCode | Should Be 1
         }
+
+        It 'processes an ARCServerName-only CSV successfully' {
+            $result = Invoke-AssignmentScenario -Path $scriptPath -CsvPath $alternateNameCsvPath -Scenario SuccessfulDryRun
+
+            $result.ExitCode | Should Be 0
+            $result.Output | Should Match 'server-01'
+        }
     }
 }
 
-Remove-Item -Path $validCsvPath, $invalidCsvPath -ErrorAction SilentlyContinue
+Remove-Item -Path $validCsvPath, $alternateNameCsvPath, $invalidCsvPath -ErrorAction SilentlyContinue
