@@ -348,20 +348,27 @@ function Invoke-AssignmentScenario {
     param(
         [string]$Path,
         [string]$CsvPath,
-        [ValidateSet('InvalidCsv', 'DryRunValidationFailure', 'SuccessfulDryRun')]
-        [string]$Scenario
+        [ValidateSet('InvalidCsv', 'DryRunValidationFailure', 'SuccessfulDryRun', 'SuccessfulAssignment', 'AssignmentRestFailure')]
+        [string]$Scenario,
+        [string]$LogFilePath
     )
 
     $escapedPath = $Path.Replace("'", "''")
     $escapedCsvPath = $CsvPath.Replace("'", "''")
-    $restBehavior = if ($Scenario -eq 'DryRunValidationFailure') {
-        "throw 'mocked resource validation failure'"
-    } elseif ($Scenario -eq 'SuccessfulDryRun') {
-        '$null'
-    } else {
-        '[Environment]::Exit(9)'
+    $restBehavior = switch ($Scenario) {
+        'DryRunValidationFailure' { "throw 'mocked resource validation failure'" }
+        'SuccessfulDryRun' { '$null' }
+        'SuccessfulAssignment' { '$null' }
+        'AssignmentRestFailure' { "if (`$Method -eq 'PUT') { throw 'mocked assignment failure' }" }
+        default { '[Environment]::Exit(9)' }
     }
     $dryRunArgument = if ($Scenario -in @('DryRunValidationFailure', 'SuccessfulDryRun')) { '-DryRun' } else { '' }
+    $logFileArgument = if ([string]::IsNullOrWhiteSpace($LogFilePath)) {
+        ''
+    } else {
+        $escapedLogFilePath = $LogFilePath.Replace("'", "''")
+        "-logFileName '$escapedLogFilePath'"
+    }
 
     $command = @"
 function global:Clear-Host {}
@@ -374,7 +381,7 @@ function global:Invoke-RestMethod {
     ExpiresOn = (Get-Date).AddMinutes(5)
     Token = ConvertTo-SecureString 'placeholder-token' -AsPlainText -Force
 }
-& '$escapedPath' -arcServerSubscriptionId '$subscriptionId' -location 'eastus' -csvFilePath '$escapedCsvPath' -userToken `$token $dryRunArgument
+& '$escapedPath' -arcServerSubscriptionId '$subscriptionId' -location 'eastus' -csvFilePath '$escapedCsvPath' -userToken `$token $dryRunArgument $logFileArgument
 exit `$LASTEXITCODE
 "@
 
@@ -411,6 +418,50 @@ foreach ($scriptPath in $scriptPaths) {
 
             $result.ExitCode | Should Be 0
             $result.Output | Should Match 'server-01'
+        }
+
+        It 'counts a successful assignment and returns exit code 0' {
+            $result = Invoke-AssignmentScenario -Path $scriptPath -CsvPath $validCsvPath -Scenario SuccessfulAssignment
+
+            $result.ExitCode | Should Be 0
+            if ((Split-Path $scriptPath -Leaf) -eq 'ManageESUAssignmentsFR.ps1') {
+                $result.Output | Should Match 'Opérations réussies : 1'
+                $result.Output | Should Match 'Opérations échouées : 0'
+            } else {
+                $result.Output | Should Match 'Successful operations: 1'
+                $result.Output | Should Match 'Failed operations: 0'
+            }
+        }
+
+        It 'counts a failed assignment and returns exit code 1' {
+            $result = Invoke-AssignmentScenario -Path $scriptPath -CsvPath $validCsvPath -Scenario AssignmentRestFailure
+
+            $result.ExitCode | Should Be 1
+            if ((Split-Path $scriptPath -Leaf) -eq 'ManageESUAssignmentsFR.ps1') {
+                $result.Output | Should Match 'Opérations réussies : 0'
+                $result.Output | Should Match 'Opérations échouées : 1'
+            } else {
+                $result.Output | Should Match 'Successful operations: 0'
+                $result.Output | Should Match 'Failed operations: 1'
+            }
+        }
+
+        It 'captures each summary message once when transcript logging is enabled' {
+            $logFilePath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-assignment-transcript-$PID-$([System.IO.Path]::GetRandomFileName()).txt"
+
+            try {
+                $result = Invoke-AssignmentScenario -Path $scriptPath -CsvPath $validCsvPath -Scenario SuccessfulDryRun -LogFilePath $logFilePath
+                $transcript = Get-Content -Path $logFilePath -Raw
+
+                $result.ExitCode | Should Be 0
+                if ((Split-Path $scriptPath -Leaf) -eq 'ManageESUAssignmentsFR.ps1') {
+                    @($transcript | Select-String -Pattern 'Opérations réussies : 1' -AllMatches).Matches.Count | Should Be 1
+                } else {
+                    @($transcript | Select-String -Pattern 'Successful operations: 1' -AllMatches).Matches.Count | Should Be 1
+                }
+            } finally {
+                Remove-Item -Path $logFilePath -ErrorAction SilentlyContinue
+            }
         }
     }
 }
