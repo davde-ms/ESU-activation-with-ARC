@@ -134,11 +134,11 @@ This script will check the ESU license status for Azure ARC servers. It validate
 
 Here is the command line you should use to run it for a single server:
 
-    ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server" -location "EastUS"
+    ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server"
 
 For bulk checking using a CSV file:
 
-    ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -csvFilePath "C:\Temp\ARC Servers to Check.csv" -location "EastUS"
+    ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -csvFilePath "C:\Temp\ARC Servers to Check.csv"
 
 where:
 
@@ -148,7 +148,7 @@ where:
 - clientSecret is the secret key of the service principal you created in the prerequisites section.
 - serverResourceGroupName is the name of the resource group that contains the Azure ARC server you want to check (for single server checks).
 - ARCServerName is the name of the Azure ARC server you want to check ESU license status for (for single server checks).
-- location is the Azure region where your ARC objects are deployed.
+- location is an optional compatibility parameter. Existing commands may continue to pass it, but the read-only status request does not use it.
 - csvFilePath is the path to the CSV file that contains the list of ARC servers to check (for bulk processing).
 
 ### CSV File Format for CheckESUStatus.ps1

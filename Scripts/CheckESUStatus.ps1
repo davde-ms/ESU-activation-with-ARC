@@ -49,15 +49,13 @@ https://learn.microsoft.com/en-us/azure/templates/microsoft.hybridcompute/machin
 -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -clientSecret "your_application_secret_value" `
 -serverResourceGroupName "rg-arcservers" `
--ARCServerName "Win2012-Server" `
--location "EastUS"
+-ARCServerName "Win2012-Server"
 
 .EXAMPLE-2
 $authToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/
 ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -serverResourceGroupName "rg-arcservers" `
 -ARCServerName "Win2012-Server" `
--location "EastUS" `
 -userToken $authToken
 
 .EXAMPLE-3
@@ -65,8 +63,7 @@ $authToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/
 -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
 -clientSecret "your_application_secret_value" `
--csvFilePath "C:\Temp\ARC Servers to Check.csv" `
--location "EastUS"
+-csvFilePath "C:\Temp\ARC Servers to Check.csv"
 
 These examples will check the ESU license status for ARC servers.
 Example 1 shows service principal authentication for a single server.
@@ -84,6 +81,7 @@ For CSV processing, the file should contain the following columns:
 #Parameters definition block #
 ##############################
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'location', Justification='Retained as an optional compatibility parameter for existing callers.')]
 param(
     [Parameter(Mandatory=$true, HelpMessage="The ID of the subscription where the ARC servers are located.")]
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', ErrorMessage="The input '{0}' has to be a valid subscription ID.")]
@@ -113,8 +111,8 @@ param(
     [Alias("server")]
     [string]$ARCServerName,
 
-    [Parameter(Mandatory=$true, HelpMessage="The region where the servers are located.")]
-    [ValidateNotNullOrEmpty()]
+    # Retained as an optional compatibility parameter; the read-only license-profile request does not use location.
+    [Parameter(Mandatory=$false, HelpMessage="Retained for backward compatibility. The status request does not use this value.")]
     [Alias("l","loc")]
     [string]$location,
 
@@ -160,8 +158,6 @@ $script:CONFIG = @{
     ApiVersion = "2023-06-20-preview"
     AzureResourceUrl = "https://management.azure.com/"
     LoginEndpoint = "https://login.microsoftonline.com"
-    MaxRetryAttempts = 3
-    RetryDelaySeconds = 5
 }
 
 #########################################
@@ -195,7 +191,7 @@ function Get-AzureADBearerToken {
     # Obtains the token with retry logic
     Write-Verbose "Authenticating..."
     
-    for ($attempt = 1; $attempt -le $script:CONFIG.MaxRetryAttempts; $attempt++) {
+    for ($attempt = 1; $attempt -le $retryCount; $attempt++) {
         try { 
             $response = Invoke-WebRequest -Method Post -Uri $oAuthEndpoint -ContentType "application/x-www-form-urlencoded" -Body $authbody
             $accessToken = ($response.Content | ConvertFrom-Json).access_token
@@ -211,12 +207,12 @@ function Get-AzureADBearerToken {
             $errorMessage = "Authentication attempt $attempt failed: $($_.Exception.Message)"
             Write-Logfile $errorMessage "WARNING"
             
-            if ($attempt -eq $script:CONFIG.MaxRetryAttempts) {
+            if ($attempt -eq $retryCount) {
                 Write-Logfile "All authentication attempts failed. Stopping." "ERROR"
                 return $null
             } else {
-                Write-Logfile "Retrying in $($script:CONFIG.RetryDelaySeconds) seconds..." "INFO"
-                Start-Sleep -Seconds $script:CONFIG.RetryDelaySeconds
+                Write-Logfile "Retrying in $retryDelaySeconds seconds..." "INFO"
+                Start-Sleep -Seconds $retryDelaySeconds
             }
         }    
     }
@@ -480,6 +476,34 @@ if ($csvFilePath) {
         
         # Validate CSV row data
         if (-not (Test-CSVRowData -row $row -rowNumber $currentServer)) {
+            $invalidServerName = if (-not [string]::IsNullOrWhiteSpace($row.Name)) {
+                $row.Name
+            } elseif (-not [string]::IsNullOrWhiteSpace($row.ARCServerName)) {
+                $row.ARCServerName
+            } else {
+                "CSV row $currentServer"
+            }
+            $invalidSubscriptionId = if (-not [string]::IsNullOrWhiteSpace($row.SubscriptionId)) {
+                $row.SubscriptionId
+            } else {
+                $subscriptionId
+            }
+            $results += , [PSCustomObject]@{
+                ServerName = $invalidServerName
+                ResourceGroup = $row.ServerResourceGroupName
+                SubscriptionId = $invalidSubscriptionId
+                HasLicenseProfile = $false
+                AssignedLicense = $null
+                LicenseResourceId = $null
+                LicenseName = $null
+                LicenseResourceGroup = $null
+                LicenseSubscription = $null
+                Location = $null
+                ProvisioningState = $null
+                Status = "Error"
+                LastChecked = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+                ErrorMessage = "CSV row validation failed"
+            }
             continue
         }
         
@@ -552,11 +576,13 @@ foreach ($result in $results) {
 }
 
 # Export results to CSV if requested
+$exportFailed = $false
 if ($exportCsvPath) {
     try {
         $results | Export-Csv -Path $exportCsvPath -NoTypeInformation
         Write-Logfile "Results exported to: $exportCsvPath" "SUCCESS"
     } catch {
+        $exportFailed = $true
         Write-Logfile "Failed to export results to CSV: $($_.Exception.Message)" "ERROR"
     }
 }
@@ -564,7 +590,7 @@ if ($exportCsvPath) {
 If (![string]::IsNullOrWhiteSpace($logFileName)) { Stop-Transcript }
 
 # Set exit code based on results
-$exitCode = if ($errorServers -gt 0) { 1 } else { 0 }
+$exitCode = if ($errorServers -gt 0 -or $exportFailed) { 1 } else { 0 }
 exit $exitCode
 
 ############################

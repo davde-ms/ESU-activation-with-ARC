@@ -8,16 +8,16 @@ Here are the command lines you should use to run it:
 
 ## Single Server Check (Service Principal Authentication)
 
-    ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server" -location "EastUS"
+    ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server"
 
 ## Single Server Check (User Token Authentication)
 
     $authToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/
-    ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server" -location "EastUS" -userToken $authToken
+    ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server" -userToken $authToken
 
 ## Bulk Server Check (CSV File)
 
-    ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -csvFilePath "C:\Temp\ARC Servers to Check.csv" -location "EastUS"
+    ./CheckESUStatus -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -csvFilePath "C:\Temp\ARC Servers to Check.csv"
 
 ## Parameters
 
@@ -29,7 +29,7 @@ Here are the command lines you should use to run it:
 | clientSecret            | The secret key of the service principal you created in the prerequisites section.                                       | No\*     |
 | serverResourceGroupName | The name of the resource group that contains the Azure ARC server you want to check. Required for single server checks. | No\*\*   |
 | ARCServerName           | The name of the Azure ARC server you want to check ESU license status for. Required for single server checks.           | No\*\*   |
-| location                | The Azure region where your ARC objects are deployed.                                                                   | Yes      |
+| location                | Retained for compatibility with existing command lines; the read-only status request does not use it.                  | No       |
 | csvFilePath             | The full path to the CSV file containing the list of ARC servers to check. Required for bulk processing.                | No\*\*\* |
 | logFileName             | The name of the log file to be created (optional).                                                                      | No       |
 | userToken               | A valid Microsoft Entra ID authentication token object (alternative to service principal).                              | No\*     |
@@ -42,6 +42,8 @@ Here are the command lines you should use to run it:
 - \*\*\* Required when doing bulk processing (not checking a single server)
 
 > **Note:** The userToken parameter offers a way for you to work without having to rely on a Service Principal for authentication. You can either provide a token OR provide the tenantID, appID and clientSecret parameters. If you provide both, **the token will be used**.
+
+> **Compatibility note:** Existing command lines may continue to pass `-location`, but new commands can omit it.
 
 ## CSV File Format for Bulk Processing
 
@@ -97,7 +99,7 @@ For each server with a license, the script shows:
 
 Use the `-exportCsvPath` parameter to export detailed results to a CSV file:
 
-    ./CheckESUStatus -subscriptionId "xxx" -tenantId "xxx" -appID "xxx" -clientSecret "xxx" -csvFilePath "C:\servers.csv" -location "EastUS" -exportCsvPath "C:\Results\ESU-Status-Report.csv"
+    ./CheckESUStatus -subscriptionId "xxx" -tenantId "xxx" -appID "xxx" -clientSecret "xxx" -csvFilePath "C:\servers.csv" -exportCsvPath "C:\Results\ESU-Status-Report.csv"
 
 The exported CSV contains all server details including license URIs, status, timestamps, and error messages.
 
@@ -105,7 +107,7 @@ The exported CSV contains all server details including license URIs, status, tim
 
 Use the `-logFileName` parameter to create a transcript log of the script execution:
 
-    ./CheckESUStatus -subscriptionId "xxx" -tenantId "xxx" -appID "xxx" -clientSecret "xxx" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server" -location "EastUS" -logFileName "C:\Logs\ESU-Check.log"
+    ./CheckESUStatus -subscriptionId "xxx" -tenantId "xxx" -appID "xxx" -clientSecret "xxx" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012-Server" -logFileName "C:\Logs\ESU-Check.log"
 
 ## Sample Output
 
