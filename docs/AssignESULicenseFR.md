@@ -1,27 +1,32 @@
 # AssignESULicense.ps1
 
-This script will assign a single ESU license to a specific Azure ARC server.
+Ce script affecte une licence ESU à un serveur Azure Arc spécifique.
 
-Here is the command line you should use to run it:
-    
-    ./AssignESULicense -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores" -serverResourceGroupName "rg-arservers" -ARCServerName "Win2012" -location "EastUS"
+## Authentification par principal de service
 
-Where:
+    ./AssignESULicense -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "votre_valeur_secrète_application" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012" -location "EastUS"
 
-| Parameter | Description |
-| --- | --- |
-| subscriptionId | The subscription ID of the Azure subscription you want to use. |
-| tenantId | The tenant ID of the Microsoft Entra ID tenant you want to use. |
-| appID | The application ID of the service principal you created in the prerequisites section. |
-| clientSecret | The secret key of the service principal you created in the prerequisites section. |
-| licenseResourceGroupName | The name of the resource group that contains the ESU license you want to assign to the Azure ARC server. |
-| licenseName | The name of the ESU license you want to assign to the Azure ARC server. |
-| serverResourceGroupName | The name of the resource group that contains the Azure ARC server you want to assign the ESU license to. |
-| ARCServerName | The name of the Azure ARC server you want to assign the ESU license to. |
-| location | The Azure region where you ARC objects are deployed. |
+## Authentification par jeton utilisateur
 
+    $authToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/
+    ./AssignESULicense -subscriptionId "00000000-0000-0000-0000-000000000001" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012" -location "EastUS" -userToken $authToken
 
-> You can use the `-u` at the end of the command line to UNLINK an existing license from an Azure ARC server. If you do not specify the `-u` parameter, the script will link the license to the Azure ARC server (default behavior).
+## Paramètres
 
-[]: # Path: Scripts/docs/AssignESULicenses.md
+| Paramètre | Description | Obligatoire |
+| --- | --- | --- |
+| subscriptionId | ID de l'abonnement Azure à utiliser. | Oui |
+| tenantId | ID du locataire Microsoft Entra ID. | Non* |
+| appID | ID d'application du principal de service. | Non* |
+| clientSecret | Secret du principal de service. | Non* |
+| licenseResourceGroupName | Groupe de ressources contenant la licence ESU. | Oui |
+| licenseName | Nom de la licence ESU à affecter. | Oui |
+| serverResourceGroupName | Groupe de ressources contenant le serveur Azure Arc. | Oui |
+| ARCServerName | Nom du serveur Azure Arc. | Oui |
+| location | Région Azure des objets Azure Arc. | Oui |
+| userToken | Objet de jeton Microsoft Entra ID valide, utilisé à la place du principal de service. | Non* |
+
+* Fournissez soit `tenantId`, `appID` et `clientSecret`, soit `userToken`. Si les deux méthodes sont fournies, le jeton utilisateur est utilisé.
+
+Ajoutez `-u` pour délier une licence existante. Sans `-u`, le script affecte la licence au serveur.
 

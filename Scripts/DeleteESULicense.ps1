@@ -22,17 +22,19 @@ The script supports two authentication methods:
 .NOTES
 File Name : DeleteESULicense.ps1
 Author    : David De Backer
-Version   : 1.1
+Version   : 1.2
 Date      : 19-October-2023
-Update    : 29-October-2025
-Tested on : PowerShell Version 7.3.8
-Module    : Azure Powershell version 9.6.0
+Update    : 03-September-2026
+Tested on : PowerShell Version 7.6.5
+Module    : Azure PowerShell Az.Accounts version 5.5.2
 Requires  : Powershell Core version 7.x or later
 Product   : Azure ARC
 
 .CHANGELOG
 v1.1 - Added support for user token authentication. You can now provide a Microsoft Entra ID authentication token instead of service principal credentials.
        Made tenantId, appID, and clientSecret parameters optional when using token authentication.
+v1.2 - Authentication validation now returns exit code 1 for missing credentials, expired user tokens, and failed service principal token acquisition.
+    Added the sec compatibility alias for clientSecret and focused offline authentication tests.
 
 .LINK
 To get more information on Azure ARC ESU license REST API please visit:

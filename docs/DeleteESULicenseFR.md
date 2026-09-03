@@ -1,21 +1,29 @@
 # DeleteESULicense.ps1
 
-This script will delete an ESU license. When you delete a license, it will be removed from the Azure ARC server it was assigned to and stop the billing tied to that license.
+Ce script supprime une licence ESU. La suppression rompt son association avec le serveur Azure Arc et arrête la facturation liée à cette licence.
 
-> **Deleting an activated license and then recreating it is STRONGLY DISCOURAGED. This is because all activated licenses will incur the monthly ESU fee beginning on October 10, 2023. If you delete a license and subsequently recreate it, you will be charged for the new license from October 10, 2023 onwards, rather than from the time of its initial creation or activation.**
+> **La suppression puis la recréation d'une licence activée est fortement déconseillée, car elle peut avoir des conséquences de facturation. Vérifiez les exigences ESU applicables avant toute suppression.**
 
-Here is the command line you should use to run it:
-    
-    ./DeleteESULicense -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores"
+## Authentification par principal de service
 
-Where:
+    ./DeleteESULicense -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "votre_valeur_secrète_application" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores"
 
-| Parameter | Description |
-| --- | --- |
-| subscriptionId | The subscription ID of the Azure subscription you want to use. |
-| tenantId | The tenant ID of the Microsoft Entra ID tenant you want to use. |
-| appID | The application ID of the service principal you created in the prerequisites section. |
-| clientSecret | The secret key of the service principal you created in the prerequisites section. |
-| licenseResourceGroupName | Nom du groupe de ressources qui contient la licence ESU à supprimer. |
-| licenseName | Nom de la licence ESU à supprimer. |
+## Authentification par jeton utilisateur
+
+    $authToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/
+    ./DeleteESULicense -subscriptionId "00000000-0000-0000-0000-000000000001" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores" -userToken $authToken
+
+## Paramètres
+
+| Paramètre | Description | Obligatoire |
+| --- | --- | --- |
+| subscriptionId | ID de l'abonnement Azure à utiliser. | Oui |
+| tenantId | ID du locataire Microsoft Entra ID. | Non* |
+| appID | ID d'application du principal de service. | Non* |
+| clientSecret | Secret du principal de service. | Non* |
+| licenseResourceGroupName | Groupe de ressources contenant la licence ESU à supprimer. | Oui |
+| licenseName | Nom de la licence ESU à supprimer. | Oui |
+| userToken | Objet de jeton Microsoft Entra ID valide, utilisé à la place du principal de service. | Non* |
+
+* Fournissez soit `tenantId`, `appID` et `clientSecret`, soit `userToken`. Si les deux méthodes sont fournies, le jeton utilisateur est utilisé.
 

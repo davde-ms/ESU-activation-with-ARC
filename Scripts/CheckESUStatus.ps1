@@ -10,10 +10,11 @@ YOU ARE FREE TO REUSE AND/OR MODIFY THE CODE TO FIT YOUR NEEDS
 Checks the ESU license status for Azure ARC servers.
 
 .DESCRIPTION
-This script validates whether ARC servers have valid ESU licenses applied by making REST API calls to Azure.
+This script checks whether ARC server license profiles contain an assigned ESU license resource ID by making REST API calls to Azure.
 It can check individual servers or process multiple servers from a CSV file.
 The script retrieves license profile information from the /machines/<machineName>/licenseProfiles/default endpoint
 and provides detailed status information about ESU license assignments.
+The Licensed status reports assignment only; it does not independently verify the referenced license's activation or provisioning state.
 
 The script supports two authentication methods:
 1. Service Principal authentication (requires tenantId, appID and clientSecret)
@@ -22,11 +23,11 @@ The script supports two authentication methods:
 .NOTES
 File Name : CheckESUStatus.ps1
 Author    : David De Backer
-Version   : 1.0
+Version   : 1.1
 Date      : 31-October-2025
-Update    : 31-October-2025
-Tested on : PowerShell Version 7.3.8
-Module    : Azure Powershell version 9.6.0
+Update    : 03-September-2026
+Tested on : PowerShell Version 7.6.5
+Module    : Azure PowerShell Az.Accounts version 5.5.2
 Requires  : Powershell Core version 7.x or later
 Product   : Azure ARC
 
@@ -35,6 +36,8 @@ v1.0 - Initial release with support for checking ESU license status on ARC serve
        Added support for both service principal and user token authentication
        Added support for single server check and bulk CSV processing
        Added detailed status reporting and error handling
+v1.1 - Made location optional while preserving compatibility and wired retry parameters into authentication.
+    Added reliable failure exit codes, CSV subscription overrides, offline process tests, and assignment-only Licensed status guidance.
 
 .LINK
 To get more information on Azure ARC ESU license REST API please visit:
@@ -543,7 +546,7 @@ if ($calculatedTotal -ne $totalServers) {
 }
 
 Write-Logfile "Total servers checked: $totalServers" "INFO"
-Write-Logfile "Servers with valid ESU licenses: $licensedServers" "SUCCESS"
+Write-Logfile "Servers with assigned ESU license resource IDs: $licensedServers" "SUCCESS"
 Write-Logfile "Servers without ESU licenses: $unlicensedServers" $(if ($unlicensedServers -gt 0) { "WARNING" } else { "INFO" })
 Write-Logfile "Servers with errors: $errorServers" $(if ($errorServers -gt 0) { "ERROR" } else { "INFO" })
 

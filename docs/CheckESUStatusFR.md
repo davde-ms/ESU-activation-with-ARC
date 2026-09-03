@@ -72,14 +72,14 @@ Lorsque `SubscriptionId` n'est pas renseigné, le script utilise le paramètre `
 
 Le script peut renvoyer les états suivants :
 
-- **Licensed** : une licence ESU est attribuée au serveur.
+- **Licensed** : le profil de licence du serveur contient l'ID de ressource d'une licence ESU attribuée. Cet état confirme uniquement l'attribution ; il ne vérifie pas indépendamment l'activation ou l'état d'approvisionnement de la licence référencée.
 - **No License Assigned** : le profil ESU existe, mais aucune licence n'est attribuée.
 - **No ESU Profile** : aucun profil ESU n'est configuré.
 - **Error** : une erreur s'est produite pendant la vérification.
 
 Pour chaque serveur, le script affiche le nom, le groupe de ressources et l'état. Lorsqu'une licence est attribuée, il affiche également le nom de la licence, son groupe de ressources et son URI Azure Resource Manager complète.
 
-Le résumé indique le nombre total de serveurs vérifiés, le nombre de serveurs avec ou sans licence et le nombre d'erreurs.
+Le résumé indique le nombre total de serveurs vérifiés, le nombre de serveurs avec ou sans ID de ressource de licence attribuée et le nombre d'erreurs.
 
 ## Export des résultats
 
@@ -107,7 +107,7 @@ Starting ESU License Status Check
 ==============================================
 
 [INFO] Total servers checked: 1
-[SUCCESS] Servers with valid ESU licenses: 1
+[SUCCESS] Servers with assigned ESU license resource IDs: 1
 [INFO] Servers without ESU licenses: 0
 [INFO] Servers with errors: 0
 ```
@@ -121,10 +121,10 @@ Starting ESU License Status Check
 
 ## Cas d'utilisation
 
-- Audit de conformité des attributions ESU.
+- Audit des serveurs qui référencent un ID de ressource de licence ESU attribué.
 - Gestion et dépannage des attributions de licences.
-- Production de rapports sur la couverture ESU.
-- Planification des besoins de licences.
+- Production de rapports sur les attributions de licences ESU.
+- Planification à partir des attributions de licences actuelles.
 
 ## Gestion des erreurs
 

@@ -23,11 +23,11 @@ Le script prend en charge deux méthodes d'authentification :
 .NOTES
 Nom du fichier : ManageESUAssignmentsFR.ps1
 Auteur         : David De Backer
-Version        : 1.4
+Version        : 1.5
 Date           : 10-Octobre-2025  
-Mise à jour    : 28-Octobre-2025
-Testé sur      : PowerShell Version 7.3.8
-Module         : Azure Powershell version 9.6.0
+Mise à jour    : 03-Septembre-2026
+Testé sur      : PowerShell Version 7.6.5
+Module         : Azure PowerShell Az.Accounts version 5.5.2
 Exigences      : Powershell Core version 7.x ou ultérieure
 Produit        : Azure ARC
 
@@ -58,6 +58,9 @@ v1.4 - Changement majeur pour la clarté des paramètres :
        • Mise à jour de toutes les références internes et de la documentation pour utiliser le nouveau nom de paramètre
        • Ajout d'un alias de rétrocompatibilité 'subscriptionId' pour maintenir la compatibilité avec les scripts existants
        • Mise à jour de tous les exemples dans la documentation pour refléter le nouveau nom de paramètre
+v1.5 - Renforcement de la gestion des résultats, des compteurs récapitulatifs et des codes de sortie d'échec pour l'automatisation.
+    Ajout de versions d'API propres aux ressources et de validations préalables à privilèges minimaux pour les profils de licence et les licences, sans lecture des attributions de rôles.
+    Ajout de la compatibilité CSV Name/ARCServerName, de diagnostics sans identifiants d'abonnement et de tests hors ligne étendus.
 
 
 .LINK
@@ -114,11 +117,10 @@ DÉPANNAGE DES ERREURS 403 FORBIDDEN :
 Si vous recevez des erreurs 403 Forbidden, vérifiez les points suivants :
 
 1. Permissions du Principal de Service (Abonnement Serveur ARC) :
-   - Attribuez le rôle 'Azure Connected Machine Resource Administrator' au niveau de l'abonnement ou du groupe de ressources
-   - Ou attribuez le rôle 'Contributor' au niveau de l'abonnement ou du groupe de ressources
+    - Attribuez le rôle personnalisé 'ARC ESU License Administrator' de ce dépôt au groupe de ressources du serveur ARC ou à une étendue applicable plus restreinte
    
 2. Permissions du Principal de Service (Abonnement Licence, si différent) :
-   - Attribuez le rôle 'Contributor' au niveau de l'abonnement ou du groupe de ressources où se trouvent les licences ESU
+    - Attribuez le même rôle personnalisé au groupe de ressources de la licence ESU ou à une étendue applicable plus restreinte
    
 3. Existence des Ressources :
    - Vérifiez que le serveur ARC existe : az connectedmachine show --name "NomServeur" --resource-group "NomRG" --subscription "IDSub"
@@ -204,7 +206,6 @@ param(
 # Constantes de configuration
 $script:CONFIG = @{
     # Contrats ESU : https://learn.microsoft.com/azure/azure-arc/servers/api-extended-security-updates
-    MachineApiVersion = "2023-06-20-preview"
     LicenseApiVersion = "2023-06-20-preview"
     LicenseProfileApiVersion = "2023-06-20-preview"
     AzureResourceUrl = "https://management.azure.com/"
@@ -296,11 +297,11 @@ function AssignESULicense {
         $requestBodyJson = $requestBody | ConvertTo-Json -Depth 5
 
         # Valide l'accès aux ressources avant de tenter l'opération
-        Write-Logfile "Validation de l'accès au serveur ARC '$ARCServerName'..." "INFO"
-        $arcServerAccess = Test-AzureResourceAccess -subscriptionId $arcServerSubscriptionId -resourceGroupName $serverResourceGroupName -resourceName $ARCServerName -resourceType "Microsoft.HybridCompute/machines" -bearerToken $bearerToken
+        Write-Logfile "Validation de l'accès au profil de licence du serveur ARC '$ARCServerName'..." "INFO"
+        $arcServerAccess = Test-AzureResourceAccess -subscriptionId $arcServerSubscriptionId -resourceGroupName $serverResourceGroupName -resourceName $ARCServerName -resourceType "Microsoft.HybridCompute/machines/licenseProfiles" -bearerToken $bearerToken
 
         if (-not $arcServerAccess) {
-            throw "Impossible d'accéder au serveur ARC '$ARCServerName' dans le groupe de ressources '$serverResourceGroupName'. Vérifiez les permissions et l'existence de la ressource."
+            throw "Impossible d'accéder au profil de licence du serveur ARC '$ARCServerName' dans le groupe de ressources '$serverResourceGroupName'. Vérifiez les permissions et l'existence de la ressource."
         }
 
         if (-not $unassign) {
@@ -354,43 +355,12 @@ function AssignESULicense {
             # Fournit des conseils spécifiques pour les erreurs 403
             if ($statusCode -eq 403) {
                 Write-Logfile "Erreur 403 Forbidden - Causes possibles :" "ERROR"
-                Write-Logfile "1. Le principal de service manque du rôle 'Azure Connected Machine Resource Administrator' sur l'abonnement serveur ARC" "ERROR"
-                Write-Logfile "2. Le principal de service manque du rôle 'Contributor' ou 'Owner' sur l'abonnement licence" "ERROR"
+                Write-Logfile "1. L'identité ne dispose pas du rôle personnalisé 'ARC ESU License Administrator' de ce dépôt à l'étendue du serveur ARC" "ERROR"
+                Write-Logfile "2. L'identité ne dispose pas du même rôle personnalisé à l'étendue de la licence ESU" "ERROR"
                 Write-Logfile "3. La ressource serveur ARC '$ARCServerName' n'existe pas dans le groupe de ressources '$serverResourceGroupName'" "ERROR"
                 Write-Logfile "4. La ressource licence '$licenseName' n'existe pas dans le groupe de ressources '$licenseResourceGroupName'" "ERROR"
                 Write-Logfile "5. Permissions inter-abonnements pas correctement configurées" "ERROR"
             }
-        }
-        return $false
-    }
-}
-
-function Test-ServicePrincipalPermissions {
-    param(
-        [string]$subscriptionId,
-        [string]$bearerToken
-    )
-    
-    Write-Logfile "Vérification des permissions du principal de service sur l'abonnement '$subscriptionId'..." "INFO"
-    
-    $headers = @{
-        "Authorization" = "Bearer $bearerToken"
-        "Content-Type" = "application/json"
-    }
-    
-    # Essaie de lister les affectations de rôles pour valider les permissions
-    $roleAssignmentsUri = "https://management.azure.com/subscriptions/$subscriptionId/providers/Microsoft.Authorization/roleAssignments?api-version=2022-04-01&`$filter=atScope()"
-    
-    try {
-        Invoke-RestMethod -Uri $roleAssignmentsUri -Method GET -Headers $headers | Out-Null
-        Write-Logfile "Le principal de service a des permissions suffisantes pour lire les affectations de rôles" "SUCCESS"
-        return $true
-    } catch {
-        $statusCode = $_.Exception.Response.StatusCode
-        Write-Logfile "Impossible de lire les affectations de rôles sur l'abonnement : HTTP $statusCode" "WARNING"
-        
-        if ($statusCode -eq 403) {
-            Write-Logfile "Le principal de service peut manquer du rôle 'Reader' au niveau de l'abonnement" "WARNING"
         }
         return $false
     }
@@ -411,7 +381,7 @@ function Test-AzureResourceAccess {
     }
 
     $apiVersions = @{
-        "Microsoft.HybridCompute/machines" = $script:CONFIG.MachineApiVersion
+        "Microsoft.HybridCompute/machines/licenseProfiles" = $script:CONFIG.LicenseProfileApiVersion
         "Microsoft.HybridCompute/licenses" = $script:CONFIG.LicenseApiVersion
     }
 
@@ -420,7 +390,11 @@ function Test-AzureResourceAccess {
         return $false
     }
     
-    $resourceUri = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/$resourceType/$resourceName"
+    $resourceUri = if ($resourceType -eq "Microsoft.HybridCompute/machines/licenseProfiles") {
+        "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/Microsoft.HybridCompute/machines/$resourceName/licenseProfiles/default"
+    } else {
+        "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/$resourceType/$resourceName"
+    }
     $apiVersion = $apiVersions[$resourceType]
     
     try {

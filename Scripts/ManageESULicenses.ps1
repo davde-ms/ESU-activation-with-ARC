@@ -16,11 +16,11 @@ It retrieves information from a CSV file and the command line for tasks like lic
 .NOTES
 File Name : ManageESULicenses.ps1
 Author    : David De Backer, Courtney Vallentyne
-Version   : 4.2
+Version   : 4.3
 Date      : 23-October-2023
-Update    : 06-October-2025
-Tested on : PowerShell Version 7.3.8
-Module    : Azure Powershell version 9.6.0
+Update    : 03-September-2026
+Tested on : PowerShell Version 7.6.5
+Module    : Azure PowerShell Az.Accounts version 5.5.2
 Requires  : Powershell Core version 7.x or later
 Product   : Azure ARC
 
@@ -32,6 +32,7 @@ v3.2 - Added check for number of licenses to be created based on the CSV file co
 v4.0 - Added support for program year and invoice ID for ESU licenses (for billing purposes)
 v 4.1 - Added support for the new Get-AzAccessToken cmdlet output to obtain the token and modified the script to use the new output format of the cmdlet.
 v 4.2 - Added Year 3 support, associated changes.
+v4.3 - Clarified invoice ID guidance for applicable Volume Licensing transitions and removed obsolete token-format comments and token console output.
 
 .LINK
 To get more information on Azure ARC ESU license REST API please visit:
@@ -302,8 +303,6 @@ $headers = @{
     "Authorization" = "Bearer $token"
     "Content-Type" = "application/json"
 }
-
-Write-Host $global:bearerToken
 
 # Create volume license details for each program year
 $volumeLicenseDetailsArray = @()

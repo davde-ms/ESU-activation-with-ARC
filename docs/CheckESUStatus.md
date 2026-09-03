@@ -127,7 +127,7 @@ ESU License Status Summary
 ==============================================
 
 [INFO] Total servers checked: 1
-[SUCCESS] Servers with valid ESU licenses: 1
+[SUCCESS] Servers with assigned ESU license resource IDs: 1
 [INFO] Servers without ESU licenses: 0
 [INFO] Servers with errors: 0
 
@@ -150,11 +150,11 @@ Before running this script, ensure you have:
 
 This script is useful for:
 
-- **Compliance Auditing**: Verify which servers have ESU licenses applied
+- **Compliance Auditing**: Verify which servers reference an assigned ESU license resource ID
 - **License Management**: Get a comprehensive view of your ESU license assignments
-- **Troubleshooting**: Identify servers that may not have licenses properly assigned
+- **Troubleshooting**: Identify servers that do not reference an assigned ESU license resource ID
 - **Reporting**: Generate detailed reports of ESU license status across your environment
-- **Planning**: Understand your current ESU coverage before making changes
+- **Planning**: Understand your current ESU license assignments before making changes
 
 ## Error Handling
 

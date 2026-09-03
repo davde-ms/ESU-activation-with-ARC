@@ -163,7 +163,7 @@ Describe 'CheckESUStatus process behavior' {
 
         $result.ExitCode | Should Be 0
         $result.Output | Should Match 'Total servers checked: 1'
-        $result.Output | Should Match 'Servers with valid ESU licenses: 1'
+        $result.Output | Should Match 'Servers with assigned ESU license resource IDs: 1'
         $result.Output | Should Match 'Servers with errors: 0'
     }
 
@@ -177,7 +177,7 @@ Describe 'CheckESUStatus process behavior' {
         $requests.Count | Should Be 2
         $requests[0] | Should Match "/subscriptions/$overrideSubscriptionId/.+/server-name/licenseProfiles/"
         $requests[1] | Should Match "/subscriptions/$subscriptionId/.+/server-arc/licenseProfiles/"
-        $result.Output | Should Match 'Servers with valid ESU licenses: 1'
+        $result.Output | Should Match 'Servers with assigned ESU license resource IDs: 1'
         $result.Output | Should Match 'Servers without ESU licenses: 1'
     }
 

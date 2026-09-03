@@ -27,7 +27,6 @@ function Import-FunctionsUnderTest {
         'Resolve-LicenseSubscriptionId',
         'Test-AzureResourceAccess',
         'Test-CSVRowData',
-        'Test-ServicePrincipalPermissions',
         'Write-Logfile'
     )) {
         $functionAst = $ast.Find({
@@ -52,7 +51,6 @@ foreach ($scriptPath in $scriptPaths) {
             Import-FunctionsUnderTest -Path $scriptPath
             $script:CONFIG = @{
                 ApiVersion = 'unexpected-generic-version'
-                MachineApiVersion = '2023-06-20-preview'
                 LicenseApiVersion = '2023-06-20-preview'
                 LicenseProfileApiVersion = '2023-06-20-preview'
             }
@@ -73,7 +71,7 @@ foreach ($scriptPath in $scriptPaths) {
                 -subscriptionId '00000000-0000-0000-0000-000000000001' `
                 -resourceGroupName 'server-rg' `
                 -resourceName 'server-01' `
-                -resourceType 'Microsoft.HybridCompute/machines' `
+                -resourceType 'Microsoft.HybridCompute/machines/licenseProfiles' `
                 -bearerToken 'placeholder-token')
 
             $output.Count | Should Be 1
@@ -108,18 +106,6 @@ foreach ($scriptPath in $scriptPaths) {
 
             Resolve-ARCServerName -row $row | Should Be 'server-01'
             Test-CSVRowData -row $row -rowNumber 1 | Should Be $true
-        }
-
-        It 'emits exactly one false Boolean when permission validation fails' {
-            Mock Invoke-RestMethod { throw 'mocked permission failure' }
-
-            $output = @(Test-ServicePrincipalPermissions `
-                -subscriptionId '00000000-0000-0000-0000-000000000001' `
-                -bearerToken 'placeholder-token')
-
-            $output.Count | Should Be 1
-            $output[0] | Should BeOfType System.Boolean
-            $output[0] | Should Be $false
         }
 
         It 'uses the requested authentication retry count and delay' {
@@ -167,11 +153,11 @@ foreach ($scriptPath in $scriptPaths) {
         It 'uses the configured API version for each supported access-check resource type' {
             Mock Invoke-RestMethod {}
 
-            $machineResult = Test-AzureResourceAccess `
+            $licenseProfileResult = Test-AzureResourceAccess `
                 -subscriptionId '00000000-0000-0000-0000-000000000001' `
                 -resourceGroupName 'server-rg' `
                 -resourceName 'server-01' `
-                -resourceType 'Microsoft.HybridCompute/machines' `
+                -resourceType 'Microsoft.HybridCompute/machines/licenseProfiles' `
                 -bearerToken 'placeholder-token'
 
             $licenseResult = Test-AzureResourceAccess `
@@ -181,10 +167,10 @@ foreach ($scriptPath in $scriptPaths) {
                 -resourceType 'Microsoft.HybridCompute/licenses' `
                 -bearerToken 'placeholder-token'
 
-            $machineResult | Should Be $true
+            $licenseProfileResult | Should Be $true
             $licenseResult | Should Be $true
             Assert-MockCalled Invoke-RestMethod 1 -ParameterFilter {
-                $Uri -eq 'https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/server-rg/providers/Microsoft.HybridCompute/machines/server-01?api-version=2023-06-20-preview' -and
+                $Uri -eq 'https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/server-rg/providers/Microsoft.HybridCompute/machines/server-01/licenseProfiles/default?api-version=2023-06-20-preview' -and
                 $Method -eq 'GET'
             }
             Assert-MockCalled Invoke-RestMethod 1 -ParameterFilter {
@@ -274,7 +260,7 @@ foreach ($scriptPath in $scriptPaths) {
         }
 
         It 'unlinks without requiring access to the previously assigned license' {
-            Mock Test-AzureResourceAccess { $resourceType -eq 'Microsoft.HybridCompute/machines' }
+            Mock Test-AzureResourceAccess { $resourceType -eq 'Microsoft.HybridCompute/machines/licenseProfiles' }
             Mock Invoke-RestMethod {}
 
             $output = @(AssignESULicense `
@@ -292,7 +278,7 @@ foreach ($scriptPath in $scriptPaths) {
             $output[0] | Should Be $true
             Assert-MockCalled Test-AzureResourceAccess 1
             Assert-MockCalled Test-AzureResourceAccess 1 -ParameterFilter {
-                $resourceType -eq 'Microsoft.HybridCompute/machines'
+                $resourceType -eq 'Microsoft.HybridCompute/machines/licenseProfiles'
             }
             Assert-MockCalled Invoke-RestMethod 1 -ParameterFilter {
                 $Method -eq 'PUT' -and $Body -notmatch 'assignedLicense'
@@ -320,6 +306,18 @@ foreach ($scriptPath in $scriptPaths) {
                 $Method -eq 'PUT' -and
                 $Body -match '/subscriptions/00000000-0000-0000-0000-000000000002/resourceGroups/license-rg/providers/Microsoft.HybridCompute/licenses/license-01'
             }
+        }
+
+        It 'uses only preflight reads granted by the repository custom role' {
+            $rolePath = Join-Path $PSScriptRoot '..\Custom Roles\ARC ESU License Administrator.json'
+            $roleActions = (Get-Content -Path $rolePath -Raw | ConvertFrom-Json).properties.actions
+            $scriptContent = Get-Content -Path $scriptPath -Raw
+
+            ($roleActions -contains 'Microsoft.HybridCompute/machines/licenseProfiles/read') | Should Be $true
+            ($roleActions -contains 'Microsoft.HybridCompute/licenses/read') | Should Be $true
+            ($roleActions -contains 'Microsoft.HybridCompute/machines/read') | Should Be $false
+            ($scriptContent -match 'Microsoft\.Authorization/roleAssignments') | Should Be $false
+            ($scriptContent -match '-resourceType\s+"Microsoft\.HybridCompute/machines"') | Should Be $false
         }
     }
 }
