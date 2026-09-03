@@ -15,6 +15,8 @@
 - Build request payloads as PowerShell objects and serialize them with `ConvertTo-Json` at an explicit depth. Do not hand-build JSON strings.
 - Keep resource IDs explicit about the applicable subscription, especially in cross-subscription assignment flows. Do not assume the Arc server and ESU license share a subscription.
 - Do not normalize Azure API versions across endpoints without verifying that each affected resource type supports the proposed version and payload. Ground Azure API and licensing changes in current official Microsoft documentation.
+- Validate every assumption about Microsoft products, Azure APIs, Azure Arc, ESU licensing, authentication, PowerShell, and Az modules against current official Microsoft documentation. Do not guess or rely solely on memory, examples, or nearby code.
+- Treat proposed explanations as hypotheses until first-party Microsoft documentation confirms them. Only a validated hypothesis may be turned into an implementation; if official documentation is unavailable or inconclusive, state the uncertainty and ask for direction instead of changing behavior.
 - Follow the existing verb-noun function naming and parameter-validation patterns. Add comments only for Azure constraints or non-obvious billing, compatibility, and control-flow decisions.
 
 ## Azure Safety
