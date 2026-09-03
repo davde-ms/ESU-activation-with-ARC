@@ -150,9 +150,6 @@ param(
 # Variables definition block #
 ##############################
 
-# Do NOT change those variables as it might break the script. They are meant to be static.
-$global:creator = $MyInvocation.MyCommand.Name
-
 # Configuration constants
 $script:CONFIG = @{
     ApiVersion = "2023-06-20-preview"

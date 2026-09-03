@@ -202,9 +202,6 @@ param(
 # Variables definition block #
 ##############################
 
-# Do NOT change those variables as it might break the script. They are meant to be static.
-$global:creator = $MyInvocation.MyCommand.Name
-
 # Configuration constants
 $script:CONFIG = @{
     # ESU contracts: https://learn.microsoft.com/azure/azure-arc/servers/api-extended-security-updates
@@ -213,8 +210,6 @@ $script:CONFIG = @{
     LicenseProfileApiVersion = "2023-06-20-preview"
     AzureResourceUrl = "https://management.azure.com/"
     LoginEndpoint = "https://login.microsoftonline.com"
-    MaxRetryAttempts = 3
-    RetryDelaySeconds = 5
     RequiredCSVColumns = @('LicenseName', 'licenseResourceGroupName', 'ServerResourceGroupName', 'Name', 'AssignESULicense')
 }
 
@@ -528,7 +523,7 @@ function Get-AzureADBearerToken {
     # Obtains the token with retry logic
     Write-Verbose "Authenticating..."
     
-    for ($attempt = 1; $attempt -le $script:CONFIG.MaxRetryAttempts; $attempt++) {
+    for ($attempt = 1; $attempt -le $retryCount; $attempt++) {
         try { 
             $response = Invoke-WebRequest -Method Post -Uri $oAuthEndpoint -ContentType "application/x-www-form-urlencoded" -Body $authbody
             $accessToken = ($response.Content | ConvertFrom-Json).access_token
@@ -544,12 +539,12 @@ function Get-AzureADBearerToken {
             $errorMessage = "Authentication attempt $attempt failed: $($_.Exception.Message)"
             Write-Logfile $errorMessage "WARNING"
             
-            if ($attempt -eq $script:CONFIG.MaxRetryAttempts) {
+            if ($attempt -eq $retryCount) {
                 Write-Logfile "All authentication attempts failed. Exiting." "ERROR"
                 return $null
             } else {
-                Write-Logfile "Retrying in $($script:CONFIG.RetryDelaySeconds) seconds..." "INFO"
-                Start-Sleep -Seconds $script:CONFIG.RetryDelaySeconds
+                Write-Logfile "Retrying in $retryDelaySeconds seconds..." "INFO"
+                Start-Sleep -Seconds $retryDelaySeconds
             }
         }    
     }

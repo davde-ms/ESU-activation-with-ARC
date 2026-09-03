@@ -22,6 +22,7 @@ function Import-FunctionsUnderTest {
 
     foreach ($functionName in @(
         'AssignESULicense',
+        'Get-AzureADBearerToken',
         'Resolve-LicenseSubscriptionId',
         'Test-AzureResourceAccess',
         'Test-CSVRowData',
@@ -105,6 +106,22 @@ foreach ($scriptPath in $scriptPaths) {
             $output.Count | Should Be 1
             $output[0] | Should BeOfType System.Boolean
             $output[0] | Should Be $false
+        }
+
+        It 'uses the requested authentication retry count and delay' {
+            Mock Invoke-WebRequest { throw 'mocked authentication failure' }
+            Mock Start-Sleep {}
+
+            $result = Get-AzureADBearerToken `
+                -appID '00000000-0000-0000-0000-000000000003' `
+                -clientSecret 'placeholder-secret' `
+                -tenantId '00000000-0000-0000-0000-000000000002' `
+                -retryCount 2 `
+                -retryDelaySeconds 7
+
+            $result | Should BeNullOrEmpty
+            Assert-MockCalled Invoke-WebRequest 2
+            Assert-MockCalled Start-Sleep 1 -ParameterFilter { $Seconds -eq 7 }
         }
 
         It 'resolves the license subscription using CSV, parameter, then Arc priority' {

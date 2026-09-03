@@ -201,9 +201,6 @@ param(
 # Bloc de définition des variables #
 ##############################
 
-# NE PAS modifier ces variables car cela pourrait casser le script. Elles sont destinées à être statiques.
-$global:creator = $MyInvocation.MyCommand.Name
-
 # Constantes de configuration
 $script:CONFIG = @{
     # Contrats ESU : https://learn.microsoft.com/azure/azure-arc/servers/api-extended-security-updates
@@ -212,8 +209,6 @@ $script:CONFIG = @{
     LicenseProfileApiVersion = "2023-06-20-preview"
     AzureResourceUrl = "https://management.azure.com/"
     LoginEndpoint = "https://login.microsoftonline.com"
-    MaxRetryAttempts = 3
-    RetryDelaySeconds = 5
     RequiredCSVColumns = @('LicenseName', 'licenseResourceGroupName', 'ServerResourceGroupName', 'Name', 'AssignESULicense')
 }
 
@@ -527,7 +522,7 @@ function Get-AzureADBearerToken {
     # Obtient le jeton avec logique de nouvelle tentative
     Write-Verbose "Authentification..."
     
-    for ($attempt = 1; $attempt -le $script:CONFIG.MaxRetryAttempts; $attempt++) {
+    for ($attempt = 1; $attempt -le $retryCount; $attempt++) {
         try { 
             $response = Invoke-WebRequest -Method Post -Uri $oAuthEndpoint -ContentType "application/x-www-form-urlencoded" -Body $authbody
             $accessToken = ($response.Content | ConvertFrom-Json).access_token
@@ -543,12 +538,12 @@ function Get-AzureADBearerToken {
             $errorMessage = "Tentative d'authentification $attempt échouée : $($_.Exception.Message)"
             Write-Logfile $errorMessage "WARNING"
             
-            if ($attempt -eq $script:CONFIG.MaxRetryAttempts) {
+            if ($attempt -eq $retryCount) {
                 Write-Logfile "Toutes les tentatives d'authentification ont échoué. Arrêt." "ERROR"
                 return $null
             } else {
-                Write-Logfile "Nouvelle tentative dans $($script:CONFIG.RetryDelaySeconds) secondes..." "INFO"
-                Start-Sleep -Seconds $script:CONFIG.RetryDelaySeconds
+                Write-Logfile "Nouvelle tentative dans $retryDelaySeconds secondes..." "INFO"
+                Start-Sleep -Seconds $retryDelaySeconds
             }
         }    
     }
