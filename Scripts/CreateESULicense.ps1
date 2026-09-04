@@ -10,17 +10,26 @@ YOU ARE FREE TO REUSE AND/OR MODIFY THE CODE TO FIT YOUR NEEDS
 Creates (or updates) an ESU license to be used with Azure ARC.
 
 .DESCRIPTION
-This script will create (or modify) an ARC based ESU license that can later be assigned to your servers requiring ESU acvitation.
-License assignment should be done with another script and so will be removal/unlinking of the license when/if required.
+This script creates or modifies an Azure Arc enabled ESU license that can later be assigned to an eligible server.
+License assignment and unlinking are performed by the assignment scripts.
+
+The exact target values are Windows Server 2012, Windows Server 2012 R2, and Windows Server 2016.
+When -target is omitted, the default is Windows Server 2012.
+
+The Connected Machine agent requirement is version 1.34 or later for Windows Server 2012 and Windows Server 2012 R2, and version 1.62 or later for Windows Server 2016. This single-license script does not inspect a machine or validate its agent version.
+
+This script does not accept Volume Licensing transition fields. Windows Server 2016 does not support Volume Licensing transition data. For bulk input, the WS2012 reserved exception values WS2012 VISUAL STUDIO DEV TEST, WS2012 DISASTER RECOVERY, and WS2012 MULTIPURPOSE are incompatible with a Windows Server 2016 target; tags do not establish eligibility or alter billing.
 
 The script supports two authentication methods:
-1. Service Principal authentication (requires tenantId, appID and clientSecret)
-2. User token authentication (requires a valid Microsoft Entra ID authentication token)
+1. Service principal authentication with -tenantId, -appID, and -clientSecret.
+2. A valid Get-AzAccessToken token object supplied with -userToken (alias -token).
+
+-WhatIf authenticates, describes the target-specific create or modify operation, and sends no license mutation request. Declining -Confirm also sends no mutation request.
 
 .NOTES
 File Name : CreateESULicense.ps1
 Author    : David De Backer
-Version   : 2.3
+Version   : 2.4
 Date      : 09-October-2023
 Update    : 03-September-2026
 Tested on : PowerShell Version 7.6.5
@@ -34,6 +43,8 @@ v2.1 - Added support for user token authentication. You can now provide a Micros
 v2.2 - Authentication validation now returns exit code 1 for missing credentials, expired user tokens, and failed service principal token acquisition.
 v2.3 - Added standard WhatIf and Confirm support and reliable nonzero exits for REST failures.
     Added focused offline tests that verify authentication failures stop before any Azure REST request.
+v2.4 - Added Windows Server 2012 R2 and Windows Server 2016 license targets.
+    Updated license create and modify requests to API version 2026-06-16-preview.
 
 .LINK
 To get more information on Azure ARC ESU license REST API please visit:
@@ -62,11 +73,28 @@ $authToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/
 -edition "Standard" `
 -coreType "vCore" `
 -coreCount 8 `
+-target "Windows Server 2012 R2" `
 -userToken $authToken
 
-These examples will create a license object that is Deactivated with a virtual cores count of 8 and of type Standard.
-Example 1 shows service principal authentication.
-Example 2 shows how to use Microsoft Entra ID token authentication instead of service principal credentials.
+.EXAMPLE-3
+./CreateESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+-tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+-appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
+-clientSecret "your_application_secret_value" `
+-licenseResourceGroupName "rg-arclicenses" `
+-licenseName "Standard-16vcores-WS2016" `
+-location "EastUS" `
+-state "Deactivated" `
+-edition "Standard" `
+-coreType "vCore" `
+-coreCount 16 `
+-target "Windows Server 2016"
+
+Example 1 uses service principal authentication and omits target, so it creates a Windows Server 2012 license by default.
+Example 2 uses Microsoft Entra ID token authentication and explicitly creates a Windows Server 2012 R2 license.
+Example 3 uses service principal authentication and explicitly creates a Windows Server 2016 license.
+
+Add -WhatIf to any example to authenticate and preview the operation without sending the create or modify request.
 
 To modify an existing license object, use the same script while providing different values.
 Note that you can only change the NUMBER of cores associated to a license as well as the ACTIVATION state.
@@ -121,6 +149,10 @@ param(
     [Alias( "e", "ed")]
     [string]$edition,
 
+    [Parameter(Mandatory=$false, HelpMessage="The Windows Server version targeted by the license. Defaults to Windows Server 2012.")]
+    [ValidateSet("Windows Server 2012", "Windows Server 2012 R2", "Windows Server 2016", ErrorMessage="Value '{0}' is invalid. Try one of: '{1}'")]
+    [string]$target = "Windows Server 2012",
+
     [Parameter (Mandatory, HelpMessage="The type of license. Valid values are pCore for physical cores or vCore for virtual cores.")]
     [ValidateSet ("pCore", "vCore",ErrorMessage="Value '{0}' is invalid. Try one of: '{1}'")]
     [Alias("t")]
@@ -158,9 +190,8 @@ param(
 ##############################
 
 # Do NOT change those variables as it will break the script. They are meant to be static.
-$targetOS = "Windows Server 2012"
-# Azure API endpoint
-$apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName`?api-version=2023-06-20-preview"
+$licenseApiVersion = "2026-06-16-preview"
+$apiEndpoint = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$licenseResourceGroupName/providers/Microsoft.HybridCompute/licenses/$licenseName`?api-version=$licenseApiVersion"
 $method = "PUT"
 $creator = $MyInvocation.MyCommand.Name
 
@@ -251,7 +282,7 @@ $requestBody = @{
     properties = @{
         licenseDetails = @{
             state = $state
-            target = $targetOS
+            target = $target
             edition = $edition
             Type = $coreType
             Processors = $coreCount
@@ -264,8 +295,9 @@ $requestBody = @{
 
 # Converts the request body to JSON
 $requestBodyJson = $requestBody | ConvertTo-Json -Depth 5
+Write-Verbose "License request payload for target '$target': $requestBodyJson"
 
-if (-not $PSCmdlet.ShouldProcess($licenseName, "Create or modify $edition ESU license with $coreCount $coreType")) {
+if (-not $PSCmdlet.ShouldProcess($licenseName, "Create or modify $target $edition ESU license with $coreCount $coreType")) {
     return
 }
 

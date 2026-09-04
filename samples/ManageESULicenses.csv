@@ -1,3 +1,4 @@
-Name,Cores,IsVirtual,AgentVersion,ServerResourceGroupName,AssignESULicense,ESUException
-ws2012r2-app-01,4,Virtual,1.34,rg-arc-servers,,
-ws2012r2-db-01,16,Physical,1.35,rg-arc-database,,
+Name,Cores,IsVirtual,AgentVersion,ServerResourceGroupName,AssignESULicense,ESUException,Target,InvoiceId,ProgramYear
+demo-ws2012-app-01,4,Virtual,1.34,rg-demo-arc-servers,,,,,
+demo-ws2012r2-db-01,16,Physical,1.35,rg-demo-arc-database,,,Windows Server 2012 R2,DEMO-INVOICE-NOT-VALID,Year 2
+demo-ws2016-app-01,8,Virtual,1.62,rg-demo-arc-servers,,,Windows Server 2016,,

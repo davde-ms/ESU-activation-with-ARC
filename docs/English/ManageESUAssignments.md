@@ -2,6 +2,10 @@
 
 This script assigns or unassigns existing ESU licenses in bulk from a CSV file. It supports one license assigned to multiple Azure Arc-enabled servers and licenses stored in a different subscription from the servers.
 
+## Windows Server 2016 compatibility
+
+Bulk assignment and unlink operations are target-neutral and support existing Windows Server 2012, Windows Server 2012 R2, and Windows Server 2016 ESU license resource IDs. The script has no target parameter, its CSV has no target column, and it does not inspect or validate each server's local operating system. Select an eligible license for each server generation; Azure can reject an incompatible pairing. Review Microsoft's current [Windows Server ESU preparation and eligibility guidance](https://learn.microsoft.com/azure/azure-arc/servers/prepare-extended-security-updates) before assignment.
+
 ## Authentication
 
 Use either service principal credentials or a user-provided Microsoft Entra token.

@@ -328,6 +328,71 @@ foreach ($scriptPath in $scriptPaths) {
             }
         }
 
+        It 'assigns a Windows Server 2016-named license with a generation-neutral cross-subscription body' {
+            Mock Test-AzureResourceAccess { $true }
+            Mock Invoke-RestMethod {}
+
+            $output = @(AssignESULicense `
+                -arcServerSubscriptionId '00000000-0000-0000-0000-000000000001' `
+                -licenseSubscriptionId '00000000-0000-0000-0000-000000000002' `
+                -licenseResourceGroupName 'license-rg' `
+                -licenseName 'windows-server-2016-standard-8-vcore' `
+                -ARCServerName 'server-2016' `
+                -serverResourceGroupName 'server-rg' `
+                -location 'eastus' `
+                -token 'placeholder-token')
+
+            $output.Count | Should Be 1
+            $output[0] | Should Be $true
+            Assert-MockCalled Invoke-RestMethod 1 -ParameterFilter {
+                if ($Method -ne 'PUT' -or $Uri -ne 'https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/server-rg/providers/Microsoft.HybridCompute/machines/server-2016/licenseProfiles/default?api-version=2023-06-20-preview') {
+                    return $false
+                }
+
+                $payload = $Body | ConvertFrom-Json
+                @($payload.PSObject.Properties).Count -eq 2 -and
+                    @($payload.PSObject.Properties.Name) -contains 'location' -and
+                    @($payload.PSObject.Properties.Name) -contains 'properties' -and
+                    @($payload.properties.PSObject.Properties.Name) -contains 'esuProfile' -and
+                    @($payload.properties.esuProfile.PSObject.Properties.Name) -contains 'assignedLicense' -and
+                    $payload.properties.esuProfile.assignedLicense -eq '/subscriptions/00000000-0000-0000-0000-000000000002/resourceGroups/license-rg/providers/Microsoft.HybridCompute/licenses/windows-server-2016-standard-8-vcore' -and
+                    $Body -notmatch 'target'
+            }
+        }
+
+        It 'unlinks a Windows Server 2016-named license with an empty generation-neutral ESU profile' {
+            Mock Test-AzureResourceAccess { $resourceType -eq 'Microsoft.HybridCompute/machines/licenseProfiles' }
+            Mock Invoke-RestMethod {}
+
+            $output = @(AssignESULicense `
+                -arcServerSubscriptionId '00000000-0000-0000-0000-000000000001' `
+                -licenseSubscriptionId '00000000-0000-0000-0000-000000000002' `
+                -licenseResourceGroupName 'license-rg' `
+                -licenseName 'windows-server-2016-standard-8-vcore' `
+                -ARCServerName 'server-2016' `
+                -serverResourceGroupName 'server-rg' `
+                -location 'eastus' `
+                -token 'placeholder-token' `
+                -unassign)
+
+            $output.Count | Should Be 1
+            $output[0] | Should Be $true
+            Assert-MockCalled Test-AzureResourceAccess 1
+            Assert-MockCalled Invoke-RestMethod 1 -ParameterFilter {
+                if ($Method -ne 'PUT' -or $Uri -notmatch '/subscriptions/00000000-0000-0000-0000-000000000001/.+/machines/server-2016/licenseProfiles/default') {
+                    return $false
+                }
+
+                $payload = $Body | ConvertFrom-Json
+                @($payload.PSObject.Properties).Count -eq 2 -and
+                    @($payload.PSObject.Properties.Name) -contains 'location' -and
+                    @($payload.PSObject.Properties.Name) -contains 'properties' -and
+                    @($payload.properties.PSObject.Properties.Name) -contains 'esuProfile' -and
+                    @($payload.properties.esuProfile.PSObject.Properties).Count -eq 0 -and
+                    $Body -notmatch 'assignedLicense|target'
+            }
+        }
+
         It 'uses only preflight reads granted by the repository custom role' {
             $rolePath = Join-Path $PSScriptRoot '..\Custom Roles\ARC ESU License Administrator.json'
             $roleActions = (Get-Content -Path $rolePath -Raw | ConvertFrom-Json).properties.actions

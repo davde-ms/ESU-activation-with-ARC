@@ -2,6 +2,10 @@
 
 This script will assign a single ESU license to a specific Azure ARC server.
 
+## Windows Server 2016 compatibility
+
+Assignment and unlink operations are target-neutral and support existing Windows Server 2012, Windows Server 2012 R2, and Windows Server 2016 ESU license resource IDs. This script has no target parameter and does not inspect or validate the server's local operating system. Select an eligible license for the server generation; Azure can reject an incompatible pairing. Review Microsoft's current [Windows Server ESU preparation and eligibility guidance](https://learn.microsoft.com/azure/azure-arc/servers/prepare-extended-security-updates) before assignment.
+
 Here are the command lines you should use to run it:
 
 ## Service Principal Authentication

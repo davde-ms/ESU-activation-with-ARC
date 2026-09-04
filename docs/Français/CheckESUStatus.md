@@ -4,6 +4,10 @@ Ce script vérifie l'état des licences ESU des serveurs avec Azure Arc. Il util
 
 > **Remarque :** Ce script est en lecture seule. Il ne modifie ni les licences ESU ni les serveurs.
 
+## Compatibilité avec Windows Server 2016
+
+La requête d'état du profil de licence est indépendante de la cible et peut signaler les ID de ressources de licences ESU Windows Server 2012, Windows Server 2012 R2 et Windows Server 2016 attribuées. Ce script ne comporte aucun paramètre de cible, n'inspecte ni ne valide le système d'exploitation local du serveur et ne récupère pas indépendamment la licence attribuée afin d'en vérifier la cible, l'activation ou l'éligibilité. Utilisez les [instructions Microsoft actuelles de préparation et d'éligibilité aux ESU Windows Server](https://learn.microsoft.com/fr-fr/azure/azure-arc/servers/prepare-extended-security-updates) pour interpréter le résultat.
+
 ## Vérification d'un serveur avec un principal de service
 
 ```powershell

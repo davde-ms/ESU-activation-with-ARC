@@ -7,7 +7,7 @@ La cible, l'édition, le type et le nombre de cœurs, l'état d'activation, l'an
 ## Procédure sécurisée
 
 1. Exécutez `CheckESUStatus.ps1` pour inventorier les attributions actuelles. Ce script est en lecture seule.
-2. Copiez le [modèle CSV ManageESULicenses](../../samples/ManageESULicenses.csv) et remplacez ses valeurs fictives.
+2. Copiez le [modèle CSV ManageESULicenses](../samples/ManageESULicenses.csv) et remplacez ses valeurs fictives.
 3. Exécutez `ManageESULicenses.ps1 -DryRun` avec les paramètres prévus.
 4. Vérifiez chaque ligne du plan d'opérations validé, en particulier `LicenseName`, `CoreType`, la valeur `CoreCount` normalisée, `CreationAction` et `AssignmentAction`.
 5. Vérifiez le nombre de licences existantes et nouvelles ainsi que le récapitulatif des opérations.
@@ -194,4 +194,5 @@ Après avoir vérifié une simulation réussie, supprimez `-DryRun` sans modifie
 | Échec de l'attribution après la création de la licence | Vérifiez le nom du serveur, `ServerResourceGroupName`, la région, les autorisations et l'état actuel du profil de licence. Utilisez `CheckESUStatus.ps1` pour vérifier à nouveau l'attribution. |
 | Doute sur l'absence de frais d'un scénario | Arrêtez-vous avant l'activation. Confirmez l'éligibilité selon les conditions Microsoft actuelles; ne vous fiez pas à `ESUException` ni aux étiquettes des ressources Azure. |
 
-Pour attribuer en bloc des licences déjà existantes, utilisez [ManageESUAssignments.ps1](ManageESUAssignments.md) et son [modèle CSV](../../samples/ManageESUAssignments.csv).
+Pour attribuer en bloc des licences déjà existantes, utilisez [ManageESUAssignments.ps1](Français/ManageESUAssignments.md) et son [modèle CSV](../samples/ManageESUAssignments.csv).
+

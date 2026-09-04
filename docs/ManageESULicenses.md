@@ -7,7 +7,7 @@ License target, edition, core type, core count, activation state, program year, 
 ## Safe workflow
 
 1. Run `CheckESUStatus.ps1` to inventory current assignments. It is read-only.
-2. Copy the [ManageESULicenses CSV template](../../samples/ManageESULicenses.csv) and replace its fictitious values.
+2. Copy the [ManageESULicenses CSV template](../samples/ManageESULicenses.csv) and replace its fictitious values.
 3. Run `ManageESULicenses.ps1 -DryRun` with the intended parameters.
 4. Review every row in the validated operation plan, especially `LicenseName`, `CoreType`, normalized `CoreCount`, `CreationAction`, and `AssignmentAction`.
 5. Review the existing/new license counts and operation summary.
@@ -194,4 +194,5 @@ After reviewing a successful dry run, remove `-DryRun` without changing the revi
 | Assignment fails after license creation | Check the server name, `ServerResourceGroupName`, location, permissions, and current license-profile state. Use `CheckESUStatus.ps1` to recheck the assignment. |
 | Unsure whether a scenario is no-cost | Stop before activation. Confirm eligibility under Microsoft's current terms; do not rely on `ESUException` or Azure resource tags. |
 
-For bulk assignment of licenses that already exist, use [ManageESUAssignments.ps1](ManageESUAssignments.md) and its [CSV template](../../samples/ManageESUAssignments.csv).
+For bulk assignment of licenses that already exist, use [ManageESUAssignments.ps1](English/ManageESUAssignments.md) and its [CSV template](../samples/ManageESUAssignments.csv).
+

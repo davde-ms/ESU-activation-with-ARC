@@ -2,6 +2,10 @@
 
 Ce script attribue ou dissocie en bloc des licences ESU existantes à partir d'un fichier CSV. Il permet d'attribuer une même licence à plusieurs serveurs avec Azure Arc et prend en charge les licences stockées dans un abonnement différent de celui des serveurs.
 
+## Compatibilité avec Windows Server 2016
+
+Les opérations d'attribution et de dissociation en bloc sont indépendantes de la cible et prennent en charge les ID de ressources de licences ESU Windows Server 2012, Windows Server 2012 R2 et Windows Server 2016 existantes. Le script ne comporte aucun paramètre de cible, son CSV ne comporte aucune colonne de cible et il n'inspecte ni ne valide le système d'exploitation local de chaque serveur. Sélectionnez une licence éligible pour chaque génération de serveur; Azure peut rejeter une association incompatible. Consultez les [instructions Microsoft actuelles de préparation et d'éligibilité aux ESU Windows Server](https://learn.microsoft.com/fr-fr/azure/azure-arc/servers/prepare-extended-security-updates) avant l'attribution.
+
 ## Authentification
 
 Utilisez soit les informations d'identification d'un principal de service, soit un jeton Microsoft Entra fourni par l'utilisateur.

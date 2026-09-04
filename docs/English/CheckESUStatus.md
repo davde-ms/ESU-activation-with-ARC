@@ -4,6 +4,10 @@ This script checks whether Azure ARC servers have an ESU license resource assign
 
 > **Note:** This script is read-only and does not make any changes to your ESU licenses or servers. It only retrieves and displays license status information.
 
+## Windows Server 2016 compatibility
+
+The license-profile status request is target-neutral and can report assigned Windows Server 2012, Windows Server 2012 R2, and Windows Server 2016 ESU license resource IDs. This script has no target parameter, does not inspect or validate the server's local operating system, and does not independently retrieve the assigned license to verify its target, activation, or eligibility. Use Microsoft's current [Windows Server ESU preparation and eligibility guidance](https://learn.microsoft.com/azure/azure-arc/servers/prepare-extended-security-updates) when interpreting the result.
+
 Here are the command lines you should use to run it:
 
 ## Single Server Check (Service Principal Authentication)

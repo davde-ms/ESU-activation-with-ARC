@@ -151,6 +151,60 @@ Describe 'CheckESUStatus parameter and retry contracts' {
     }
 }
 
+Describe 'CheckESUStatus Windows Server 2016 target-neutral contract' {
+    BeforeEach {
+        Import-CheckStatusFunction -Name Get-ESULicenseStatus
+        Import-CheckStatusFunction -Name Write-Logfile
+        $script:CONFIG = @{
+            ApiVersion = '2023-06-20-preview'
+        }
+
+        Mock Write-Logfile {}
+        Mock Write-Host {}
+        Mock Invoke-RestMethod {
+            [pscustomobject]@{
+                location = 'eastus'
+                properties = [pscustomobject]@{
+                    provisioningState = 'Succeeded'
+                    esuProfile = [pscustomobject]@{
+                        assignedLicense = '/subscriptions/00000000-0000-0000-0000-000000000002/resourceGroups/license-rg/providers/Microsoft.HybridCompute/licenses/windows-server-2016-standard-8-vcore'
+                    }
+                }
+            }
+        }
+    }
+
+    It 'returns the unchanged status object for a Windows Server 2016-named assigned license' {
+        $result = Get-ESULicenseStatus `
+            -subscriptionId '00000000-0000-0000-0000-000000000001' `
+            -serverResourceGroupName 'server-rg' `
+            -ARCServerName 'server-2016' `
+            -bearerToken 'placeholder-token'
+
+        @($result.PSObject.Properties.Name) -join ',' | Should Be 'ServerName,ResourceGroup,SubscriptionId,HasLicenseProfile,AssignedLicense,LicenseResourceId,LicenseName,LicenseResourceGroup,LicenseSubscription,Location,ProvisioningState,Status,LastChecked,ErrorMessage'
+        $result.ServerName | Should Be 'server-2016'
+        $result.SubscriptionId | Should Be '00000000-0000-0000-0000-000000000001'
+        $result.LicenseSubscription | Should Be '00000000-0000-0000-0000-000000000002'
+        $result.LicenseResourceGroup | Should Be 'license-rg'
+        $result.LicenseName | Should Be 'windows-server-2016-standard-8-vcore'
+        $result.Status | Should Be 'Licensed'
+        $result.AssignedLicense | Should Be $result.LicenseResourceId
+        Assert-MockCalled Invoke-RestMethod 1 -ParameterFilter {
+            $Method -eq 'GET' -and
+            $Uri -eq 'https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/server-rg/providers/Microsoft.HybridCompute/machines/server-2016/licenseProfiles/default?api-version=2023-06-20-preview'
+        }
+    }
+
+    It 'does not expose a target parameter or perform a machine read' {
+        $command = Get-Command -Name $scriptPath
+        $scriptContent = Get-Content -Path $scriptPath -Raw
+
+        $command.Parameters.ContainsKey('target') | Should Be $false
+        $scriptContent -match '/machines/\$ARCServerName/licenseProfiles/default' | Should Be $true
+        $scriptContent -match 'Microsoft\.HybridCompute/machines\?api-version' | Should Be $false
+    }
+}
+
 Describe 'CheckESUStatus process behavior' {
     BeforeEach {
         Remove-Item -Path $requestTracePath -ErrorAction SilentlyContinue

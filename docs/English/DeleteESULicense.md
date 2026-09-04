@@ -4,6 +4,10 @@ This script will delete an ESU license. When you delete a license, it will be re
 
 > **Deleting or deactivating a license can remain billable for up to five calendar days. If you delete and then recreate an ESU license, back-billing still applies for the corresponding period; deletion does not exempt you from those charges. Confirm the current impact in the [official ESU billing guidance](https://learn.microsoft.com/azure/azure-arc/servers/billing-extended-security-updates#billing-associated-with-modifications-to-an-azure-arc-esu-license) before proceeding.**
 
+## Windows Server 2016 compatibility
+
+Deletion is target-neutral and supports Windows Server 2012, Windows Server 2012 R2, and Windows Server 2016 ESU license resources. This script has no target parameter and does not inspect or validate the local operating system of any previously assigned server. Confirm the license resource ID, assignment state, and billing impact before deletion.
+
 Here are the command lines you should use to run it:
 
 ## Service Principal Authentication

@@ -4,6 +4,10 @@ Ce script supprime une licence ESU. La suppression rompt son association avec le
 
 > **La suppression ou la désactivation d'une licence peut rester facturée pendant un maximum de cinq jours calendaires. Si vous supprimez puis recréez une licence ESU, la rétrofacturation continue de s'appliquer à la période correspondante; la suppression ne vous exonère pas de ces frais. Vérifiez l'incidence actuelle dans les [informations officielles sur la facturation ESU](https://learn.microsoft.com/azure/azure-arc/servers/billing-extended-security-updates#billing-associated-with-modifications-to-an-azure-arc-esu-license) avant de continuer.**
 
+## Compatibilité avec Windows Server 2016
+
+La suppression est indépendante de la cible et prend en charge les ressources de licences ESU Windows Server 2012, Windows Server 2012 R2 et Windows Server 2016. Ce script ne comporte aucun paramètre de cible et n'inspecte ni ne valide le système d'exploitation local d'un serveur précédemment associé. Confirmez l'ID de ressource de la licence, son état d'attribution et l'incidence sur la facturation avant la suppression.
+
 ## Authentification par principal de service
 
     ./DeleteESULicense -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "votre_valeur_secrète_application" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores"

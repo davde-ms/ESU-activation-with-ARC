@@ -2,6 +2,10 @@
 
 Ce script affecte une licence ESU à un serveur Azure Arc spécifique.
 
+## Compatibilité avec Windows Server 2016
+
+Les opérations d'attribution et de dissociation sont indépendantes de la cible et prennent en charge les ID de ressources de licences ESU Windows Server 2012, Windows Server 2012 R2 et Windows Server 2016 existantes. Ce script ne comporte aucun paramètre de cible et n'inspecte ni ne valide le système d'exploitation local du serveur. Sélectionnez une licence éligible pour la génération du serveur; Azure peut rejeter une association incompatible. Consultez les [instructions Microsoft actuelles de préparation et d'éligibilité aux ESU Windows Server](https://learn.microsoft.com/fr-fr/azure/azure-arc/servers/prepare-extended-security-updates) avant l'attribution.
+
 ## Authentification par principal de service
 
     ./AssignESULicense -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "votre_valeur_secrète_application" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores" -serverResourceGroupName "rg-arcservers" -ARCServerName "Win2012" -location "EastUS"

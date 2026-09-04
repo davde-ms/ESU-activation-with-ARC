@@ -4,9 +4,9 @@
 
 ## Introduction
 
-The purpose of this repository is to streamline the rapid setup of your Windows 2012/R2 Servers, ensuring they are ready to receive the upcoming Extended Security Updates, referred to as ESU.
+This repository provides PowerShell 7 scripts to create, assign, check, manage, and delete Extended Security Update (ESU) licenses enabled by Azure Arc for Windows Server 2012, Windows Server 2012 R2, and Windows Server 2016.
 
-Prior activation of your Windows 2012/R2 Servers is necessary for ESU reception. Failure to activate your servers will result in an inability to receive the ESUs.
+An eligible Arc-enabled server must be linked to an activated ESU license for its target Windows Server version before it can receive ESUs. Assignment, status, unlink, and deletion operations work with licenses for all three targets; license creation requires the exact target value.
 
 > It is crucial to thoroughly comprehend the appropriate licensing procedures and prerequisites for the servers you intend to enable ESUs for using Azure ARC. It is imperative to generate the CORRECT form of licenses, such as Standard or Datacenter, considering whether they are for virtual or physical cores. Failing to do so could lead to either excessive billing or non-compliance with Microsoft's licensing regulations. If you have any uncertainties, please seek advice from your dedicated Microsoft Azure specialist or Microsoft Account Executive.
 
@@ -17,7 +17,7 @@ That being said, let's get started!
 ## Prerequisites
 
 - An Microsoft Entra ID tenant as well as an active Azure subscription.
-- Windows 2012/R2 Server(s) already onboarded to the Azure ARC platform. Please check the [Connected Machine agent prerequisites](https://learn.microsoft.com/en-us/azure/azure-arc/servers/prerequisites) to ensure your servers are ready for onboarding.
+- Eligible Windows Server 2012, Windows Server 2012 R2, or Windows Server 2016 machines already onboarded to Azure Arc. Use Connected Machine agent 1.34 or later for 2012/R2 and 1.62 or later for 2016. Check the [Connected Machine agent prerequisites](https://learn.microsoft.com/en-us/azure/azure-arc/servers/prerequisites) and the [ESU preparation guidance](https://learn.microsoft.com/azure/azure-arc/servers/prepare-extended-security-updates).
 - One or more Azure resource groups to store the ESU licenses that will be created with these scripts. ESU licenses can be located in the same subscription as your ARC servers or in a different subscription.
 - An Microsoft Entra Enterprise application and service principal that will be used to authenticate to Azure. Please check the [Create an Azure service principal with Azure CLI](https://learn.microsoft.com/en-us/entra/identity-platform/howto-create-service-principal-portal) to create a service principal.
 - The Microsoft Entra application ID and secret key for the service principal created above.
@@ -25,6 +25,30 @@ That being said, let's get started!
 - A computer with Powershell 7.x or higher installed. Please check [Install PowerShell 7 on Windows](https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell-on-windows) to install Powershell 7.x or higher. The current version of the scripts do not use the AZ Powershell module, but it is recommended to install it for future use. Please check the [Install Azure PowerShell on Windows](https://learn.microsoft.com/en-us/powershell/azure/install-azps-windows) to install the AZ Powershell module if you want to.
 
 > **Note**: Multiple scripts now support **user token authentication** as an alternative to service principal authentication. These scripts (AssignESULicense.ps1, CreateESULicense.ps1, DeleteESULicense.ps1, CheckESUStatus.ps1, ManageESUAssignments.ps1, and ManageESULicenses.ps1) can work with a user provided Microsoft Entra ID authentication token, so the service principal is no longer required for their execution. You can provide either the tenantID, appID and clientSecret parameters OR a valid Microsoft Entra ID authentication token that has the rights to manage ESU licenses.
+
+### Supported targets and Windows Server 2016 eligibility
+
+License creation accepts only these exact `Target` values:
+
+- `Windows Server 2012`
+- `Windows Server 2012 R2`
+- `Windows Server 2016`
+
+Windows Server 2016 ESUs enabled by Azure Arc support Standard and Datacenter editions. General eligibility requires qualifying Software Assurance through an eligible Volume Licensing program or an equivalent Server Subscription. For Windows Server 2016 workloads running on-premises, Software Assurance is required. SPLA isn't available for Windows Server 2016 ESUs, and transition from Volume Licensing by using `InvoiceId` and `ProgramYear` isn't supported.
+
+Microsoft currently documents the Visual Studio dev/test benefit and the `WS2012 VISUAL STUDIO DEV TEST`, `WS2012 DISASTER RECOVERY`, and `WS2012 MULTIPURPOSE` exception tags only for Windows Server 2012/R2. No equivalent Visual Studio dev/test benefit or Azure Arc exception-tag protocol is documented for Windows Server 2016. Do not reuse those WS2012 values for 2016, and do not treat any tag as an eligibility or billing control.
+
+Azure Arc-enabled servers used for Windows Server 2012/R2 or 2016 ESUs are not currently available in Azure operated by 21Vianet. Review the current [Windows Server ESU preparation guidance](https://learn.microsoft.com/azure/azure-arc/servers/prepare-extended-security-updates) before enrollment.
+
+### OS updates and billing
+
+- For Windows Server 2012/R2, install the licensing package and servicing stack update (SSU) identified in Microsoft's guidance. For Windows Server 2016, Microsoft currently directs customers to install any required licensing package and SSU from the applicable Windows Server 2016 Knowledge Base article but does not name a specific KB. Follow the current [ESU troubleshooting prerequisites](https://learn.microsoft.com/azure/azure-arc/servers/troubleshoot-extended-security-updates#esu-prerequisites); do not use the Windows Server 2012 KB as a 2016 prerequisite.
+- Windows Server 2016 reaches end of support on January 12, 2027. Billing for Windows Server 2016 ESUs enabled by Azure Arc begins January 13, 2027.
+- An activated license is billed for its provisioned cores even when it isn't linked to a server. Customers are responsible for deleting activated, unlinked licenses they no longer require.
+- A license or additional cores provisioned after the applicable end-of-support date can be back-billed to that date. Late enrollment, activation or reactivation, deletion followed by recreation, and changing the license region or tenant can trigger back-billing.
+- Reducing cores, deactivating a license, or deleting it can continue to incur charges for up to five calendar days. Recreation does not avoid charges for the corresponding period.
+
+Confirm current terms in the [official ESU billing guidance](https://learn.microsoft.com/azure/azure-arc/servers/billing-extended-security-updates) before any billing-sensitive operation.
 
 ## Azure rights required for the scripts to work
 
@@ -35,7 +59,6 @@ The following rights have to be delegated on the resource groups you plan on usi
 - "Microsoft.HybridCompute/licenses/delete"
 - "Microsoft.HybridCompute/machines/licenseProfiles/read"
 - "Microsoft.HybridCompute/machines/licenseProfiles/write"
-- "Microsoft.HybridCompute/machines/licenseProfiles/delete"
 
 There is a custom role definition located in the Custom Roles folder in this repository that can be used to create a custom role with the required rights. Please check [Create a custom role with a JSON template](https://learn.microsoft.com/en-us/azure/role-based-access-control/custom-roles-powershell#create-a-custom-role-with-json-template) to create a custom role with the custom role definition.
 
@@ -57,9 +80,9 @@ There are currently 6 scripts in this repository (located in the Scripts folder)
 | Goal | Script | Start here |
 | --- | --- | --- |
 | Check current ESU assignment status without making changes | `CheckESUStatus.ps1` | [Guide](docs/English/CheckESUStatus.md) and [CSV template](samples/CheckESUStatus.csv) |
-| Create or update one ESU license | `CreateESULicense.ps1` | Review the licensing model before choosing edition, core type, and core count. |
+| Create or update one 2012, 2012 R2, or 2016 ESU license | `CreateESULicense.ps1` | Review the licensing model before choosing target, edition, core type, and core count. |
 | Assign or unlink one existing license | `AssignESULicense.ps1` | Use when you already know the server and license resource. |
-| Create or update licenses in bulk, with optional assignment or unlinking | `ManageESULicenses.ps1` | [Guide](docs/English/ManageESULicenses.md) and [CSV template](samples/ManageESULicenses.csv) |
+| Create or update mixed-target licenses in bulk, with optional assignment or unlinking | `ManageESULicenses.ps1` | [Guide](docs/English/ManageESULicenses.md) and [CSV template](samples/ManageESULicenses.csv) |
 | Assign or unlink existing licenses in bulk, including cross-subscription licenses | `ManageESUAssignments.ps1` | [Guide](docs/English/ManageESUAssignments.md) and [CSV template](samples/ManageESUAssignments.csv) |
 | Delete an existing license | `DeleteESULicense.ps1` | Review the deletion and billing warning before running it. |
 
@@ -68,10 +91,10 @@ There are currently 6 scripts in this repository (located in the Scripts folder)
 1. Run `CheckESUStatus.ps1` first to inventory current assignments. It is read-only.
 2. Copy the relevant template from the [`samples`](samples/) folder and replace every fictitious value with reviewed customer data.
 3. Preview the plan before making changes. Use `-DryRun` with `ManageESUAssignments.ps1` or `ManageESULicenses.ps1`; both scripts also support `-WhatIf` and `-Confirm`.
-4. Review the normalized core counts, edition/core-type choice, generated license names, and assignment or unlink actions shown in the plan and summary.
+4. Review each exact target, transition mode, minimum agent version, normalized core count, edition/core-type choice, generated license name, and assignment or unlink action shown in the plan and summary.
 5. Run the same reviewed command without `-DryRun` or `-WhatIf` only when the plan is correct. Use `-Confirm` when you want an interactive prompt for each operation.
 
-`ManageESUAssignments.ps1 -DryRun` validates the CSV and resource access with read-only Azure `GET` requests; it sends no mutation request. `ManageESULicenses.ps1 -DryRun` validates the complete CSV and uses read-only Azure `GET` requests to count existing and new licenses; it does not create, modify, assign, unlink, or delete resources.
+`ManageESULicenses.ps1` validates the whole file before authentication or any Azure request. A single invalid target, transition, exception, agent version, core value, name, or assignment row rejects the complete file. `ManageESUAssignments.ps1 -DryRun` validates the CSV and resource access with read-only Azure `GET` requests; it sends no mutation request. `ManageESULicenses.ps1 -DryRun` performs the complete preflight and uses read-only Azure `GET` requests to count existing and new licenses; it does not create, modify, assign, unlink, or delete resources. `-WhatIf` also prevents mutation while displaying PowerShell's proposed operations. Both preview modes still require valid authentication and can perform documented read-only requests.
 
 ## AssignESULicense.ps1
 
@@ -99,7 +122,7 @@ You can use the -u at the end of the command line to UNLINK an existing license 
 
 This script will create an ESU license. Here is the command line you should use to run it:
 
-    ./CreateESULicense -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores" -location "EastUS" -state "Activated" -edition "Standard" -coreType "vCore" -coreCount 8
+    ./CreateESULicense -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-example-esu" -licenseName "ESU-WS2016-App01" -location "EastUS" -state "Deactivated" -edition "Standard" -target "Windows Server 2016" -coreType "vCore" -coreCount 8 -WhatIf
 
 where:
 
@@ -112,10 +135,11 @@ where:
 - location is the Azure region where you want to deploy the ESU license.
 - state is the activation state of the ESU license. It can be "Activated" or "Deactivated".
 - edition is the edition of the ESU license. It can be "Standard" or "Datacenter".
+- target is the Windows Server version covered by the license. It accepts exactly `Windows Server 2012`, `Windows Server 2012 R2`, or `Windows Server 2016` and defaults to `Windows Server 2012` when omitted.
 - coreType is the core type of the ESU license. It can be "vCore" or "pCore".
-- coreCount is the number of cores of the ESU license.
+- coreCount is the number of cores of the ESU license. Provide an even value from 8 through 128 for `vCore`, or from 16 through 256 for `pCore`.
 
-You can type the exact cores your host or VM has and the script will automatically calculate the number of cores required for the ESU license.
+The script rejects odd or out-of-range core counts; it does not calculate or normalize the value.
 
 **Note:** The script can also be rerun with the same base parameters to change some of the properties of the license. Those properties are:
 
@@ -123,6 +147,8 @@ You can type the exact cores your host or VM has and the script will automatical
 - coreCount (allows you to change the number of cores of the license if you have need to increase or decrease it)
 
 All other parameters are immutable and cannot be changed once the license is created.
+
+Use `-WhatIf` to preview a single-license create or modification. The preview performs no Azure mutation.
 
 > **Note:** This script now supports **user token authentication** as an alternative to service principal authentication. You can use `Get-AzAccessToken -ResourceUrl https://management.azure.com/` to obtain a token and pass it using the `-userToken` parameter instead of providing tenantId, appID, and clientSecret.
 
@@ -251,9 +277,9 @@ Server3,rg-servers,ESU-License-3,rg-licenses,False,00000000-0000-0000-0000-00000
 
 ## ManageESULicenses.ps1
 
-This script will create, assign and manage ESU licenses in bulk, taking its information from a CSV file.
+This script creates, assigns, and manages Windows Server 2012, Windows Server 2012 R2, and Windows Server 2016 ESU licenses in bulk from one CSV file.
 
-> **Note: license creation will be skipped if Arc agent version is lower than 1.34 since it is the minimum required version that is able to push the ESU activation to servers. Upgrade your ARC agent(s), run the Azure Graph Explorer query again and then rerun the script to process the newly upgraded servers.**
+> **Agent requirement:** Windows Server 2012/R2 rows require Connected Machine agent 1.34 or later; Windows Server 2016 rows require 1.62 or later. If any row is below its target-specific minimum, the whole CSV fails validation before authentication or Azure requests.
 
 The creation of the CSV file can be done in 2 ways:
 
@@ -265,13 +291,24 @@ The creation of the CSV file can be done in 2 ways:
 - Cores: the number of cores of the VM or physical server.
 - IsVirtual: a value that indicates if the server is virtual or not, set is to **Virtual** for VMs or **Physical** for physical servers.
   > **Note:** The IsVirtual column is only used to determine the type of core that is going to be assigned to the license. You usually will almost always use vCore licenses unless you are covering physical servers.
-- AgentVersion: the version of the Azure ARC agent installed on the server. This information can be retrieved from the Azure portal or by running the [Azure Graph Explorer query](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) mentioned below.
+- AgentVersion: the version of the Azure ARC agent installed on the server. This information can be retrieved from the Azure portal or by running the [Azure Resource Graph Explorer query](https://learn.microsoft.com/azure/governance/resource-graph/first-query-portal) mentioned below.
+- Target (optional): one of the three exact values `Windows Server 2012`, `Windows Server 2012 R2`, or `Windows Server 2016`. A nonempty row value overrides `-target`; an empty or absent value uses `-target`, whose default is `Windows Server 2012`.
+- InvoiceId (optional): the invoice ID for an applicable Windows Server 2012/R2 Volume Licensing transition. A nonempty row value overrides `-invoiceId`.
+- ProgramYear (optional): `Year 1`, `Year 2`, or `Year 3` for an applicable Windows Server 2012/R2 transition. A nonempty row value overrides `-programYear`. An effective invoice is required when a program year is explicitly supplied.
 - ServerResourceGroupName: the name of the resource group that contains the Azure ARC server.
 - AssignESULicense: Set it to **True** if you want the license to be assigned to the Azure ARC server, **False** to unlink the license from the Azure ARC server or omit the value altogether to create a license without assigning it.
 
 > **Note:** The AssignESULicense column is **optional** and is used IF/WHEN you want to manage license assignment as part of the script execution. Note that it is NOT automatically created when using Azure Graph Explorer to generate the CSV file. You will need to **manually** add it to the CSV file if you want to manage assignment of license as part of the execution of this script.
 
 - ESUException: Optional text copied to the license resource's `ESU Usage` tag. Establish eligibility for any no-cost or evaluation scenario separately under the applicable Microsoft licensing terms before using this field.
+
+Windows Server 2016 rows reject effective `InvoiceId` or explicit `ProgramYear` values and the reserved WS2012 exception values. For a mixed-target file that transitions only selected 2012/R2 rows, leave the batch transition parameters unbound and populate `InvoiceId` and `ProgramYear` only on those rows.
+
+```csv
+Name,Cores,IsVirtual,AgentVersion,ServerResourceGroupName,AssignESULicense,ESUException,Target,InvoiceId,ProgramYear
+ws2012r2-app01,8,Virtual,1.62,rg-example-arc,True,,Windows Server 2012 R2,INV-EXAMPLE-001,Year 3
+ws2016-app02,16,Physical,1.62,rg-example-arc,True,,Windows Server 2016,,
+```
 
 > **Billing warning:** Tags do not establish eligibility and do not affect billing. Microsoft states that billing is tied to the number of cores associated with the activated license regardless of tags. Do not provision cores for machines whose eligibility for a no-cost scenario has been established separately. See the [official license provisioning guidance](https://learn.microsoft.com/azure/azure-arc/servers/license-extended-security-updates).
 > Bulk assignment of existing licenses is supported by [ManageESUAssignments.ps1](docs/English/ManageESUAssignments.md).
@@ -284,25 +321,33 @@ Here is an example of the expected format of the CSV file:
 
 ### **Automatically**:
 
-(by running the following [Azure Graph Explorer query](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) and saving its output to a CSV):
+(by running the following [Azure Resource Graph Explorer query](https://learn.microsoft.com/azure/governance/resource-graph/first-query-portal) and saving its output to a CSV):
 
-    resources
-    | where type == 'microsoft.hybridcompute/machines'
-    | extend agentVersion = tostring(properties.agentVersion), operatingSystem = tostring(properties.osSku)
-    | where operatingSystem has "Windows Server 2012"
-    | extend ESUStatus = properties.licenseProfile.esuProfile.licenseAssignmentState
-    | extend Cloud = tostring(properties.cloudMetadata.provider)
-    | extend isVirtual = iff(properties.detectedProperties.model == "Virtual Machine" or properties.detectedProperties.manufacturer == "VMware, Inc." or properties.detectedProperties.manufacturer == "Nutanix" or properties.cloudMetadata.provider == "AWS" or properties.cloudMetadata.provider == "GCP", "Virtual", "Physical")
-    | extend cores = properties.detectedProperties.coreCount, model = tostring(properties.detectedProperties.model), manufacturer = tostring(properties.detectedProperties.manufacturer)
-    | project name,cores,isVirtual,agentVersion,ServerResourceGroupName=resourceGroup,ESUStatus,operatingSystem,model,manufacturer,Cloud
+```kusto
+resources
+| where type =~ 'microsoft.hybridcompute/machines'
+| extend OperatingSystem = tostring(properties.osSku)
+| extend Target = case(
+    OperatingSystem has 'Windows Server 2012 R2', 'Windows Server 2012 R2',
+    OperatingSystem has 'Windows Server 2012', 'Windows Server 2012',
+    OperatingSystem has 'Windows Server 2016', 'Windows Server 2016',
+    '')
+| where isnotempty(Target)
+| extend AgentVersion = tostring(properties.agentVersion)
+| extend ESUStatus = tostring(properties.licenseProfile.esuProfile.licenseAssignmentState)
+| extend Cloud = tostring(properties.cloudMetadata.provider)
+| extend IsVirtual = iff(properties.detectedProperties.model == 'Virtual Machine' or properties.detectedProperties.manufacturer == 'VMware, Inc.' or properties.detectedProperties.manufacturer == 'Nutanix' or Cloud in~ ('AWS', 'GCP'), 'Virtual', 'Physical')
+| extend Cores = toint(properties.detectedProperties.coreCount), Model = tostring(properties.detectedProperties.model), Manufacturer = tostring(properties.detectedProperties.manufacturer)
+| project Name=name, Cores, IsVirtual, AgentVersion, ServerResourceGroupName=resourceGroup, AssignESULicense='', ESUException='', Target, InvoiceId='', ProgramYear='', ESUStatus, OperatingSystem, Model, Manufacturer, Cloud
+```
 
-> **Note:** The mentioned query will display all Azure ARC onboarded Windows 2012/R2 servers that haven't been assigned an ESU license yet. You have the option to adjust the query to retrieve all Windows 2012/R2 servers and subsequently filter the results in Excel, keeping only the servers you wish to assign ESU licenses to. While some of the columns returned might not be utilized by the script, they can be helpful for Excel-based result filtering. Ensure you retain the essential columns (as specified in the manual creation process mentioned earlier) to ensure smooth operations and that you add the optional columns as detailed in the manual CSV file creation process if you have a need for them.
+The query includes Windows Server 2012, Windows Server 2012 R2, and Windows Server 2016 and emits the exact `Target` strings accepted by the script. Filter and review the exported rows before use. You may keep the additional inventory columns for analysis, but retain all required CSV columns and any optional columns you intend to use.
 
-Always ensure a thorough review of the CSV file's contents before utilization. Note that in rare cases, the Cores might return a NULL value instead of the actual number of cores. If this occurs, manual intervention is necessary, requiring you to edit the CSV file and replace the NULL value with the specific number of cores pertaining to the server.
+Always review `Cores` and `IsVirtual`. Azure Resource Graph can return a null or incorrect core count or an incorrect physical/virtual classification. Replace a null or incorrect value with the verified machine value before running the script; never allow an unreviewed value to determine billing.
 
 Here is the command line you should use to run it:
 
-    ./ManageESULicenses.ps1 -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" -edition "Standard" -csvFilePath "C:\foldername\ESULicenses.csv" -licenseNamePrefix "ESU-" -licenseNameSuffix "-marketing" -token $authenticationToken -invoiceId "5555555" -programYear "Year 1"
+    ./ManageESULicenses.ps1 -subscriptionId "00000000-0000-0000-0000-000000000001" -userToken $authenticationToken -licenseResourceGroupName "rg-example-esu" -location "EastUS" -state "Deactivated" -edition "Standard" -csvFilePath "C:\Examples\MixedTargets.csv" -licenseNamePrefix "ESU-" -DryRun
 
 where:
 
@@ -314,14 +359,17 @@ where:
 - location is the Azure region where you want to deploy the ESU licenses.
 - state is the activation state of the ESU license. It can be "Activated" or "Deactivated".
 - edition is the edition of the ESU license. It can be "Standard" or "Datacenter".
+- target (optional) sets the batch fallback target and accepts the three exact target values. It defaults to `Windows Server 2012`; a nonempty row `Target` takes precedence.
 - csvFilePath is the path to the CSV file that contains the information about the ESU licenses you want to create.
 - licenseNamePrefix (optional) is the prefix that will be used to create the ESU licenses. The script will concatenate the prefix with the content of the 'Name' found in the CSV to create the license name.
 - licenseNameSuffix (optional) is the suffix that will be used to create the ESU licenses. The script will concatenate the suffix with the content of the 'Name' found in the CSV to create the license name.
 - token (optional) is a valid Microsoft Entra ID authentication object that has the rights to create and assign ESU licenses.
+- invoiceId and programYear are optional batch fallbacks for applicable Windows Server 2012/R2 Volume Licensing transition rows only. Nonempty row values take precedence. Do not bind these parameters for a mixed file containing Windows Server 2016 because the batch values would also apply to its rows and cause whole-file validation to fail.
+- DryRun validates the full CSV, displays the target-aware plan, and performs only documented read-only Azure checks. `-WhatIf` also prevents create, modify, assign, and unlink requests.
 
 ### Notes
 
-> **New:** -InvoiceID and -ProgramYear options are new and allow customers to transition from volume licensing to Arc Enabled ESU. Refer here: (https://techcommunity.microsoft.com/t5/azure-arc-blog/generally-available-transition-to-ws2012-r2-esus-enabled-by/ba-p/4199566)
+> **Note:** `-invoiceId` and `-programYear` apply only to eligible Windows Server 2012/R2 Volume Licensing transitions. Windows Server 2016 does not support this transition path.
 
 > **Note:** The token parameter offers a way for you to work without having to rely on a Service Principal for authentication. You can either provide a token OR provide the tenantID, appID and clientSecret parameters. If you provide both, the token will be preferred and used.
 
