@@ -4,7 +4,7 @@
 
 `InstallSQLServerArcExtension.ps1` installs `Microsoft.AzureData/WindowsAgent.SqlServer` on an existing Windows Arc machine only when the extension is absent. It enables SQL management and automatic extension upgrades and sets `LicenseType` to `Paid`, `PAYG`, or `LicenseOnly`. It does not update, upgrade, repair, or replace an existing extension, enable ESUs, or deploy patches.
 
-This workflow supports Commercial Azure and Windows only, on machines already connected to Azure Arc. Connected Machine agent installation, upgrade, and repair, native Azure VMs, Linux, other clouds, SQL versions beyond this repository's SQL Server 2014/2016 ESU workflow, physical-core pooled licenses, unlimited virtualization, and automatic patch deployment are out of scope.
+This workflow supports global Azure endpoints and Windows only, on machines already connected to Azure Arc. It is not compatible with Azure Government endpoints as written. Connected Machine agent installation, upgrade, and repair, native Azure VMs, Linux, other clouds, SQL versions beyond this repository's SQL Server 2014/2016 ESU workflow, physical-core pooled licenses, unlimited virtualization, and automatic patch deployment are out of scope.
 
 ## Prerequisites and boundaries
 

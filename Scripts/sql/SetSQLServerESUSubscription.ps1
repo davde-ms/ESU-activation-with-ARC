@@ -9,7 +9,7 @@ read-only Azure preflight for every target before any mutation. It preserves all
 public extension settings and changes only the ESU Boolean, its UTC timestamp, and an
 explicitly approved enable-time LicenseType change.
 
-The target must already be connected to commercial Azure Arc in full mode and have a
+The target must already be connected to Azure Arc through global Azure endpoints in full mode and have a
 healthy, supported Azure Extension for SQL Server. The script does not install or repair
 agents, accept core counts, manage physical-core pools, or configure patching.
 

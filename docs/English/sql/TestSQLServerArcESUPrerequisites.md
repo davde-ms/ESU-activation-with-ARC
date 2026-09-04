@@ -4,11 +4,11 @@
 
 `TestSQLServerArcESUPrerequisites.ps1` performs a read-only Azure Resource Manager assessment before Azure Extension for SQL Server installation or SQL Server ESU enrollment. It checks the Arc machine, provider registration, `WindowsAgent.SqlServer`, correlated Arc SQL inventory, SQL Server 2014/2016 eligibility evidence, and inventory freshness. It never registers a provider or creates, updates, or deletes a resource.
 
-This workflow is for Windows machines already connected to Commercial Azure Arc. Connected Machine agent installation, upgrade, and repair are out of scope. Native Azure VMs, Linux, Azure Government and other clouds, SQL versions other than 2014/2016, physical-core pooled ESU licenses, unlimited virtualization, and automatic patch deployment are out of scope.
+This workflow is for Windows machines already connected to Azure Arc through global Azure endpoints. The script is not compatible with Azure Government endpoints as written. Connected Machine agent installation, upgrade, and repair are out of scope. Native Azure VMs, Linux, other clouds, SQL versions other than 2014/2016, physical-core pooled ESU licenses, unlimited virtualization, and automatic patch deployment are out of scope.
 
 ## Prerequisites and boundaries
 
-- PowerShell 7.x on Windows and network access to Commercial Azure endpoints.
+- PowerShell 7.x on Windows and network access to global Azure endpoints.
 - An existing Arc machine that reports `Connected`, agent mode `Full`, Windows, a location supported for `Microsoft.AzureArcData/sqlServerInstances`, and a non-Azure cloud provider.
 - Registered `Microsoft.HybridCompute` and `Microsoft.AzureArcData` providers. The script reports missing registration but does not register providers.
 - For ESU enablement readiness: a healthy supported `WindowsAgent.SqlServer` extension, `SqlManagement.IsEnabled=true`, `LicenseType` `Paid` or `PAYG`, and at least one SQL Server 2014/2016 Standard or Enterprise instance.

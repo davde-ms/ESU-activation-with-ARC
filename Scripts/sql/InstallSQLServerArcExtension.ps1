@@ -9,7 +9,7 @@ then completes read-only machine, provider, and extension preflight for every ta
 the first PUT request.
 
 The script supports service principal authentication or a valid Get-AzAccessToken token
-object. It targets commercial Azure and does not install or modify the Connected Machine
+object. It targets global Azure endpoints and does not install or modify the Connected Machine
 agent. Installing this extension does not enable SQL Server Extended Security Updates.
 
 .EXAMPLE

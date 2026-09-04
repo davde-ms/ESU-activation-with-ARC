@@ -2,7 +2,7 @@
 
 ## Purpose and scope
 
-`SetSQLServerESUSubscription.ps1` enables or disables the host-level SQL Server ESU setting on an existing `WindowsAgent.SqlServer` extension. It supports Commercial Azure and Windows machines already connected to Azure Arc. It does not install, upgrade, or repair the Connected Machine agent or SQL extension; manage native Azure VMs or Linux; deploy patches; configure automatic patching; accept customer core counts; or manage physical-core pooled ESU licenses/unlimited virtualization.
+`SetSQLServerESUSubscription.ps1` enables or disables the host-level SQL Server ESU setting on an existing `WindowsAgent.SqlServer` extension. It supports global Azure endpoints and Windows machines already connected to Azure Arc; it is not compatible with Azure Government endpoints as written. It does not install, upgrade, or repair the Connected Machine agent or SQL extension; manage native Azure VMs or Linux; deploy patches; configure automatic patching; accept customer core counts; or manage physical-core pooled ESU licenses/unlimited virtualization.
 
 Only SQL Server 2014 and 2016 are supported. Enablement requires eligible inventory and explicit billing acknowledgements. Disable remains available with degraded inventory/provider/machine evidence so a customer is not blocked from canceling future charges; it still requires a readable extension with the exact expected identity and public settings.
 

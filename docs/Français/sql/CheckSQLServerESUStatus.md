@@ -4,7 +4,7 @@
 
 `CheckSQLServerESUStatus.ps1` signale la configuration de l'hôte, l'inventaire SQL Server 2014/2016, les éléments d'éligibilité et de mesure ainsi que l'état ESU SQL Server d'une ou plusieurs machines Windows activées par Azure Arc. Il utilise uniquement des requêtes GET Azure Resource Manager et n'inscrit, ne crée, ne met à jour ni ne supprime aucune ressource.
 
-Il prend uniquement en charge les machines Windows déjà connectées à Azure Arc dans Azure commercial. L'installation, la mise à niveau ou la réparation de l'agent Connected Machine, les machines virtuelles Azure natives, Linux, les autres clouds, les licences mutualisées par cœurs physiques et la virtualisation illimitée, ainsi que le déploiement automatique des correctifs sont hors périmètre. Le rapport d'état n'inscrit aucun hôte et n'installe aucune mise à jour.
+Il prend uniquement en charge les machines Windows déjà connectées à Azure Arc au moyen des points de terminaison Azure global. Dans son état actuel, le script n'est pas compatible avec les points de terminaison Azure Government. L'installation, la mise à niveau ou la réparation de l'agent Connected Machine, les machines virtuelles Azure natives, Linux, les autres clouds, les licences mutualisées par cœurs physiques et la virtualisation illimitée, ainsi que le déploiement automatique des correctifs sont hors périmètre. Le rapport d'état n'inscrit aucun hôte et n'installe aucune mise à jour.
 
 ## Prérequis et limites
 

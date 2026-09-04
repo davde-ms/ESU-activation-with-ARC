@@ -4,11 +4,11 @@
 
 `TestSQLServerArcESUPrerequisites.ps1` effectue une évaluation Azure Resource Manager en lecture seule avant l'installation de l'extension Azure pour SQL Server ou l'inscription aux ESU SQL Server. Il vérifie la machine Arc, l'inscription des fournisseurs, `WindowsAgent.SqlServer`, l'inventaire SQL Arc corrélé, les éléments d'éligibilité SQL Server 2014/2016 et l'actualisation de l'inventaire. Il n'inscrit aucun fournisseur et ne crée, ne met à jour ni ne supprime aucune ressource.
 
-Cette procédure concerne uniquement les machines Windows déjà connectées à Azure Arc dans Azure commercial. L'installation, la mise à niveau et la réparation de l'agent Connected Machine sont hors périmètre. Les machines virtuelles Azure natives, Linux, Azure Government et les autres clouds, les versions SQL autres que 2014/2016, les licences ESU mutualisées par cœurs physiques, la virtualisation illimitée et le déploiement automatique des correctifs sont hors périmètre.
+Cette procédure concerne uniquement les machines Windows déjà connectées à Azure Arc au moyen des points de terminaison Azure global. Dans son état actuel, elle n'est pas compatible avec les points de terminaison Azure Government. L'installation, la mise à niveau et la réparation de l'agent Connected Machine sont hors périmètre. Les machines virtuelles Azure natives, Linux, les autres clouds, les versions SQL autres que 2014/2016, les licences ESU mutualisées par cœurs physiques, la virtualisation illimitée et le déploiement automatique des correctifs sont hors périmètre.
 
 ## Prérequis et limites
 
-- PowerShell 7.x sous Windows et accès réseau aux points de terminaison Azure commercial.
+- PowerShell 7.x sous Windows et accès réseau aux points de terminaison Azure global.
 - Une machine Arc existante indiquant `Connected`, le mode d'agent `Full`, Windows, une région prise en charge pour `Microsoft.AzureArcData/sqlServerInstances` et un fournisseur cloud autre qu'Azure.
 - Les fournisseurs `Microsoft.HybridCompute` et `Microsoft.AzureArcData` inscrits. Le script signale une inscription manquante, mais ne l'effectue pas.
 - Pour que l'activation des ESU soit prête : extension `WindowsAgent.SqlServer` saine et prise en charge, `SqlManagement.IsEnabled=true`, `LicenseType` égal à `Paid` ou `PAYG`, et au moins une instance SQL Server 2014/2016 Standard ou Enterprise.
