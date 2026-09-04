@@ -44,8 +44,8 @@ Suggested test files:
 
 Affected files:
 
-- `Scripts/ManageESUAssignments.ps1`
-- `Scripts/ManageESUAssignmentsFR.ps1`
+- `Scripts/windows/ManageESUAssignments.ps1`
+- `Scripts/windows/ManageESUAssignmentsFR.ps1`
 
 Tasks:
 
@@ -67,8 +67,8 @@ Acceptance criteria:
 
 Affected files:
 
-- `Scripts/ManageESUAssignments.ps1`
-- `Scripts/ManageESUAssignmentsFR.ps1`
+- `Scripts/windows/ManageESUAssignments.ps1`
+- `Scripts/windows/ManageESUAssignmentsFR.ps1`
 
 Tasks:
 
@@ -95,11 +95,11 @@ Acceptance criteria:
 
 Affected files:
 
-- `Scripts/AssignESULicense.ps1`
-- `Scripts/CreateESULicense.ps1`
-- `Scripts/DeleteESULicense.ps1`
-- `Scripts/ManageESUAssignments.ps1`
-- `Scripts/ManageESUAssignmentsFR.ps1`
+- `Scripts/windows/AssignESULicense.ps1`
+- `Scripts/windows/CreateESULicense.ps1`
+- `Scripts/windows/DeleteESULicense.ps1`
+- `Scripts/windows/ManageESUAssignments.ps1`
+- `Scripts/windows/ManageESUAssignmentsFR.ps1`
 
 Tasks:
 
@@ -118,7 +118,7 @@ Acceptance criteria:
 
 Affected files:
 
-- `Scripts/CheckESUStatus.ps1`
+- `Scripts/windows/CheckESUStatus.ps1`
 - `docs/CheckESUStatus.md`
 - `README.md`
 - New French counterparts described in Phase 6

@@ -20,7 +20,7 @@ Invoke-ScriptAnalyzer -Path .\Scripts -Recurse -Settings .\PSScriptAnalyzerSetti
 
 The profile excludes existing categories that require separate compatibility decisions: global state, `Write-Host` output, singular public command names, and the BOM rule described above. Informational formatting rules are outside the warning baseline.
 
-The accepted warning baseline is exactly two `PSUseDeclaredVarsMoreThanAssignments` findings for `$response` in `Scripts/ManageESULicenses.ps1`. `tests/PSScriptAnalyzer.Tests.ps1` enforces that baseline by rule, script, message, and count, so any new warning fails the test.
+The accepted analyzer baseline is zero error or warning findings. `tests/PSScriptAnalyzer.Tests.ps1` enforces that baseline, so any new finding fails the test.
 
 ## Validation
 

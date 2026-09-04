@@ -229,13 +229,13 @@ Make `CreateESULicense.ps1` create or modify a license for any supported target 
 
 ### Tasks
 
-- [ ] T014 [Plan:2.1] Add optional `-target` to `Scripts/CreateESULicense.ps1` with the exact `ValidateSet` and default `Windows Server 2012`. Do not change existing names or aliases. [REQ-001, REQ-002]
+- [ ] T014 [Plan:2.1] Add optional `-target` to `Scripts/windows/CreateESULicense.ps1` with the exact `ValidateSet` and default `Windows Server 2012`. Do not change existing names or aliases. [REQ-001, REQ-002]
 - [ ] T015 [Plan:2.2] Replace the hardcoded target with the validated parameter in the PowerShell request object. [REQ-002, REQ-007]
 - [ ] T016 [Plan:2.3] Introduce an explicit license API-version constant using the Phase 0 decision and assert the exact create/modify URI in tests. [REQ-008]
 - [ ] T017 [Plan:2.4] Include the selected target in `ShouldProcess` action text and verbose payload output without exposing credentials. [REQ-002, REQ-009, REQ-010]
 - [ ] T018 [Plan:2.5] Update comment-based help examples for default 2012, explicit 2012 R2, and explicit 2016 while preserving both authentication paths. [REQ-001, REQ-012]
 - [ ] T019 [Plan:2.6] Make the new single-license contract tests green, including invalid target rejection before authentication and no REST request under `WhatIf`. [REQ-002, REQ-005, REQ-009, REQ-014]
-- [ ] T020 [Plan:2.7] Run the PowerShell parser and PSScriptAnalyzer against `Scripts/CreateESULicense.ps1`; fix only findings introduced by this phase. [REQ-001]
+- [ ] T020 [Plan:2.7] Run the PowerShell parser and PSScriptAnalyzer against `Scripts/windows/CreateESULicense.ps1`; fix only findings introduced by this phase. [REQ-001]
 
 ### Acceptance criteria
 
@@ -253,7 +253,7 @@ Resolve every target-dependent decision before authentication and expose it in a
 
 ### Tasks
 
-- [ ] T021 [Plan:3.1] Add optional batch `-target` to `Scripts/ManageESULicenses.ps1` with the exact `ValidateSet` and 2012 default. [REQ-001, REQ-003]
+- [ ] T021 [Plan:3.1] Add optional batch `-target` to `Scripts/windows/ManageESULicenses.ps1` with the exact `ValidateSet` and 2012 default. [REQ-001, REQ-003]
 - [ ] T022 [Plan:3.2] Treat `Target`, `InvoiceId`, and `ProgramYear` as optional CSV columns while retaining all current required columns and accepting legacy CSV files unchanged. [REQ-001, REQ-003, REQ-004]
 - [ ] T023 [Plan:3.3] Capture `PSBoundParameters.ContainsKey('invoiceId')` and `PSBoundParameters.ContainsKey('programYear')` before invoking planning helpers. [REQ-004]
 - [ ] T024 [Plan:3.4] Add a pure target-resolution helper or equivalent local logic that applies row-over-parameter-default precedence and stores the effective target on every plan item. [REQ-003, REQ-005]
@@ -281,7 +281,7 @@ Use only effective plan-item values to create licenses and preserve target-neutr
 
 ### Tasks
 
-- [ ] T032 [Plan:4.1] Replace `$global:targetOS` in `Scripts/ManageESULicenses.ps1` with an endpoint-specific license API-version constant and per-plan-item target data. [REQ-003, REQ-008]
+- [ ] T032 [Plan:4.1] Replace `$global:targetOS` in `Scripts/windows/ManageESULicenses.ps1` with an endpoint-specific license API-version constant and per-plan-item target data. [REQ-003, REQ-008]
 - [ ] T033 [Plan:4.2] Change the internal `CreateESULicense` function to accept effective target and transition data explicitly. [REQ-003, REQ-004, REQ-007]
 - [ ] T034 [Plan:4.3] Build `licenseDetails` as a PowerShell object and conditionally add `volumeLicenseDetails` only for valid 2012/R2 transition plans. [REQ-004, REQ-007]
 - [ ] T035 [Plan:4.4] Ensure 2016 payloads contain no empty, null, or populated `volumeLicenseDetails` property. [REQ-004, REQ-007]
@@ -309,9 +309,9 @@ Verify that existing link, unlink, status, and delete contracts work with Window
 
 - [ ] T040 [P] [Plan:5.1] Extend `tests/ManageESUAssignments.Tests.ps1` with 2016-named license IDs for assign/unlink and assert bodies remain generation-neutral in both English and French scripts. [REQ-011, REQ-014]
 - [ ] T041 [P] [Plan:5.2] Extend `tests/CheckESUStatus.Tests.ps1` with 2016 assignment-state responses and assert existing output objects remain unchanged. [REQ-001, REQ-011, REQ-014]
-- [ ] T042 [P] [Plan:5.3] Add or extend mocked coverage for `Scripts/AssignESULicense.ps1` and `Scripts/DeleteESULicense.ps1`, proving exact target-neutral URIs and no target parameter requirement. [REQ-001, REQ-008, REQ-011]
+- [ ] T042 [P] [Plan:5.3] Add or extend mocked coverage for `Scripts/windows/AssignESULicense.ps1` and `Scripts/windows/DeleteESULicense.ps1`, proving exact target-neutral URIs and no target parameter requirement. [REQ-001, REQ-008, REQ-011]
 - [ ] T043 [Plan:5.4] Re-run cross-subscription tests and assert license IDs retain the license subscription while machine profile requests retain the machine subscription. [REQ-010, REQ-015]
-- [ ] T044 [Plan:5.5] Verify no runtime change is needed in `Scripts/ManageESUAssignments.ps1`, `Scripts/ManageESUAssignmentsFR.ps1`, or `Scripts/CheckESUStatus.ps1`; avoid code-only churn when tests already prove compatibility. [REQ-001, REQ-011]
+- [ ] T044 [Plan:5.5] Verify no runtime change is needed in `Scripts/windows/ManageESUAssignments.ps1`, `Scripts/windows/ManageESUAssignmentsFR.ps1`, or `Scripts/windows/CheckESUStatus.ps1`; avoid code-only churn when tests already prove compatibility. [REQ-001, REQ-011]
 - [ ] T045 [Plan:5.6] Verify `Custom Roles/ARC ESU License Administrator.json` remains least privilege and unchanged unless Phase 0 produced an approved exception. [REQ-015]
 
 ### Acceptance criteria
@@ -330,11 +330,11 @@ Make Windows Server 2016 support discoverable and safe for both English and Fren
 ### Tasks
 
 - [ ] T046 [Plan:6.1] Update `samples/ManageESULicenses.csv` with `Target`, `InvoiceId`, and `ProgramYear` columns plus fictitious 2012/R2 transition and 2016 non-transition examples. [REQ-003, REQ-004, REQ-013]
-- [ ] T047 [Plan:6.2] Update comment-based help in `Scripts/CreateESULicense.ps1` and `Scripts/ManageESULicenses.ps1` for target values, precedence, mixed files, agent versions, transition restrictions, and safe preview behavior. [REQ-012]
+- [ ] T047 [Plan:6.2] Update comment-based help in `Scripts/windows/CreateESULicense.ps1` and `Scripts/windows/ManageESULicenses.ps1` for target values, precedence, mixed files, agent versions, transition restrictions, and safe preview behavior. [REQ-012]
 - [ ] T048 [Plan:6.3] Update `README.md` and `LISEZMOI.md` so the repository purpose, prerequisites, script matrix, examples, billing dates, and Azure Resource Graph queries cover 2012/R2 and 2016. [REQ-012, REQ-013]
 - [ ] T049 [Plan:6.4] Change Azure Resource Graph examples to include 2012, 2012 R2, and 2016 and emit an exact `Target` value suitable for the CSV contract; retain guidance to review null/incorrect core counts manually. [REQ-005, REQ-013]
-- [ ] T050 [P] [Plan:6.5] Update `docs/English/CreateESULicense.md` and `docs/Français/CreateESULicense.md` with synchronized target parameters and examples. [REQ-002, REQ-012]
-- [ ] T051 [P] [Plan:6.6] Update `docs/English/ManageESULicenses.md`, `docs/Français/ManageESULicenses.md`, `docs/ManageESULicenses.md`, and `docs/ManageESULicensesFR.md` with synchronized columns, precedence, mixed-target examples, and failure behavior. [REQ-003, REQ-004, REQ-006, REQ-012]
+- [ ] T050 [P] [Plan:6.5] Update `docs/English/windows/CreateESULicense.md` and `docs/Français/windows/CreateESULicense.md` with synchronized target parameters and examples. [REQ-002, REQ-012]
+- [ ] T051 [P] [Plan:6.6] Update `docs/English/windows/ManageESULicenses.md` and `docs/Français/windows/ManageESULicenses.md` with synchronized columns, precedence, mixed-target examples, and failure behavior. [REQ-003, REQ-004, REQ-006, REQ-012]
 - [ ] T052 [P] [Plan:6.7] Update English/French assignment, status, and deletion guides to state 2016 compatibility without adding target inputs or promising local OS/target validation. [REQ-011, REQ-012, REQ-015]
 - [ ] T053 [Plan:6.8] Document 2016 Standard/Datacenter eligibility, agent 1.62, qualifying Software Assurance or equivalent Server Subscription coverage, the on-premises Software Assurance condition, no SPLA, no Volume Licensing transition, no documented Visual Studio dev/test benefit, no WS2012 exception-tag reuse, and unavailability in Azure operated by 21Vianet. [REQ-005, REQ-006, REQ-010, REQ-012]
 - [ ] T054 [Plan:6.9] Document January 12, 2027 EOS, January 13, 2027 billing start, activated-unassigned billing, core-addition billing, five-day trailing charges, and back-billing after late enrollment, reactivation, recreation, region changes, or tenant changes. [REQ-010, REQ-012]
@@ -391,8 +391,8 @@ if ($parseErrors.Count -gt 0) {
 
 ```powershell
 if (Get-Command Invoke-ScriptAnalyzer -ErrorAction SilentlyContinue) {
-    Invoke-ScriptAnalyzer -Path .\Scripts\CreateESULicense.ps1
-    Invoke-ScriptAnalyzer -Path .\Scripts\ManageESULicenses.ps1
+    Invoke-ScriptAnalyzer -Path .\Scripts\windows\CreateESULicense.ps1
+    Invoke-ScriptAnalyzer -Path .\Scripts\windows\ManageESULicenses.ps1
 } else {
     Write-Warning 'PSScriptAnalyzer is not installed; analyzer validation was not run.'
 }
@@ -445,8 +445,8 @@ Do not combine unrelated refactors with these change sets.
 | Requirement | Plan items | Expected implementation evidence |
 | --- | --- | --- |
 | REQ-001 | 1.1, 1.6, 2.1, 3.1, 3.2, 3.10, 5.2, 5.3, 5.4, 7.4, 7.7, 7.9 | Existing command lines/tests remain green; default target tests; unchanged output contracts. |
-| REQ-002 | 0.1, 1.2, 2.1-2.6, 4.7, 6.5 | `Scripts/CreateESULicense.ps1`; `tests/CreateESULicense.Tests.ps1`; creation guides. |
-| REQ-003 | 1.3, 3.1, 3.2, 3.4, 3.6, 4.1, 4.2, 4.7, 6.1, 6.6, 7.4 | `Scripts/ManageESULicenses.ps1`; mixed-target Pester cases; sample CSV. |
+| REQ-002 | 0.1, 1.2, 2.1-2.6, 4.7, 6.5 | `Scripts/windows/CreateESULicense.ps1`; `tests/CreateESULicense.Tests.ps1`; creation guides. |
+| REQ-003 | 1.3, 3.1, 3.2, 3.4, 3.6, 4.1, 4.2, 4.7, 6.1, 6.6, 7.4 | `Scripts/windows/ManageESULicenses.ps1`; mixed-target Pester cases; sample CSV. |
 | REQ-004 | 1.4, 3.2, 3.3, 3.5-3.7, 4.2-4.4, 4.7, 6.1, 6.6, 7.8 | Transition resolver tests and conditional request-body assertions. |
 | REQ-005 | 0.2, 0.4, 1.2-1.5, 3.4, 3.5, 3.7-3.9, 3.11, 4.8, 6.4, 6.8, 6.10, 7.8 | Pre-authentication validation tests; row/column errors; updated guidance. |
 | REQ-006 | 0.2, 1.5, 3.8, 3.10, 3.11, 6.6, 6.8, 7.9 | Agent boundary tests and removal of skip execution behavior. |

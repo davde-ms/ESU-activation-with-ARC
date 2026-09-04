@@ -16,27 +16,27 @@ server-01,8,Virtual,1.34,server-rg,True,
 
 $scriptCases = @(
     @{
-        Path = Join-Path $PSScriptRoot '..\Scripts\AssignESULicense.ps1'
+        Path = Join-Path $PSScriptRoot '..\Scripts\windows\AssignESULicense.ps1'
         Arguments = "-subscriptionId '$subscriptionId' -licenseResourceGroupName 'license-rg' -licenseName 'license-01' -serverResourceGroupName 'server-rg' -ARCServerName 'server-01' -location 'eastus'"
     },
     @{
-        Path = Join-Path $PSScriptRoot '..\Scripts\CreateESULicense.ps1'
+        Path = Join-Path $PSScriptRoot '..\Scripts\windows\CreateESULicense.ps1'
         Arguments = "-subscriptionId '$subscriptionId' -licenseResourceGroupName 'license-rg' -licenseName 'license-01' -location 'eastus' -state 'Deactivated' -edition 'Standard' -coreType 'vCore' -coreCount 8"
     },
     @{
-        Path = Join-Path $PSScriptRoot '..\Scripts\DeleteESULicense.ps1'
+        Path = Join-Path $PSScriptRoot '..\Scripts\windows\DeleteESULicense.ps1'
         Arguments = "-subscriptionId '$subscriptionId' -licenseResourceGroupName 'license-rg' -licenseName 'license-01'"
     },
     @{
-        Path = Join-Path $PSScriptRoot '..\Scripts\ManageESUAssignments.ps1'
+        Path = Join-Path $PSScriptRoot '..\Scripts\windows\ManageESUAssignments.ps1'
         Arguments = "-arcServerSubscriptionId '$subscriptionId' -location 'eastus' -csvFilePath '$csvPath'"
     },
     @{
-        Path = Join-Path $PSScriptRoot '..\Scripts\ManageESUAssignmentsFR.ps1'
+        Path = Join-Path $PSScriptRoot '..\Scripts\windows\ManageESUAssignmentsFR.ps1'
         Arguments = "-arcServerSubscriptionId '$subscriptionId' -location 'eastus' -csvFilePath '$csvPath'"
     },
     @{
-        Path = Join-Path $PSScriptRoot '..\Scripts\ManageESULicenses.ps1'
+        Path = Join-Path $PSScriptRoot '..\Scripts\windows\ManageESULicenses.ps1'
         Arguments = "-subscriptionId '$subscriptionId' -licenseResourceGroupName 'license-rg' -location 'eastus' -state Deactivated -edition Standard -csvFilePath '$licenseCsvPath' -programYear 'Year 1'"
     }
 )
@@ -122,7 +122,7 @@ foreach ($scriptCase in $scriptCases) {
 
 Describe 'DeleteESULicense parameter aliases' {
     It 'accepts sec as a clientSecret alias' {
-        $command = Get-Command (Join-Path $PSScriptRoot '..\Scripts\DeleteESULicense.ps1')
+        $command = Get-Command (Join-Path $PSScriptRoot '..\Scripts\windows\DeleteESULicense.ps1')
 
         ($command.Parameters['clientSecret'].Aliases -contains 'sec') | Should Be $true
     }

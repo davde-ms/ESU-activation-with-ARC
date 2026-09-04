@@ -406,15 +406,15 @@ Keep SQL workflows separate from existing Windows scripts and CSV schemas.
 
 ### Proposed scripts
 
-1. `Scripts/TestSQLServerArcESUPrerequisites.ps1`
+1. `Scripts/sql/TestSQLServerArcESUPrerequisites.ps1`
    - Read-only assessment for one machine or CSV input.
    - Checks machine, extension, SQL inventory, eligibility, provider registration, location alignment, extension support window, upload freshness, and license type.
    - Doesn't install the Connected Machine agent, change local SQL permissions, or mutate Azure.
-2. `Scripts/SetSQLServerESUSubscription.ps1`
+2. `Scripts/sql/SetSQLServerESUSubscription.ps1`
    - Single-host enable or disable.
    - Supports an explicit license-type change only when requested.
    - Uses GET-merge-PUT and verifies the result.
-3. `Scripts/CheckSQLServerESUStatus.ps1`
+3. `Scripts/sql/CheckSQLServerESUStatus.ps1`
    - Correlates machine, extension, SQL instances, and optional physical-core licenses.
    - Produces stable output objects suitable for CSV export.
 4. `Scripts/ManageSQLServerESUSubscriptions.ps1`
@@ -461,12 +461,12 @@ Do not combine these schemas. A machine subscription and a physical-core license
 
 Add matching English and French guides only when implementation begins:
 
-- `docs/English/TestSQLServerArcESUPrerequisites.md`
-- `docs/English/SetSQLServerESUSubscription.md`
-- `docs/English/CheckSQLServerESUStatus.md`
-- `docs/English/ManageSQLServerESUSubscriptions.md`
-- `docs/English/ManageSQLServerESULicenses.md`
-- Identically named files under `docs/Français/`.
+- `docs/English/sql/TestSQLServerArcESUPrerequisites.md`
+- `docs/English/sql/SetSQLServerESUSubscription.md`
+- `docs/English/sql/CheckSQLServerESUStatus.md`
+- `docs/English/sql/ManageSQLServerESUSubscriptions.md`
+- `docs/English/sql/ManageSQLServerESULicenses.md`
+- Identically named files under `docs/Français/sql/`.
 - Separate sample CSVs under `samples/`.
 
 Root READMEs should present Windows Server and SQL Server as separate product paths and avoid suggesting that one license object can cover both.

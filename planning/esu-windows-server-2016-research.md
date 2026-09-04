@@ -211,7 +211,7 @@ The current license-profile schema also exposes `softwareAssurance.softwareAssur
 
 ### Scripts that require target-aware behavior
 
-#### `Scripts/CreateESULicense.ps1`
+#### `Scripts/windows/CreateESULicense.ps1`
 
 Current state:
 
@@ -226,7 +226,7 @@ Planned change:
 - Use the selected documented license API version.
 - Preserve all existing parameters, aliases, authentication paths, `WhatIf`, exit codes, and core safeguards.
 
-#### `Scripts/ManageESULicenses.ps1`
+#### `Scripts/windows/ManageESULicenses.ps1`
 
 Current state:
 
@@ -255,21 +255,21 @@ Planned change:
 
 ### Scripts that are structurally compatible
 
-#### `Scripts/AssignESULicense.ps1`
+#### `Scripts/windows/AssignESULicense.ps1`
 
 The body contains only the assigned license resource ID. No target-specific REST change is documented. Verify against the selected profile API version and add mocked tests using a Windows Server 2016 license resource ID.
 
-#### `Scripts/ManageESUAssignments.ps1` and `Scripts/ManageESUAssignmentsFR.ps1`
+#### `Scripts/windows/ManageESUAssignments.ps1` and `Scripts/windows/ManageESUAssignmentsFR.ps1`
 
 The same conclusion applies to bulk link/unlink operations, including cross-subscription same-tenant assignments. No target column is needed because these scripts assign existing licenses rather than create them. Azure remains responsible for rejecting an OS/license target mismatch.
 
 A stronger local preflight could GET the Arc machine and compare its OS to the license target, but that would require additional REST calls and likely `Microsoft.HybridCompute/machines/read` in the custom role. Do not broaden RBAC without separate approval and documentation.
 
-#### `Scripts/CheckESUStatus.ps1`
+#### `Scripts/windows/CheckESUStatus.ps1`
 
 The license-profile status mechanism is generation-neutral. Existing output remains compatible. Optional target reporting would require reading the assigned license and is outside the minimum compatibility change.
 
-#### `Scripts/DeleteESULicense.ps1`
+#### `Scripts/windows/DeleteESULicense.ps1`
 
 Deletion is generation-neutral. Update only the endpoint API version if the coordinated API-version decision applies to all license operations, and preserve billing warnings.
 

@@ -1,4 +1,4 @@
-$scriptPath = Join-Path $PSScriptRoot '..\Scripts\CheckESUStatus.ps1'
+$scriptPath = Join-Path $PSScriptRoot '..\Scripts\windows\CheckESUStatus.ps1'
 $subscriptionId = '00000000-0000-0000-0000-000000000001'
 $overrideSubscriptionId = '00000000-0000-0000-0000-000000000002'
 $statusCsvPath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-status-$PID.csv"

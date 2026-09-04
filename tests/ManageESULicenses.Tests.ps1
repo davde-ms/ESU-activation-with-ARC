@@ -1,4 +1,4 @@
-$scriptPath = Join-Path $PSScriptRoot '..\Scripts\ManageESULicenses.ps1'
+$scriptPath = Join-Path $PSScriptRoot '..\Scripts\windows\ManageESULicenses.ps1'
 
 function Import-ManageESULicensesFunctions {
     $tokens = $null

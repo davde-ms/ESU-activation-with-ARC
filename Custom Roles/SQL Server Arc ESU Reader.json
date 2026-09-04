@@ -1,0 +1,19 @@
+{
+    "properties": {
+        "Name": "SQL Server Arc ESU Reader",
+        "IsCustom": true,
+        "description": "Reads Azure Arc machine, SQL extension, SQL Server instance, and provider registration state for SQL Server ESU assessment and status reporting.",
+        "assignableScopes": [
+            "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+        ],
+        "actions": [
+            "Microsoft.HybridCompute/machines/read",
+            "Microsoft.HybridCompute/machines/extensions/read",
+            "Microsoft.AzureArcData/sqlServerInstances/read",
+            "Microsoft.Resources/subscriptions/providers/read"
+        ],
+        "notActions": [],
+        "dataActions": [],
+        "notDataActions": []
+    }
+}

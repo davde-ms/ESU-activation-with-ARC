@@ -1,7 +1,7 @@
 $subscriptionId = '00000000-0000-0000-0000-000000000001'
 $licenseName = 'windows-server-2016-standard-8-vcore'
-$assignScriptPath = Join-Path $PSScriptRoot '..\Scripts\AssignESULicense.ps1'
-$deleteScriptPath = Join-Path $PSScriptRoot '..\Scripts\DeleteESULicense.ps1'
+$assignScriptPath = Join-Path $PSScriptRoot '..\Scripts\windows\AssignESULicense.ps1'
+$deleteScriptPath = Join-Path $PSScriptRoot '..\Scripts\windows\DeleteESULicense.ps1'
 
 function Invoke-TargetNeutralLifecycleScript {
     param(

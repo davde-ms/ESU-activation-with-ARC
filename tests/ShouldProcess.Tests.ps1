@@ -8,15 +8,15 @@ server-2016,8,Virtual,1.62,server-rg,True,,Windows Server 2016,,
 
 $scriptCases = @(
     @{
-        Path = Join-Path $PSScriptRoot '..\Scripts\AssignESULicense.ps1'
+        Path = Join-Path $PSScriptRoot '..\Scripts\windows\AssignESULicense.ps1'
         Arguments = "-subscriptionId '$subscriptionId' -licenseResourceGroupName 'license-rg' -licenseName 'license-01' -serverResourceGroupName 'server-rg' -ARCServerName 'server-01' -location 'eastus'"
     },
     @{
-        Path = Join-Path $PSScriptRoot '..\Scripts\CreateESULicense.ps1'
+        Path = Join-Path $PSScriptRoot '..\Scripts\windows\CreateESULicense.ps1'
         Arguments = "-subscriptionId '$subscriptionId' -licenseResourceGroupName 'license-rg' -licenseName 'license-01' -location 'eastus' -state Deactivated -edition Standard -coreType vCore -coreCount 8"
     },
     @{
-        Path = Join-Path $PSScriptRoot '..\Scripts\DeleteESULicense.ps1'
+        Path = Join-Path $PSScriptRoot '..\Scripts\windows\DeleteESULicense.ps1'
         Arguments = "-subscriptionId '$subscriptionId' -licenseResourceGroupName 'license-rg' -licenseName 'license-01'"
     }
 )
@@ -90,7 +90,7 @@ foreach ($scriptCase in $scriptCases) {
 }
 
 Describe 'Planned target-aware ShouldProcess behavior in CreateESULicense.ps1' {
-    $path = Join-Path $PSScriptRoot '..\Scripts\CreateESULicense.ps1'
+    $path = Join-Path $PSScriptRoot '..\Scripts\windows\CreateESULicense.ps1'
     $arguments = "-subscriptionId '$subscriptionId' -licenseResourceGroupName 'license-rg' -licenseName 'license-2016' -location 'eastus' -state Deactivated -edition Standard -coreType vCore -coreCount 8 -target 'Windows Server 2016'"
 
     It '[Phase 2] exposes the target parameter for explicit WhatIf calls' {
@@ -106,7 +106,7 @@ Describe 'Planned target-aware ShouldProcess behavior in CreateESULicense.ps1' {
 }
 
 Describe 'Planned target-aware ShouldProcess behavior in ManageESULicenses.ps1' {
-    $path = Join-Path $PSScriptRoot '..\Scripts\ManageESULicenses.ps1'
+    $path = Join-Path $PSScriptRoot '..\Scripts\windows\ManageESULicenses.ps1'
     $arguments = "-subscriptionId '$subscriptionId' -licenseResourceGroupName 'license-rg' -location 'eastus' -state Deactivated -edition Standard -csvFilePath '$($targetCsvPath.Replace("'", "''"))' -target 'Windows Server 2016'"
 
     It '[Phase 3] exposes the target parameter for explicit WhatIf calls' {

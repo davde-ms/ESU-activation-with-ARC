@@ -1,6 +1,6 @@
 $scriptPaths = @(
-    (Join-Path $PSScriptRoot '..\Scripts\ManageESUAssignments.ps1'),
-    (Join-Path $PSScriptRoot '..\Scripts\ManageESUAssignmentsFR.ps1')
+    (Join-Path $PSScriptRoot '..\Scripts\windows\ManageESUAssignments.ps1'),
+    (Join-Path $PSScriptRoot '..\Scripts\windows\ManageESUAssignmentsFR.ps1')
 )
 
 function Import-FunctionsUnderTest {

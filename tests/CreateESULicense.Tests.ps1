@@ -1,4 +1,4 @@
-$scriptPath = Join-Path $PSScriptRoot '..\Scripts\CreateESULicense.ps1'
+$scriptPath = Join-Path $PSScriptRoot '..\Scripts\windows\CreateESULicense.ps1'
 $subscriptionId = '00000000-0000-0000-0000-000000000001'
 
 function Invoke-CreateESULicenseScenario {
