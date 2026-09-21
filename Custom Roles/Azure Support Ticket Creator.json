@@ -1,0 +1,14 @@
+{
+    "Name": "Azure Support Ticket Creator",
+    "IsCustom": true,
+    "Description": "Grants access only to Azure Support operations so an identity can create and manage support tickets through the Azure portal or programmatically.",
+    "Actions": [
+        "Microsoft.Support/*"
+    ],
+    "NotActions": [],
+    "DataActions": [],
+    "NotDataActions": [],
+    "AssignableScopes": [
+        "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    ]
+}

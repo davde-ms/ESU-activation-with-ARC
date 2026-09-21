@@ -1,0 +1,19 @@
+{
+    "properties": {
+        "roleName": "SQL Server Arc ESU Operator",
+        "description": "Installs or updates extensions on Azure Arc machines. Assign to each resource group containing target Arc machines, with SQL Server Arc ESU Reader at subscription scope.",
+        "assignableScopes": [
+            "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+        ],
+        "permissions": [
+            {
+                "actions": [
+                    "Microsoft.HybridCompute/machines/extensions/write"
+                ],
+                "notActions": [],
+                "dataActions": [],
+                "notDataActions": []
+            }
+        ]
+    }
+}

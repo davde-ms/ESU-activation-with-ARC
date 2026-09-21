@@ -1,234 +1,259 @@
-# ESU activation with ARC
+# ESU activation with Azure Arc
 
-> Les instructions en français se trouvent dans le [fichier LISEZMOI.md](LISEZMOI.md).
+> Pour consulter les instructions en français, ouvrez le [fichier LISEZMOI.md](LISEZMOI.md).
 
-## Introduction
+<a id="table-of-contents"></a>
+## Table of contents
 
-The purpose of this repository is to streamline the rapid setup of your Windows 2012/R2 Servers, ensuring they are ready to receive the upcoming Extended Security Updates, referred to as ESU.
+- [Overview](#overview)
+- [Choose an ESU workflow](#choose-an-esu-workflow)
+- [Before you begin](#before-you-begin)
+- [Windows Server ESU](#windows-server-esu)
+- [SQL Server ESU](#sql-server-esu)
+- [Samples and detailed documentation](#samples-and-detailed-documentation)
+- [Contributing](#contributing)
+- [License](#license)
 
-Prior activation of your Windows 2012/R2 Servers is necessary for ESU reception. Failure to activate your servers will result in an inability to receive the ESUs.
+<a id="overview"></a>
+## Overview
 
-> It is crucial to thoroughly comprehend the appropriate licensing procedures and prerequisites for the servers you intend to enable ESUs for using Azure ARC. It is imperative to generate the CORRECT form of licenses, such as Standard or Datacenter, considering whether they are for virtual or physical cores. Failing to do so could lead to either excessive billing or non-compliance with Microsoft's licensing regulations. If you have any uncertainties, please seek advice from your dedicated Microsoft Azure specialist or Microsoft Account Executive.
+This repository provides two separate PowerShell 7 workflows for Extended Security Updates (ESUs) enabled by Azure Arc:
 
-This information and scripts are provided as is and are not intended to be a substitute for professional advice or consulting, including but not limited to legal advice. I do not make any warranties, express, implied or statutory, as to the information in this document or scripts. I do not accept any liability for any damages, direct or consequential, arising from the use of the information contained in this document or scripts.
+- Azure Arc ESU license resources for Windows Server 2012, Windows Server 2012 R2, and Windows Server 2016.
+- Per-Arc-machine/OSE SQL Server ESU subscriptions for SQL Server 2014 and SQL Server 2016.
 
-That being said, let's get started!
+The scripts use Azure Resource Manager REST APIs directly. They support individual and bulk operations, read-only status checks, preview modes for supported changes, and either user-token or service-principal authentication.
 
+These scripts do not onboard machines to Azure Arc or deploy ESU patches. Machines must already be connected to Azure Arc and satisfy the requirements for the selected workflow.
 
-## Prerequisites
+<a id="choose-an-esu-workflow"></a>
+## Choose an ESU workflow
 
- - An Microsoft Entra ID tenant as well as an active Azure subscription.
- - Windows 2012/R2 Server(s) already onboarded to the Azure ARC platform. Please check the [Connected Machine agent prerequisites](https://learn.microsoft.com/en-us/azure/azure-arc/servers/prerequisites) to ensure your servers are ready for onboarding.
- - An Azure resource group to store the ESU licenses that will be created with these scripts.
- - An Microsoft Entra Enterprise application and service principal that will be used to authenticate to Azure. Please check the [Create an Azure service principal with Azure CLI](https://learn.microsoft.com/en-us/entra/identity-platform/howto-create-service-principal-portal) to create a service principal.
- - The Microsoft Entra application ID and secret key for the service principal created above.
- - A delegation of rights to the resource group that holds the licenses as well as a delegation of rights to the resource group(s) that contain the Azure ARC servers. Please check the [Delegating access to Azure resources](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-steps) to delegate access to the resource groups if you need assistance. The required delegated rights will be documented in the next section.
- - A computer with Powershell 7.x or higher installed. Please check the [Installing PowerShell on Windows](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-core-on-windows) to install Powershell 7.x or higher. The current version of the scripts do not use the AZ Powershell module, but it is recommended to install it for future use. Please check the [Install Azure PowerShell on Windows](https://learn.microsoft.com/en-us/powershell/azure/install-azps-windows) to install the AZ Powershell module if you want to.
- 
-> **Note**: the ManageESULicenses.ps1 script can now work with a user provided credentials object and as such the service principal is no longer required to its execution. You will have to provide the tenantID, appID and clientSecret parameters OR a valid Microsoft Entra ID authentication object that has the rights to create and assign ESU licenses. Please check the [ManageESULicenses.ps1](#manageesulicensesps1) section for more information.
- 
-## Azure rights required for the scripts to work
+Windows Server ESU licenses and SQL Server ESU subscriptions use different Azure resources, permissions, eligibility rules, and billing models. Do not use one workflow to manage the other.
 
-The following rights have to be delegated on the resource groups you plan on using to store the ESU licence objects as well as the resource groups containing the Azure ARC servers:
+| Workflow | Supported products | Azure resource changed | Start here |
+| --- | --- | --- | --- |
+| Windows Server ESU | Windows Server 2012, 2012 R2, and 2016 | `Microsoft.HybridCompute/licenses` and machine license profiles | [Windows Server ESU](#windows-server-esu) |
+| SQL Server ESU | SQL Server 2014 and 2016 on Windows machines connected to Azure Arc | Host settings on `Microsoft.HybridCompute/machines/extensions/WindowsAgent.SqlServer` | [SQL Server ESU](#sql-server-esu) |
 
-- "Microsoft.HybridCompute/licenses/read"
-- "Microsoft.HybridCompute/licenses/write"
-- "Microsoft.HybridCompute/licenses/delete"
-- "Microsoft.HybridCompute/machines/licenseProfiles/read"
-- "Microsoft.HybridCompute/machines/licenseProfiles/write"
-- "Microsoft.HybridCompute/machines/licenseProfiles/delete"
+### How Windows and SQL ESUs differ
 
-There is a custom role definition located in the Custom Roles folder in this repository that can be used to create a custom role with the required rights. Please check the [Create a custom role using Azure PowerShell](https://docs.microsoft.com/en-us/azure/role-based-access-control/custom-roles-powershell#create-a-custom-role-using-azure-powershell) to create a custom role with the custom role definition.
+Windows Server and SQL Server ESUs do not use the same Azure object model. Windows Server ESUs create a license resource and assign it through a machine license profile. The SQL workflow implemented here creates no comparable license object: it enables an ESU subscription in the `WindowsAgent.SqlServer` extension of each Arc machine.
 
-Once the role is created, assign it to the security principal and apply it to the all resource groups storing the licenses or the Azure ARC Server objects. For example, if you have 3 resource groups, one for the licenses and two for the Azure ARC servers, you will need to assign the custom role to the security principal and apply it to all three resource groups.
+| Characteristic | Windows Server ESU | SQL Server ESU implemented here |
+| --- | --- | --- |
+| Azure license object | `Microsoft.HybridCompute/licenses` | None |
+| Configuration location | License resource plus machine license profile | `WindowsAgent.SqlServer` extension settings |
+| Operation | Create a license, then assign it | Enable or cancel a subscription per Arc machine/OSE |
+| Core input | Customer supplies the licensed cores | Azure detects the cores visible to the operating system environment (OSE) |
+| SQL Server in a VM | Not applicable | Azure meters the vCores visible to that VM, with the documented four-core minimum |
+| SQL Server directly on a physical server | Not applicable | Azure meters the physical cores visible to that OSE, with the documented four-core minimum |
+| Separate license resource group | Supported for Windows license resources | Not applicable because no SQL license resource is created |
 
-## How to use the scripts
+In this documentation, **per Arc machine/OSE** means the guest VM when SQL Server runs in a VM, not the physical hypervisor. Customers enable the SQL ESU subscription separately on each Arc-connected SQL VM they want covered; Azure meters that VM's vCores rather than all cores of the virtualization host.
 
-There are currently 5 scripts in this repository (located in the Scripts folder):
+**Important:** SQL extension values `Paid`, `PAYG`, and `LicenseOnly` describe how the underlying SQL Server software is licensed; they are not ESU payment statuses. `Paid` means a qualifying bring-your-own license with active Software Assurance or SQL Server subscription, `PAYG` means the SQL software license is billed through Azure, and `LicenseOnly` means a license without the qualifying subscription benefit. Only `Paid` and `PAYG` qualify for the Arc-enabled ESU subscription. The separate `enableExtendedSecurityUpdates` setting controls ESU enrollment and ESU metering. See the [detailed LicenseType explanation](docs/English/sql/README.md#sql-license-type).
 
-- AssignESULicense.ps1 (assigns an existing ESU license to an Azure ARC server)
-- CreateESULicense.ps1 (creates a new ESU license)
-- DeleteESULicense.ps1 (deletes an existing ESU license)
-- ManageESULicenses.ps1 (creates and optionally assigns ESU licenses in bulk, taking its information from a CSV file)
-- ManageESUAssignments.ps1 (assigns ESU licenses in bulk, taking its information from a CSV file)
+SQL Server also offers a separate physical-core unlimited-virtualization model that creates a `Microsoft.AzureArcData/sqlServerEsuLicenses` resource. That resource can cover qualifying Arc-enabled VMs through a resource-group, subscription, or tenant scope. This repository does not create, manage, or apply those pooled physical-core licenses.
 
+<a id="before-you-begin"></a>
+## Before you begin
 
-## AssignESULicense.ps1
+### Common prerequisites
 
-This script will assign an ESU license to a specific Azure ARC server. Here is the command line you should use to run it:
-    
-    ./AssignESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores" -serverResourceGroupName "rg-arservers" -ARCServerName "Win2012" -location "EastUS"
+- A Microsoft Entra tenant and an active Azure subscription.
+- PowerShell 7.x or later. See [Install PowerShell on Windows](https://learn.microsoft.com/powershell/scripting/install/install-powershell-on-windows).
+- Target machines already connected to Azure Arc. See the [Connected Machine agent prerequisites](https://learn.microsoft.com/azure/azure-arc/servers/prerequisites).
+- Azure permissions for the selected workflow and every applicable subscription and resource group.
+- Reviewed customer inventory, licensing eligibility, and billing information before any change.
 
-where:
-- subscriptionId is the subscription ID of the Azure subscription you want to use.
-- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
-- appID is the application ID of the service principal you created in the prerequisites section.
-- clientSecret is the secret key of the service principal you created in the prerequisites section.
-- licenseResourceGroupName is the name of the resource group that contains the ESU license you want to assign to the Azure ARC server.
-- licenseName is the name of the ESU license you want to assign to the Azure ARC server.
-- serverResourceGroupName is the name of the resource group that contains the Azure ARC server you want to assign the ESU license to.
-- ARCServerName is the name of the Azure ARC server you want to assign the ESU license to.
-- location is the Azure region where you ARC objects are deployed.
+The scripts do not require the Az PowerShell module when service-principal authentication is used. User-token authentication requires a token object such as one returned by `Get-AzAccessToken`.
 
-You can use the -u at the end of the command line to UNLINK an existing license from an Azure ARC server. If you do not specify the -u parameter, the script will link the license to the Azure ARC server (default behavior).
+<a id="azure-cloud-support"></a>
+### Azure cloud support
 
-## CreateESULicense.ps1
+The current scripts target global Azure. They use the global Azure Resource Manager endpoint (`management.azure.com`) and Microsoft Entra endpoint (`login.microsoftonline.com`), and they validate ARM response URLs against the global Azure host. They are not compatible with Azure Government as written.
 
-This script will create an ESU license. Here is the command line you should use to run it:
-    
-    ./CreateESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores" -location "EastUS" -state "Activated" -edition "Standard" -coreType "vCore" -coreCount 8
+Azure Government uses different management and authentication endpoints, and feature availability can differ by cloud and region. Microsoft currently documents SQL Server enabled by Azure Arc in US Government Virginia on Windows with a limited feature set. Review [SQL Server enabled by Azure Arc in US Government](https://learn.microsoft.com/sql/sql-server/azure-arc/us-government-region?view=sql-server-ver17) for current availability and limitations.
 
-where:
-- subscriptionId is the subscription ID of the Azure subscription you want to use.
-- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
-- appID is the application ID of the service principal you created in the prerequisites section.
-- clientSecret is the secret key of the service principal you created in the prerequisites section.
-- licenseResourceGroupName is the name of the resource group that will contain the ESU license.
-- licenseName is the name of the ESU license you want to create.
-- location is the Azure region where you want to deploy the ESU license.
-- state is the activation state of the ESU license. It can be "Activated" or "Deactivated".
-- edition is the edition of the ESU license. It can be "Standard" or "Datacenter".
-- coreType is the core type of the ESU license. It can be "vCore" or "pCore".
-- coreCount is the number of cores of the ESU license.
+Azure Government support would require cloud-aware endpoint and token-audience configuration, trusted-host validation for Government ARM responses, Government-specific regional endpoints, and separate API, provider, role, and regression validation. Do not adapt these scripts by replacing URLs without completing that validation.
 
-You can type the exact cores your host or VM has and the script will automatically calculate the number of cores required for the ESU license.
+### Authentication options
 
-**Note:** The script can also be rerun with the same base parameters to change some of the properties of the license. Those properties are:
-- state (allows you to create a deactivated license and activate it later)
-- coreCount (allows you to change the number of cores of the license if you have need to increase or decrease it)
+Use one of these authentication methods:
 
-All other parameters are immutable and cannot be changed once the license is created.
+1. Pass a user token object through `-userToken`:
 
-## DeleteESULicense.ps1
+   ```powershell
+   $authenticationToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/
+   ```
 
-This script will delete an ESU license. When you delete a license, it will be removed from the Azure ARC server it was assigned to and stop the billing tied to that license.
+2. Pass `-tenantId`, `-appID`, and `-clientSecret` for a Microsoft Entra service principal.
 
-> **Deleting an activated license and then recreating it is STRONGLY DISCOURAGED. This is because all activated licenses will incur the monthly ESU fee beginning on October 10, 2023. If you delete a license and subsequently recreate it, you will be charged for the new license from October 10, 2023 onwards, rather than from the time of its initial creation or activation.**
+The authenticated identity must have the required role assignments in all subscriptions involved. Never place real credentials in CSV files, command history, documentation, or logs.
 
-Here is the command line you should use to run it:
-    
-    ./DeleteESULicense -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -licenseName "Standard-8vcores"
+### Safety, licensing, and billing
 
-where:
-- subscriptionId is the subscription ID of the Azure subscription you want to use.
-- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
-- appID is the application ID of the service principal you created in the prerequisites section.
-- clientSecret is the secret key of the service principal you created in the prerequisites section.
-- licenseResourceGroupName is the name of the resource group that contains the ESU license you want to delete.
-- licenseName is the name of the ESU license you want to delete.
+ESU edition, core type, core count, target, activation state, program year, invoice ID, and exception handling can affect billing and compliance. Verify the applicable Microsoft licensing terms before using these scripts. Incorrect selections can result in excess charges or non-compliance.
 
+- Use read-only status scripts first.
+- Use `-DryRun` or `-WhatIf` when the selected script supports it, and review the complete plan before making a change.
+- Replace every fictitious value in the samples with verified customer data.
+- Confirm the result with the corresponding read-only status script.
+- Do not assume that enabling ESU access installs patches.
 
-## ManageESUAssignments.ps1
+Activated Windows Server ESU licenses are billed for provisioned cores even when they are not assigned. Late enrollment and some license changes can cause back-billing. Reducing cores, deactivating a license, or deleting it can remain billable for up to five calendar days. Confirm current terms in the [official Windows Server ESU billing guidance](https://learn.microsoft.com/azure/azure-arc/servers/billing-extended-security-updates).
 
-This script will assign ESU licenses in bulk, taking its information from a CSV file.
+The information and scripts in this repository are provided as is and are not a substitute for professional, legal, or licensing advice.
 
-> **The main goal for this script is to enable one (license) to many (Azure ARC servers) assignments. This is useful if/when you have a large number of Azure ARC servers that need to be assigned to the same license.**
+<a id="windows-server-esu"></a>
+## Windows Server ESU
 
+### Scope and requirements
 
-Here is the command line you should use to run it:
-    
-    ./ManageESUAssignments.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -location "EastUS" -csvFilePath "C:\foldername\ESULicensesAssignments.csv"
+License creation accepts these exact `Target` values:
 
-where:
-- subscriptionId is the subscription ID of the Azure subscription you want to use.
-- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
-- appID is the application ID of the service principal you created in the prerequisites section.
-- clientSecret is the secret key of the service principal you created in the prerequisites section.
-- location is the Azure region where you ARC objects are deployed.
-- csvFilePath is the path to the CSV file that contains the information about the ESU licenses assignments you want to apply to Azure ARC servers.
+- `Windows Server 2012`
+- `Windows Server 2012 R2`
+- `Windows Server 2016`
 
+Use Connected Machine agent 1.34 or later for Windows Server 2012/R2 and 1.62 or later for Windows Server 2016. Review the current [Windows Server ESU preparation guidance](https://learn.microsoft.com/azure/azure-arc/servers/prepare-extended-security-updates) before enrollment.
 
-> The CSV file has to be manually created and should contain the following columns:
-- Name: the name of the Azure ARC server you want to assign the license to.
-- ServerResourceGroupName: the name of the resource group that contains the Azure ARC server.
-- LicenseName: the name of the ESU license that will be assigned to the Azure ARC server.
-- LicenseResourceGroupName: the name of the resource group that contains the ESU license you want to assign to the Azure ARC server.
-- AssignESULicense: Set it to **True** if you want the license to be assigned to the Azure ARC server or **False** to unlink the license from the Azure ARC server.
+Windows Server 2016 ESUs enabled by Azure Arc support Standard and Datacenter editions. SPLA and the Windows Server 2012/R2 `InvoiceId`, `ProgramYear`, Visual Studio dev/test, and exception-tag mechanisms are not supported for Windows Server 2016. Windows Server 2016 reaches end of support on January 12, 2027, and ESU billing begins January 13, 2027.
 
-Here is an example of the expected format of the CSV file:
+Azure Arc-enabled servers used for these ESUs are not currently supported in Azure operated by 21Vianet. Install the licensing package and servicing stack update applicable to the target operating system; do not reuse a Windows Server 2012 package as a Windows Server 2016 prerequisite.
 
-![CSV File Layout](media/ManageESUAssignments_CSV_example.jpg)
+### Required permissions
 
+The [ARC ESU License Administrator](Custom%20Roles/ARC%20ESU%20License%20Administrator.json) custom role contains the required license and machine license-profile actions:
 
-## ManageESULicenses.ps1
+- `Microsoft.HybridCompute/licenses/read`
+- `Microsoft.HybridCompute/licenses/write`
+- `Microsoft.HybridCompute/licenses/delete`
+- `Microsoft.HybridCompute/machines/licenseProfiles/read`
+- `Microsoft.HybridCompute/machines/licenseProfiles/write`
 
-This script will create, assign and manage ESU licenses in bulk, taking its information from a CSV file.
-> **Note: license creation will be skipped if Arc agent version is lower than 1.34 since it is the minimum required version that is able to push the ESU activation to servers. Upgrade your ARC agent(s), run the Azure Graph Explorer query again and then rerun the script to process the newly upgraded servers.**
+Assign the role at every scope containing Windows Server ESU licenses or target Azure Arc machines. Cross-subscription assignments require access in both the machine and license subscriptions.
 
-The creation of the CSV file can be done in 2 ways:
-### **Manually**:
-(by providing the required information in the CSV file). Here are the columns that have to be present in the CSV file:
-- Name: the name of the ESU license that will be created (usually matches a server name but not mandatory if you plan on using ESU licenses to cover multiple servers).
-- Cores: the number of cores of the VM or physical server.
-- IsVirtual: a value that indicates if the server is virtual or not, set is to **Virtual** for VMs or **Physical** for physical servers.
-> **Note:** The IsVirtual column is only used to determine the type of core that is going to be assigned to the license. You usually will almost always use vCore licenses unless you are covering physical servers.
-- AgentVersion: the version of the Azure ARC agent installed on the server. This information can be retrieved from the Azure portal or by running the [Azure Graph Explorer query](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) mentioned below.
-- ServerResourceGroupName: the name of the resource group that contains the Azure ARC server.
-- AssignESULicense: Set it to **True** if you want the license to be assigned to the Azure ARC server, **False** to unlink the license from the Azure ARC server or omit the value altogether to create a license without assigning it.
+### Recommended workflow
 
-> **Note:** The AssignedESULicense column is **optional** and is used IF/WHEN you want to manage license assignment as part of the script execution. Note that it is NOT automatically created when using Azure Graph Explorer to generate the CSV file. You will need to **manually** add it to the CSV file if you want to manage assignment of license as part of the execution of this script.
+1. Run `CheckESUStatus.ps1` to inventory existing assignments without making changes.
+2. Choose the single-resource or bulk script that matches the intended operation.
+3. Copy the applicable CSV template and verify target, edition, core type, core count, agent version, transition values, and assignment intent.
+4. Run a supported preview mode and review the complete plan.
+5. Run the approved change, then check status again.
 
-- ESUException: **IF** your server is eligible to receive Extended Security Updates patches at no additional cost, set it to whichever value that matches the use case. Those scenarios are detailed in the [Additional scenarios section of the Deliver Extended Security Updates for Windows Server 2012](https://learn.microsoft.com/en-us/azure/azure-arc/servers/deliver-extended-security-updates#additional-scenarios) article. If your server is not eligible for free ESU, omit the value altogether. Please make sure you fully understand the scenarios and their requirements before setting this value. Failure to do so could lead to either excessive billing or non-compliance with Microsoft's licensing regulations.
+### Script and guide catalog
 
-> **VERY IMPORTANT:** Make sure **NOT** to list servers that are eligible to receive ESUs at no additional cost in the CSV file, as those servers **should be assigned to an existing billable license** that has been properly tagged and not have their own license created. Failure to do so will lead to excessive billing.
-The ability to bulk assign existing license will come shortly.
+| Goal | Guide | CSV template or starting point |
+| --- | --- | --- |
+| Check assignment status without changes | [CheckESUStatus.ps1](docs/English/windows/CheckESUStatus.md) | [Status template](samples/CheckESUStatus.csv) |
+| Create or update one license | [CreateESULicense.ps1](docs/English/windows/CreateESULicense.md) | Review target, edition, core type, core count, and state in the guide |
+| Assign or unlink one existing license | [AssignESULicense.ps1](docs/English/windows/AssignESULicense.md) | Use when the server and license resources are known |
+| Create or update licenses in bulk, with optional assignment | [ManageESULicenses.ps1](docs/English/windows/ManageESULicenses.md) | [License template](samples/ManageESULicenses.csv) |
+| Assign or unlink existing licenses in bulk or across subscriptions | [ManageESUAssignments.ps1](docs/English/windows/ManageESUAssignments.md) | [Assignment template](samples/ManageESUAssignments.csv) |
+| Delete one license | [DeleteESULicense.ps1](docs/English/windows/DeleteESULicense.md) | Review the deletion and billing warning in the guide |
 
-Here is an example of the expected format of the CSV file:
+Example read-only inventory command:
 
-![Example CSV file](media/ManageESULicenses_CSV_Example.jpg)
+```powershell
+./Scripts/windows/CheckESUStatus.ps1 -subscriptionId "00000000-0000-0000-0000-000000000001" -userToken $authenticationToken -serverResourceGroupName "rg-example-arc" -ARCServerName "server-01"
+```
 
-    
-### **Automatically**:
-(by running the following [Azure Graph Explorer query](https://learn.microsoft.com/en-us/graph/graph-explorer/graph-explorer-overview) and saving its output to a CSV):
+Example bulk preview:
 
-    resources
-    | where type == 'microsoft.hybridcompute/machines'  
-    | extend agentVersion = tostring(properties.agentVersion), operatingSystem = tostring(properties.osSku)  
-    | where operatingSystem has "Windows Server 2012"  
-    | extend ESUStatus = properties.licenseProfile.esuProfile.licenseAssignmentState  
-    | extend Cloud = tostring(properties.cloudMetadata.provider)  
-    | extend isVirtual = iff(properties.detectedProperties.model == "Virtual Machine" or properties.detectedProperties.manufacturer == "VMware, Inc." or properties.detectedProperties.manufacturer == "Nutanix" or properties.cloudMetadata.provider == "AWS" or properties.cloudMetadata.provider == "GCP", "Virtual", "Physical")  
-    | extend cores = properties.detectedProperties.coreCount, model = tostring(properties.detectedProperties.model), manufacturer = tostring(properties.detectedProperties.manufacturer)  
-    | project name,cores,isVirtual,agentVersion,ServerResourceGroupName=resourceGroup,ESUStatus,operatingSystem,model,manufacturer,Cloud
-    
-> **Note:** The mentioned query will display all Azure ARC onboarded Windows 2012/R2 servers that haven't been assigned an ESU license yet. You have the option to adjust the query to retrieve all Windows 2012/R2 servers and subsequently filter the results in Excel, keeping only the servers you wish to assign ESU licenses to. While some of the columns returned might not be utilized by the script, they can be helpful for Excel-based result filtering. Ensure you retain the essential columns (as specified in the manual creation process mentioned earlier) to ensure smooth operations and that you add the optional columns as detailed in the manual CSV file creation process if you have a need for them.
+```powershell
+./Scripts/windows/ManageESULicenses.ps1 -subscriptionId "00000000-0000-0000-0000-000000000001" -userToken $authenticationToken -licenseResourceGroupName "rg-example-esu" -location "EastUS" -state "Deactivated" -edition "Standard" -csvFilePath ".\samples\ManageESULicenses.csv" -DryRun
+```
 
-Always ensure a thorough review of the CSV file's contents before utilization. Note that in rare cases, the Cores might return a NULL value instead of the actual number of cores. If this occurs, manual intervention is necessary, requiring you to edit the CSV file and replace the NULL value with the specific number of cores pertaining to the server.
+<a id="sql-server-esu"></a>
+## SQL Server ESU
 
-Here is the command line you should use to run it:
-    
-    ./ManageESULicenses.ps1 -subscriptionId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -tenantId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -appID "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -clientSecret "your_application_secret_value" -licenseResourceGroupName "rg-ARC-ESULicenses" -location "EastUS" -state "Deactivated" -edition "Standard" -csvFilePath "C:\foldername\ESULicenses.csv" -licenseNamePrefix "ESU-" -licenseNameSuffix "-marketing" -token $authenticationToken -invoiceId "5555555" -programYear "Year 1"
+### Scope and exclusions
 
+This workflow supports SQL Server 2014 and SQL Server 2016 instances on Windows machines already connected to Azure Arc, subject to the [Azure cloud support](#azure-cloud-support) limitation above. It uses the Azure extension for SQL Server and per-Arc-machine/OSE ESU subscription settings. Read the [SQL Server ESU object-model overview](docs/English/sql/README.md) before using the SQL scripts, especially if you are familiar with the Windows Server license-assignment workflow.
 
-where:
-- subscriptionId is the subscription ID of the Azure subscription you want to use.
-- tenantId is the tenant ID of the Microsoft Entra ID tenant you want to use.
-- appID is the application ID of the service principal you created in the prerequisites section.
-- clientSecret is the secret key of the service principal you created in the prerequisites section.
-- licenseResourceGroupName is the name of the resource group that will contain the ESU licenses.
-- location is the Azure region where you want to deploy the ESU licenses.
-- state is the activation state of the ESU license. It can be "Activated" or "Deactivated".
-- edition is the edition of the ESU license. It can be "Standard" or "Datacenter".
-- csvFilePath is the path to the CSV file that contains the information about the ESU licenses you want to create.
-- licenseNamePrefix (optional) is the prefix that will be used to create the ESU licenses. The script will concatenate the prefix with the content of the 'Name' found in the CSV to create the license name.
-- licenseNameSuffix (optional) is the suffix that will be used to create the ESU licenses. The script will concatenate the suffix with the content of the 'Name' found in the CSV to create the license name.
-- token (optional) is a valid Microsoft Entra ID authentication object that has the rights to create and assign ESU licenses.
+It does not:
 
-### Notes
+- Install, upgrade, or repair the Connected Machine agent.
+- Manage native Azure virtual machines or Linux machines.
+- Manage pooled physical-core `sqlServerEsuLicenses` resources or unlimited virtualization.
+- Determine customer licensing eligibility.
+- Deploy ESU patches automatically.
 
->**New:** -InvoiceID and -ProgramYear options are new and allow customers to transition from volume licensing to Arc Enabled ESU.  Refer here: (https://techcommunity.microsoft.com/t5/azure-arc-blog/generally-available-transition-to-ws2012-r2-esus-enabled-by/ba-p/4199566)
+Run the prerequisite assessment before installing the extension or changing a subscription. It distinguishes eligibility evidence, extension readiness, inventory freshness, region support, and blocking machine conditions.
 
-> **Note:** The token parameter offers a way for you to work without having to rely on a Service Principal for authentication. You can either provide a token OR provide the tenantID, appID and clientSecret parameters. If you provide both, the token will be preferred and used.
+### Required permissions
 
->**Note**: you can use the optional parameters to add a prefix and/or suffix to the license name that will be created. If you specify "ESU-" as a prefix and "-marketing" as a suffix, the script will create licenses named "ESU-ServerName-marketing" for each server in the CSV file. That can help you differentiate licenses belonging to different departments or business units for example.
+Use the provided least-privilege roles at these scopes:
 
->**Note**: you can get a valid token Microsoft EntraID token by running the following command:
+| Role | Scope | Purpose |
+| --- | --- | --- |
+| [SQL Server Arc ESU Reader](Custom%20Roles/SQL%20Server%20Arc%20ESU%20Reader.json) | Subscription | Provider, machine, extension, and SQL inventory reads |
+| [SQL Server Arc ESU Operator](Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) | Each resource group containing target Arc machines | Install the SQL extension and update its public settings |
 
-    $authenticationToken = Get-AzAccessToken -ResourceUrl https://management.azure.com/ -TenantId $tenantId
+Read-only prerequisite and status operations require only the Reader role. Extension installation and ESU subscription changes require Reader at subscription scope and Operator on each resource group containing target `Microsoft.HybridCompute/machines` resources. No separate SQL license resource group exists in this implemented workflow.
 
->**Note**: you can use the optional parameters -log to specify a log file path.
+### Recommended workflow
 
+1. Run `TestSQLServerArcESUPrerequisites.ps1` to assess the machine, extension, inventory, region, and SQL instance evidence.
+2. Run `InstallSQLServerArcExtension.ps1` only when the expected extension is absent and the external prerequisites are confirmed.
+3. Run `CheckSQLServerESUStatus.ps1` to capture the current host and instance state.
+4. Run `SetSQLServerESUSubscription.ps1 -DryRun` and review the proposed enable or cancellation.
+5. Run the approved change, then check status again.
 
+The lifecycle script preserves unrelated public extension settings through a GET-merge-PUT update. Its `Disable` path remains available when inventory evidence is degraded so future charges can be cancelled, while still requiring the expected extension identity and readable settings.
+
+### Script and guide catalog
+
+| Goal | Guide | CSV template | Minimum role |
+| --- | --- | --- | --- |
+| Understand SQL ESU objects, metering models, and resource-group scope | [SQL Server ESU overview](docs/English/sql/README.md) | Not applicable | None |
+| Assess prerequisites and eligibility evidence | [TestSQLServerArcESUPrerequisites.ps1](docs/English/sql/TestSQLServerArcESUPrerequisites.md) | [Status template](samples/CheckSQLServerESUStatus.csv) | Reader |
+| Install the Azure extension for SQL Server when absent | [InstallSQLServerArcExtension.ps1](docs/English/sql/InstallSQLServerArcExtension.md) | [Installation template](samples/InstallSQLServerArcExtension.csv) | Reader + Operator |
+| Check host ESU, inventory, and metering evidence without changes | [CheckSQLServerESUStatus.ps1](docs/English/sql/CheckSQLServerESUStatus.md) | [Status template](samples/CheckSQLServerESUStatus.csv) | Reader |
+| Enable or cancel a per-Arc-machine/OSE ESU subscription | [SetSQLServerESUSubscription.ps1](docs/English/sql/SetSQLServerESUSubscription.md) | [Lifecycle template](samples/SetSQLServerESUSubscription.csv) | Reader + Operator |
+
+### Generate SQL CSV files with Azure Resource Graph
+
+Use these queries in [Azure Resource Graph Explorer](https://portal.azure.com/#view/HubsExtension/ArgQueryBlade) and download the result as CSV. Each query projects only the exact columns accepted by its script:
+
+| CSV purpose | Query | Notes |
+| --- | --- | --- |
+| Prerequisite assessment and status | [CheckSQLServerESUStatus.kql](samples/CheckSQLServerESUStatus.kql) | Returns connected Windows Arc machines that report SQL Server discovery. |
+| SQL extension installation | [InstallSQLServerArcExtension.kql](samples/InstallSQLServerArcExtension.kql) | Returns discovered SQL hosts without `WindowsAgent.SqlServer`. Set the license type and prerequisite confirmation at the top of the query. |
+| ESU enable or cancellation | [SetSQLServerESUSubscription.kql](samples/SetSQLServerESUSubscription.kql) | Returns one row per host. Set the requested action and all applicable billing, licensing, environment, and prerequisite values at the top of the query. |
+
+Select every subscription that contains target Arc machines before running a query. The installation and lifecycle queries deliberately return no enablement rows until their required constants contain valid, explicitly reviewed values. Run the resulting CSV through the script's `-DryRun` mode before approving a live operation. Resource Graph inventory is discovery evidence only; it does not establish licensing entitlement or external prerequisite compliance.
+
+Example read-only prerequisite assessment:
+
+```powershell
+./Scripts/sql/TestSQLServerArcESUPrerequisites.ps1 -subscriptionId "00000000-0000-0000-0000-000000000001" -userToken $authenticationToken -serverResourceGroupName "rg-example-arc" -ARCServerName "sql-server-01"
+```
+
+Example lifecycle preview:
+
+```powershell
+./Scripts/sql/SetSQLServerESUSubscription.ps1 -subscriptionId "00000000-0000-0000-0000-000000000001" -userToken $authenticationToken -serverResourceGroupName "rg-example-arc" -ARCServerName "sql-server-01" -Action Enable -LicenseType Paid -Environment Production -AcceptBackBilling -ConfirmExternalPrerequisites -DryRun
+```
+
+<a id="samples-and-detailed-documentation"></a>
+## Samples and detailed documentation
+
+Use the maintained guides for complete parameter definitions, CSV schemas, validation rules, output fields, cross-subscription behavior, and examples:
+
+| Product | English guides | French guides | Scripts | Samples |
+| --- | --- | --- | --- | --- |
+| Windows Server ESU | [English Windows documentation](docs/English/windows/) | [Documentation Windows en français](docs/Français/windows/) | [Windows scripts](Scripts/windows/) | [Sample files](samples/) |
+| SQL Server ESU | [English SQL documentation](docs/English/sql/) | [Documentation SQL en français](docs/Français/sql/) | [SQL scripts](Scripts/sql/) | [Sample files](samples/) |
+
+<a id="contributing"></a>
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development requirements, validation commands, and contribution guidance.
+
+<a id="license"></a>
 ## License
 
-This project is licensed under the terms of the MIT license. See the [LICENSE](LICENSE) file.
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
