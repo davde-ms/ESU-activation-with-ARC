@@ -57,6 +57,8 @@ Pour un principal de service, remplacez `-userToken` par des valeurs fictives ou
 
 ## Entrée CSV
 
+Exécutez [CheckSQLServerESUStatus.kql](../../../samples/CheckSQLServerESUStatus.kql) dans Azure Resource Graph Explorer, puis téléchargez le résultat au format CSV, ou utilisez la même structure que le modèle d'état.
+
 ```csv
 SubscriptionId,ServerResourceGroupName,ARCServerName
 11111111-1111-1111-1111-111111111111,rg-exemple-arc,hote-sql-01

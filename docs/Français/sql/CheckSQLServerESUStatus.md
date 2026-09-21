@@ -48,6 +48,7 @@ $authenticationToken = Get-AzAccessToken -ResourceUrl 'https://management.azure.
 ## Entrée CSV
 
 Commencez par [CheckSQLServerESUStatus.csv](../../../samples/CheckSQLServerESUStatus.csv).
+Pour générer le fichier à partir de l'inventaire Azure actuel, exécutez [CheckSQLServerESUStatus.kql](../../../samples/CheckSQLServerESUStatus.kql) dans Azure Resource Graph Explorer, puis téléchargez le résultat au format CSV.
 
 ```csv
 SubscriptionId,ServerResourceGroupName,ARCServerName

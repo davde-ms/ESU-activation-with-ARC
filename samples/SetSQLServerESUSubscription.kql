@@ -1,0 +1,74 @@
+// Run in Azure Resource Graph Explorer, review every value below, then download
+// the result as CSV. No Enable rows are returned until the required billing and
+// prerequisite acknowledgements are TRUE.
+resources
+| extend
+    RequestedAction = 'Enable',
+    RequestedLicenseType = '',
+    RequestedEnvironment = 'Production',
+    AcceptBackBilling = 'FALSE',
+    AcceptLicenseTypeChange = 'FALSE',
+    ConfirmNonProductionCoverage = 'FALSE',
+    ConfirmExternalPrerequisites = 'FALSE'
+| where type =~ 'microsoft.hybridcompute/machines/extensions'
+| where name =~ 'WindowsAgent.SqlServer' or tostring(properties.type) =~ 'WindowsAgent.SqlServer'
+| extend
+    MachineResourceId = tolower(substring(id, 0, indexof(tolower(id), '/extensions/'))),
+    CurrentLicenseType = tostring(properties.settings.LicenseType),
+    CurrentEsuEnabled = tolower(tostring(properties.settings.enableExtendedSecurityUpdates))
+| project
+    MachineResourceId,
+    CurrentLicenseType,
+    CurrentEsuEnabled,
+    RequestedAction,
+    RequestedLicenseType,
+    RequestedEnvironment,
+    AcceptBackBilling,
+    AcceptLicenseTypeChange,
+    ConfirmNonProductionCoverage,
+    ConfirmExternalPrerequisites
+| join kind=inner (
+    resources
+    | where type =~ 'microsoft.hybridcompute/machines'
+    | where tostring(properties.status) =~ 'Connected'
+    | where tostring(properties.osType) =~ 'Windows' or tostring(properties.osName) has 'Windows'
+    | project
+        MachineResourceId = tolower(id),
+        SubscriptionId = subscriptionId,
+        ServerResourceGroupName = resourceGroup,
+        ARCServerName = name
+) on MachineResourceId
+| join kind=leftouter (
+    resources
+    | where type =~ 'microsoft.azurearcdata/sqlserverinstances'
+    | extend
+        MachineResourceId = tolower(tostring(properties.containerResourceId)),
+        SqlVersion = tostring(properties.version)
+    | where SqlVersion startswith '12.' or SqlVersion startswith '13.' or
+        SqlVersion contains 'SQL Server 2014' or SqlVersion contains 'SQL Server 2016'
+    | summarize EligibleInstanceCount = count() by MachineResourceId
+) on MachineResourceId
+| extend EffectiveLicenseType = iff(isempty(RequestedLicenseType), CurrentLicenseType, RequestedLicenseType)
+| where RequestedAction in ('Enable', 'Disable')
+| where RequestedAction == 'Disable' or (
+    EligibleInstanceCount > 0 and
+    RequestedEnvironment in ('Production', 'NonProduction') and
+    EffectiveLicenseType in ('Paid', 'PAYG') and
+    (isempty(RequestedLicenseType) or RequestedLicenseType == CurrentLicenseType or AcceptLicenseTypeChange == 'TRUE') and
+    AcceptBackBilling == 'TRUE' and
+    ConfirmExternalPrerequisites == 'TRUE'
+)
+| where (RequestedAction == 'Enable' and CurrentEsuEnabled != 'true') or
+    (RequestedAction == 'Disable' and CurrentEsuEnabled == 'true')
+| project
+    SubscriptionId,
+    ServerResourceGroupName,
+    ARCServerName,
+    Action = RequestedAction,
+    LicenseType = iff(RequestedAction == 'Enable', RequestedLicenseType, ''),
+    Environment = iff(RequestedAction == 'Enable', RequestedEnvironment, ''),
+    AcceptBackBilling = iff(RequestedAction == 'Enable', AcceptBackBilling, ''),
+    AcceptLicenseTypeChange = iff(RequestedAction == 'Enable', AcceptLicenseTypeChange, ''),
+    ConfirmNonProductionCoverage = iff(RequestedAction == 'Enable', ConfirmNonProductionCoverage, ''),
+    ConfirmExternalPrerequisites = iff(RequestedAction == 'Enable', ConfirmExternalPrerequisites, '')
+| order by SubscriptionId asc, ServerResourceGroupName asc, ARCServerName asc

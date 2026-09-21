@@ -1,0 +1,34 @@
+// Run in Azure Resource Graph Explorer, set both values below, then download
+// the result as CSV. No rows are returned until the values are valid.
+resources
+| extend
+    SelectedLicenseType = 'REPLACE_WITH_Paid_PAYG_OR_LicenseOnly',
+    ConfirmExternalPrerequisites = 'FALSE'
+| where type =~ 'microsoft.hybridcompute/machines'
+| where tostring(properties.status) =~ 'Connected'
+| where tostring(properties.osType) =~ 'Windows' or tostring(properties.osName) has 'Windows'
+| where tostring(properties.detectedProperties.mssqldiscovered) =~ 'true'
+| project
+    MachineResourceId = tolower(id),
+    SubscriptionId = subscriptionId,
+    ServerResourceGroupName = resourceGroup,
+    ARCServerName = name,
+    SelectedLicenseType,
+    ConfirmExternalPrerequisites
+| join kind=leftouter (
+    resources
+    | where type =~ 'microsoft.hybridcompute/machines/extensions'
+    | where name =~ 'WindowsAgent.SqlServer' or tostring(properties.type) =~ 'WindowsAgent.SqlServer'
+    | extend ParentMachineId = tolower(substring(id, 0, indexof(tolower(id), '/extensions/')))
+    | project ParentMachineId, ExistingSqlExtensionId = id
+) on $left.MachineResourceId == $right.ParentMachineId
+| where isempty(ExistingSqlExtensionId)
+| where SelectedLicenseType in ('Paid', 'PAYG', 'LicenseOnly')
+| where ConfirmExternalPrerequisites == 'TRUE'
+| project
+    SubscriptionId,
+    ServerResourceGroupName,
+    ARCServerName,
+    LicenseType = SelectedLicenseType,
+    ConfirmExternalPrerequisites
+| order by SubscriptionId asc, ServerResourceGroupName asc, ARCServerName asc

@@ -74,6 +74,7 @@ L'annulation ne contient aucune valeur réservée à l'activation :
 ## Entrée CSV
 
 Commencez par [SetSQLServerESUSubscription.csv](../../../samples/SetSQLServerESUSubscription.csv).
+Pour générer le fichier à partir de l'inventaire Azure actuel, vérifiez chaque constante au début de [SetSQLServerESUSubscription.kql](../../../samples/SetSQLServerESUSubscription.kql), exécutez la requête dans Azure Resource Graph Explorer, puis téléchargez le résultat au format CSV. La requête renvoie une ligne par hôte et ne renvoie volontairement aucune ligne `Enable` tant que les confirmations obligatoires de facturation et de prérequis ne valent pas `TRUE`.
 
 ```csv
 SubscriptionId,ServerResourceGroupName,ARCServerName,Action,LicenseType,Environment,AcceptBackBilling,AcceptLicenseTypeChange,ConfirmNonProductionCoverage,ConfirmExternalPrerequisites

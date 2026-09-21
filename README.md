@@ -193,6 +193,18 @@ The lifecycle script preserves unrelated public extension settings through a GET
 | Check host ESU, inventory, and metering evidence without changes | [CheckSQLServerESUStatus.ps1](docs/English/sql/CheckSQLServerESUStatus.md) | [Status template](samples/CheckSQLServerESUStatus.csv) | Reader |
 | Enable or cancel a host-level ESU subscription | [SetSQLServerESUSubscription.ps1](docs/English/sql/SetSQLServerESUSubscription.md) | [Lifecycle template](samples/SetSQLServerESUSubscription.csv) | Reader + Operator |
 
+### Generate SQL CSV files with Azure Resource Graph
+
+Use these queries in [Azure Resource Graph Explorer](https://portal.azure.com/#view/HubsExtension/ArgQueryBlade) and download the result as CSV. Each query projects only the exact columns accepted by its script:
+
+| CSV purpose | Query | Notes |
+| --- | --- | --- |
+| Prerequisite assessment and status | [CheckSQLServerESUStatus.kql](samples/CheckSQLServerESUStatus.kql) | Returns connected Windows Arc machines that report SQL Server discovery. |
+| SQL extension installation | [InstallSQLServerArcExtension.kql](samples/InstallSQLServerArcExtension.kql) | Returns discovered SQL hosts without `WindowsAgent.SqlServer`. Set the license type and prerequisite confirmation at the top of the query. |
+| ESU enable or cancellation | [SetSQLServerESUSubscription.kql](samples/SetSQLServerESUSubscription.kql) | Returns one row per host. Set the requested action and all applicable billing, licensing, environment, and prerequisite values at the top of the query. |
+
+Select every subscription that contains target Arc machines before running a query. The installation and lifecycle queries deliberately return no enablement rows until their required constants contain valid, explicitly reviewed values. Run the resulting CSV through the script's `-DryRun` mode before approving a live operation. Resource Graph inventory is discovery evidence only; it does not establish licensing entitlement or external prerequisite compliance.
+
 Example read-only prerequisite assessment:
 
 ```powershell

@@ -193,6 +193,18 @@ Le script de cycle de vie préserve les autres paramètres publics de l'extensio
 | Vérifier sans modification les ESU, l'inventaire et les éléments de mesure | [CheckSQLServerESUStatus.ps1](docs/Français/sql/CheckSQLServerESUStatus.md) | [Modèle d'état](samples/CheckSQLServerESUStatus.csv) | Reader |
 | Activer ou annuler un abonnement ESU au niveau de l'hôte | [SetSQLServerESUSubscription.ps1](docs/Français/sql/SetSQLServerESUSubscription.md) | [Modèle de cycle de vie](samples/SetSQLServerESUSubscription.csv) | Reader + Operator |
 
+### Générer les fichiers CSV SQL avec Azure Resource Graph
+
+Utilisez ces requêtes dans [Azure Resource Graph Explorer](https://portal.azure.com/#view/HubsExtension/ArgQueryBlade), puis téléchargez le résultat au format CSV. Chaque requête projette uniquement les colonnes exactes acceptées par son script :
+
+| Objectif du CSV | Requête | Remarques |
+| --- | --- | --- |
+| Évaluation des prérequis et état | [CheckSQLServerESUStatus.kql](samples/CheckSQLServerESUStatus.kql) | Renvoie les machines Arc Windows connectées qui signalent la découverte de SQL Server. |
+| Installation de l'extension SQL | [InstallSQLServerArcExtension.kql](samples/InstallSQLServerArcExtension.kql) | Renvoie les hôtes SQL détectés sans `WindowsAgent.SqlServer`. Définissez le type de licence et la confirmation des prérequis au début de la requête. |
+| Activation ou annulation des ESU | [SetSQLServerESUSubscription.kql](samples/SetSQLServerESUSubscription.kql) | Renvoie une ligne par hôte. Définissez l'action et toutes les valeurs applicables de facturation, licence, environnement et prérequis au début de la requête. |
+
+Sélectionnez tous les abonnements contenant les machines Arc cibles avant d'exécuter une requête. Les requêtes d'installation et de cycle de vie ne renvoient volontairement aucune ligne d'activation tant que leurs constantes obligatoires ne contiennent pas des valeurs valides et explicitement vérifiées. Exécutez le fichier CSV obtenu avec le mode `-DryRun` du script avant d'approuver une opération active. L'inventaire Resource Graph constitue uniquement un élément de découverte; il n'établit ni le droit de licence ni le respect des prérequis externes.
+
 Exemple d'évaluation des prérequis en lecture seule :
 
 ```powershell

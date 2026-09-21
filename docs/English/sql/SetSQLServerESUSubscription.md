@@ -74,6 +74,7 @@ Cancellation has no enable-only values:
 ## CSV input
 
 Start with [SetSQLServerESUSubscription.csv](../../../samples/SetSQLServerESUSubscription.csv).
+To build the file from current Azure inventory, review every constant at the top of [SetSQLServerESUSubscription.kql](../../../samples/SetSQLServerESUSubscription.kql), run it in Azure Resource Graph Explorer, and download the result as CSV. The query returns one row per host and deliberately returns no Enable rows until the required billing and prerequisite acknowledgements are `TRUE`.
 
 ```csv
 SubscriptionId,ServerResourceGroupName,ARCServerName,Action,LicenseType,Environment,AcceptBackBilling,AcceptLicenseTypeChange,ConfirmNonProductionCoverage,ConfirmExternalPrerequisites

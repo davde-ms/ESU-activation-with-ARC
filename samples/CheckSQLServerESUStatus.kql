@@ -1,0 +1,13 @@
+// Run in Azure Resource Graph Explorer, then download the result as CSV.
+// The output matches CheckSQLServerESUStatus.csv and is also accepted by
+// TestSQLServerArcESUPrerequisites.ps1.
+resources
+| where type =~ 'microsoft.hybridcompute/machines'
+| where tostring(properties.status) =~ 'Connected'
+| where tostring(properties.osType) =~ 'Windows' or tostring(properties.osName) has 'Windows'
+| where tostring(properties.detectedProperties.mssqldiscovered) =~ 'true'
+| project
+    SubscriptionId = subscriptionId,
+    ServerResourceGroupName = resourceGroup,
+    ARCServerName = name
+| order by SubscriptionId asc, ServerResourceGroupName asc, ARCServerName asc

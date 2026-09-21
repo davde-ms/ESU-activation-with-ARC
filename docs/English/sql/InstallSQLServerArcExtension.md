@@ -62,6 +62,7 @@ After review, remove `-DryRun` and use `-Confirm` for the live installation.
 ## CSV input
 
 Start with [InstallSQLServerArcExtension.csv](../../../samples/InstallSQLServerArcExtension.csv).
+To build the file from current Azure inventory, set the two reviewed constants in [InstallSQLServerArcExtension.kql](../../../samples/InstallSQLServerArcExtension.kql), run it in Azure Resource Graph Explorer, and download the result as CSV. The query returns no rows until `SelectedLicenseType` is valid and `ConfirmExternalPrerequisites` is `TRUE`.
 
 ```csv
 SubscriptionId,ServerResourceGroupName,ARCServerName,LicenseType,ConfirmExternalPrerequisites
