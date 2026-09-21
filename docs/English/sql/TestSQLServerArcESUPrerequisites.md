@@ -4,6 +4,8 @@
 
 `TestSQLServerArcESUPrerequisites.ps1` performs a read-only Azure Resource Manager assessment before Azure Extension for SQL Server installation or SQL Server ESU enrollment. It checks the Arc machine, provider registration, `WindowsAgent.SqlServer`, correlated Arc SQL inventory, SQL Server 2014/2016 eligibility evidence, and inventory freshness. It never registers a provider or creates, updates, or deletes a resource.
 
+Review the [SQL Server ESU object-model overview](README.md) for the implemented per-Arc-machine/OSE models and the separate unsupported unlimited-virtualization model.
+
 This workflow is for Windows machines already connected to Azure Arc through global Azure endpoints. The script is not compatible with Azure Government endpoints as written. Connected Machine agent installation, upgrade, and repair are out of scope. Native Azure VMs, Linux, other clouds, SQL versions other than 2014/2016, physical-core pooled ESU licenses, unlimited virtualization, and automatic patch deployment are out of scope.
 
 ## Prerequisites and boundaries
@@ -14,7 +16,7 @@ This workflow is for Windows machines already connected to Azure Arc through glo
 - For ESU enablement readiness: a healthy supported `WindowsAgent.SqlServer` extension, `SqlManagement.IsEnabled=true`, `LicenseType` `Paid` or `PAYG`, and at least one SQL Server 2014/2016 Standard or Enterprise instance.
 - Independently confirm outbound connectivity, local Windows and SQL permissions, entitlement and prior-year coverage, Developer nonproduction eligibility, and HA/DR compliance. ARM inventory cannot prove these items.
 
-The ESU setting is host-level and affects eligible SQL instances and associated services on the operating system environment. Multiple eligible versions on one host can produce separate meters. Assessment does not enroll the host and does not deploy patches.
+The ESU setting applies per Arc machine/OSE and affects eligible SQL instances and associated services in that operating system environment. Multiple eligible versions in one OSE can produce separate meters. Assessment does not enroll the machine and does not deploy patches.
 
 ## Least-privilege role
 

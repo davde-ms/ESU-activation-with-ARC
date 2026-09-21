@@ -20,7 +20,7 @@
 This repository provides two separate PowerShell 7 workflows for Extended Security Updates (ESUs) enabled by Azure Arc:
 
 - Azure Arc ESU license resources for Windows Server 2012, Windows Server 2012 R2, and Windows Server 2016.
-- Host-level SQL Server ESU subscriptions for SQL Server 2014 and SQL Server 2016.
+- Per-Arc-machine/OSE SQL Server ESU subscriptions for SQL Server 2014 and SQL Server 2016.
 
 The scripts use Azure Resource Manager REST APIs directly. They support individual and bulk operations, read-only status checks, preview modes for supported changes, and either user-token or service-principal authentication.
 
@@ -35,6 +35,26 @@ Windows Server ESU licenses and SQL Server ESU subscriptions use different Azure
 | --- | --- | --- | --- |
 | Windows Server ESU | Windows Server 2012, 2012 R2, and 2016 | `Microsoft.HybridCompute/licenses` and machine license profiles | [Windows Server ESU](#windows-server-esu) |
 | SQL Server ESU | SQL Server 2014 and 2016 on Windows machines connected to Azure Arc | Host settings on `Microsoft.HybridCompute/machines/extensions/WindowsAgent.SqlServer` | [SQL Server ESU](#sql-server-esu) |
+
+### How Windows and SQL ESUs differ
+
+Windows Server and SQL Server ESUs do not use the same Azure object model. Windows Server ESUs create a license resource and assign it through a machine license profile. The SQL workflow implemented here creates no comparable license object: it enables an ESU subscription in the `WindowsAgent.SqlServer` extension of each Arc machine.
+
+| Characteristic | Windows Server ESU | SQL Server ESU implemented here |
+| --- | --- | --- |
+| Azure license object | `Microsoft.HybridCompute/licenses` | None |
+| Configuration location | License resource plus machine license profile | `WindowsAgent.SqlServer` extension settings |
+| Operation | Create a license, then assign it | Enable or cancel a subscription per Arc machine/OSE |
+| Core input | Customer supplies the licensed cores | Azure detects the cores visible to the operating system environment (OSE) |
+| SQL Server in a VM | Not applicable | Azure meters the vCores visible to that VM, with the documented four-core minimum |
+| SQL Server directly on a physical server | Not applicable | Azure meters the physical cores visible to that OSE, with the documented four-core minimum |
+| Separate license resource group | Supported for Windows license resources | Not applicable because no SQL license resource is created |
+
+In this documentation, **per Arc machine/OSE** means the guest VM when SQL Server runs in a VM, not the physical hypervisor. Customers enable the SQL ESU subscription separately on each Arc-connected SQL VM they want covered; Azure meters that VM's vCores rather than all cores of the virtualization host.
+
+**Important:** SQL extension values `Paid`, `PAYG`, and `LicenseOnly` describe how the underlying SQL Server software is licensed; they are not ESU payment statuses. `Paid` means a qualifying bring-your-own license with active Software Assurance or SQL Server subscription, `PAYG` means the SQL software license is billed through Azure, and `LicenseOnly` means a license without the qualifying subscription benefit. Only `Paid` and `PAYG` qualify for the Arc-enabled ESU subscription. The separate `enableExtendedSecurityUpdates` setting controls ESU enrollment and ESU metering. See the [detailed LicenseType explanation](docs/English/sql/README.md#sql-license-type).
+
+SQL Server also offers a separate physical-core unlimited-virtualization model that creates a `Microsoft.AzureArcData/sqlServerEsuLicenses` resource. That resource can cover qualifying Arc-enabled VMs through a resource-group, subscription, or tenant scope. This repository does not create, manage, or apply those pooled physical-core licenses.
 
 <a id="before-you-begin"></a>
 ## Before you begin
@@ -151,7 +171,7 @@ Example bulk preview:
 
 ### Scope and exclusions
 
-This workflow supports SQL Server 2014 and SQL Server 2016 instances on Windows machines already connected to Azure Arc, subject to the [Azure cloud support](#azure-cloud-support) limitation above. It uses the Azure extension for SQL Server and host-level ESU subscription settings.
+This workflow supports SQL Server 2014 and SQL Server 2016 instances on Windows machines already connected to Azure Arc, subject to the [Azure cloud support](#azure-cloud-support) limitation above. It uses the Azure extension for SQL Server and per-Arc-machine/OSE ESU subscription settings. Read the [SQL Server ESU object-model overview](docs/English/sql/README.md) before using the SQL scripts, especially if you are familiar with the Windows Server license-assignment workflow.
 
 It does not:
 
@@ -170,9 +190,9 @@ Use the provided least-privilege roles at these scopes:
 | Role | Scope | Purpose |
 | --- | --- | --- |
 | [SQL Server Arc ESU Reader](Custom%20Roles/SQL%20Server%20Arc%20ESU%20Reader.json) | Subscription | Provider, machine, extension, and SQL inventory reads |
-| [SQL Server Arc ESU Operator](Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) | Target resource group | Install the SQL extension and update its public settings |
+| [SQL Server Arc ESU Operator](Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) | Each resource group containing target Arc machines | Install the SQL extension and update its public settings |
 
-Read-only prerequisite and status operations require only the Reader role. Extension installation and ESU subscription changes require Reader at subscription scope and Operator at the target resource-group scope.
+Read-only prerequisite and status operations require only the Reader role. Extension installation and ESU subscription changes require Reader at subscription scope and Operator on each resource group containing target `Microsoft.HybridCompute/machines` resources. No separate SQL license resource group exists in this implemented workflow.
 
 ### Recommended workflow
 
@@ -188,10 +208,11 @@ The lifecycle script preserves unrelated public extension settings through a GET
 
 | Goal | Guide | CSV template | Minimum role |
 | --- | --- | --- | --- |
+| Understand SQL ESU objects, metering models, and resource-group scope | [SQL Server ESU overview](docs/English/sql/README.md) | Not applicable | None |
 | Assess prerequisites and eligibility evidence | [TestSQLServerArcESUPrerequisites.ps1](docs/English/sql/TestSQLServerArcESUPrerequisites.md) | [Status template](samples/CheckSQLServerESUStatus.csv) | Reader |
 | Install the Azure extension for SQL Server when absent | [InstallSQLServerArcExtension.ps1](docs/English/sql/InstallSQLServerArcExtension.md) | [Installation template](samples/InstallSQLServerArcExtension.csv) | Reader + Operator |
 | Check host ESU, inventory, and metering evidence without changes | [CheckSQLServerESUStatus.ps1](docs/English/sql/CheckSQLServerESUStatus.md) | [Status template](samples/CheckSQLServerESUStatus.csv) | Reader |
-| Enable or cancel a host-level ESU subscription | [SetSQLServerESUSubscription.ps1](docs/English/sql/SetSQLServerESUSubscription.md) | [Lifecycle template](samples/SetSQLServerESUSubscription.csv) | Reader + Operator |
+| Enable or cancel a per-Arc-machine/OSE ESU subscription | [SetSQLServerESUSubscription.ps1](docs/English/sql/SetSQLServerESUSubscription.md) | [Lifecycle template](samples/SetSQLServerESUSubscription.csv) | Reader + Operator |
 
 ### Generate SQL CSV files with Azure Resource Graph
 

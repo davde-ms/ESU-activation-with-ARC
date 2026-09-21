@@ -20,7 +20,7 @@
 Ce référentiel fournit deux procédures PowerShell 7 distinctes pour les mises à jour de sécurité étendues (ESU) activées par Azure Arc :
 
 - Les ressources de licences ESU Azure Arc pour Windows Server 2012, Windows Server 2012 R2 et Windows Server 2016.
-- Les abonnements ESU SQL Server au niveau de l'hôte pour SQL Server 2014 et SQL Server 2016.
+- Les abonnements ESU SQL Server par machine Arc/OSE pour SQL Server 2014 et SQL Server 2016.
 
 Les scripts utilisent directement les API REST Azure Resource Manager. Ils prennent en charge les opérations individuelles et en bloc, les contrôles d'état en lecture seule, les modes de prévisualisation pour les modifications prises en charge, ainsi que l'authentification par jeton utilisateur ou principal de service.
 
@@ -35,6 +35,26 @@ Les licences ESU Windows Server et les abonnements ESU SQL Server utilisent des 
 | --- | --- | --- | --- |
 | ESU Windows Server | Windows Server 2012, 2012 R2 et 2016 | `Microsoft.HybridCompute/licenses` et profils de licence des machines | [ESU Windows Server](#esu-windows-server) |
 | ESU SQL Server | SQL Server 2014 et 2016 sur des machines Windows connectées à Azure Arc | Paramètres d'hôte de `Microsoft.HybridCompute/machines/extensions/WindowsAgent.SqlServer` | [ESU SQL Server](#esu-sql-server) |
+
+### Différences entre les ESU Windows et SQL
+
+Les ESU Windows Server et SQL Server n'utilisent pas le même modèle d'objets Azure. Les ESU Windows Server créent une ressource de licence et l'attribuent au moyen d'un profil de licence de machine. La procédure SQL implémentée ici ne crée aucun objet de licence comparable : elle active un abonnement ESU dans l'extension `WindowsAgent.SqlServer` de chaque machine Arc.
+
+| Caractéristique | ESU Windows Server | ESU SQL Server implémentées ici |
+| --- | --- | --- |
+| Objet de licence Azure | `Microsoft.HybridCompute/licenses` | Aucun |
+| Emplacement de la configuration | Ressource de licence et profil de licence de machine | Paramètres de l'extension `WindowsAgent.SqlServer` |
+| Opération | Créer une licence, puis l'attribuer | Activer ou annuler un abonnement par machine Arc/OSE |
+| Saisie des cœurs | Le client fournit les cœurs à licencier | Azure détecte les cœurs visibles par l'environnement du système d'exploitation (OSE) |
+| SQL Server dans une machine virtuelle | Sans objet | Azure mesure les vCœurs visibles par cette machine virtuelle, avec le minimum documenté de quatre cœurs |
+| SQL Server directement sur un serveur physique | Sans objet | Azure mesure les cœurs physiques visibles par cet OSE, avec le minimum documenté de quatre cœurs |
+| Groupe de ressources de licence distinct | Pris en charge pour les ressources de licence Windows | Sans objet, car aucune ressource de licence SQL n'est créée |
+
+Dans cette documentation, **par machine Arc/OSE** désigne la machine virtuelle invitée lorsque SQL Server s'exécute dans une machine virtuelle, et non l'hyperviseur physique. Le client active séparément l'abonnement ESU SQL sur chaque machine virtuelle SQL connectée à Arc qu'il souhaite couvrir; Azure mesure les vCœurs de cette machine virtuelle plutôt que tous les cœurs de l'hôte de virtualisation.
+
+**Important :** les valeurs d'extension `Paid`, `PAYG` et `LicenseOnly` décrivent le mode de licence du logiciel SQL Server sous-jacent; elles ne représentent pas l'état de paiement des ESU. `Paid` désigne une licence apportée par le client avec Software Assurance active ou un abonnement SQL Server, `PAYG` signifie que la licence du logiciel SQL est facturée par Azure et `LicenseOnly` désigne une licence sans l'avantage d'abonnement requis. Seuls `Paid` et `PAYG` sont éligibles à l'abonnement ESU activé par Arc. Le paramètre distinct `enableExtendedSecurityUpdates` contrôle l'inscription et la mesure ESU. Consultez l'[explication détaillée de LicenseType](docs/Français/sql/README.md#sql-license-type).
+
+SQL Server propose également un modèle distinct de virtualisation illimitée par cœurs physiques qui crée une ressource `Microsoft.AzureArcData/sqlServerEsuLicenses`. Cette ressource peut couvrir les machines virtuelles Arc éligibles au niveau d'un groupe de ressources, d'un abonnement ou d'un locataire. Ce dépôt ne crée, ne gère et n'applique pas ces licences mutualisées par cœurs physiques.
 
 <a id="avant-de-commencer"></a>
 ## Avant de commencer
@@ -151,7 +171,7 @@ Exemple de prévisualisation en bloc :
 
 ### Périmètre et exclusions
 
-Cette procédure prend en charge les instances SQL Server 2014 et SQL Server 2016 sur des machines Windows déjà connectées à Azure Arc, sous réserve de la limitation décrite dans la section [Prise en charge des environnements Azure](#prise-en-charge-des-environnements-azure). Elle utilise l'extension Azure pour SQL Server et les paramètres d'abonnement ESU au niveau de l'hôte.
+Cette procédure prend en charge les instances SQL Server 2014 et SQL Server 2016 sur des machines Windows déjà connectées à Azure Arc, sous réserve de la limitation décrite dans la section [Prise en charge des environnements Azure](#prise-en-charge-des-environnements-azure). Elle utilise l'extension Azure pour SQL Server et les paramètres d'abonnement ESU par machine Arc/OSE. Lisez la [présentation du modèle d'objets ESU SQL Server](docs/Français/sql/README.md) avant d'utiliser les scripts SQL, en particulier si vous connaissez la procédure d'attribution des licences Windows Server.
 
 Elle ne permet pas de :
 
@@ -170,9 +190,9 @@ Utilisez les rôles de moindre privilège fournis aux étendues suivantes :
 | Rôle | Étendue | Objectif |
 | --- | --- | --- |
 | [SQL Server Arc ESU Reader](Custom%20Roles/SQL%20Server%20Arc%20ESU%20Reader.json) | Abonnement | Lecture des fournisseurs, machines, extensions et inventaires SQL |
-| [SQL Server Arc ESU Operator](Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) | Groupe de ressources cible | Installation de l'extension SQL et mise à jour de ses paramètres publics |
+| [SQL Server Arc ESU Operator](Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) | Chaque groupe de ressources contenant des machines Arc cibles | Installation de l'extension SQL et mise à jour de ses paramètres publics |
 
-Les opérations de prérequis et d'état en lecture seule exigent uniquement le rôle Reader. L'installation de l'extension et les modifications de l'abonnement ESU exigent le rôle Reader sur l'abonnement et le rôle Operator sur le groupe de ressources cible.
+Les opérations de prérequis et d'état en lecture seule exigent uniquement le rôle Reader. L'installation de l'extension et les modifications de l'abonnement ESU exigent le rôle Reader sur l'abonnement et le rôle Operator sur chaque groupe de ressources contenant les ressources `Microsoft.HybridCompute/machines` cibles. Aucun groupe de ressources de licence SQL distinct n'existe dans la procédure implémentée ici.
 
 ### Procédure recommandée
 
@@ -188,10 +208,11 @@ Le script de cycle de vie préserve les autres paramètres publics de l'extensio
 
 | Objectif | Guide | Modèle CSV | Rôle minimal |
 | --- | --- | --- | --- |
+| Comprendre les objets ESU SQL, les modèles de mesure et l'étendue des groupes de ressources | [Présentation des ESU SQL Server](docs/Français/sql/README.md) | Sans objet | Aucun |
 | Évaluer les prérequis et les éléments d'éligibilité | [TestSQLServerArcESUPrerequisites.ps1](docs/Français/sql/TestSQLServerArcESUPrerequisites.md) | [Modèle d'état](samples/CheckSQLServerESUStatus.csv) | Reader |
 | Installer l'extension Azure pour SQL Server lorsqu'elle est absente | [InstallSQLServerArcExtension.ps1](docs/Français/sql/InstallSQLServerArcExtension.md) | [Modèle d'installation](samples/InstallSQLServerArcExtension.csv) | Reader + Operator |
 | Vérifier sans modification les ESU, l'inventaire et les éléments de mesure | [CheckSQLServerESUStatus.ps1](docs/Français/sql/CheckSQLServerESUStatus.md) | [Modèle d'état](samples/CheckSQLServerESUStatus.csv) | Reader |
-| Activer ou annuler un abonnement ESU au niveau de l'hôte | [SetSQLServerESUSubscription.ps1](docs/Français/sql/SetSQLServerESUSubscription.md) | [Modèle de cycle de vie](samples/SetSQLServerESUSubscription.csv) | Reader + Operator |
+| Activer ou annuler un abonnement ESU par machine Arc/OSE | [SetSQLServerESUSubscription.ps1](docs/Français/sql/SetSQLServerESUSubscription.md) | [Modèle de cycle de vie](samples/SetSQLServerESUSubscription.csv) | Reader + Operator |
 
 ### Générer les fichiers CSV SQL avec Azure Resource Graph
 

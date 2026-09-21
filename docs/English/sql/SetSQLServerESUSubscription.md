@@ -2,7 +2,9 @@
 
 ## Purpose and scope
 
-`SetSQLServerESUSubscription.ps1` enables or disables the host-level SQL Server ESU setting on an existing `WindowsAgent.SqlServer` extension. It supports global Azure endpoints and Windows machines already connected to Azure Arc; it is not compatible with Azure Government endpoints as written. It does not install, upgrade, or repair the Connected Machine agent or SQL extension; manage native Azure VMs or Linux; deploy patches; configure automatic patching; accept customer core counts; or manage physical-core pooled ESU licenses/unlimited virtualization.
+`SetSQLServerESUSubscription.ps1` enables or disables the per-Arc-machine/OSE SQL Server ESU setting on an existing `WindowsAgent.SqlServer` extension. It supports global Azure endpoints and Windows machines already connected to Azure Arc; it is not compatible with Azure Government endpoints as written. It does not install, upgrade, or repair the Connected Machine agent or SQL extension; manage native Azure VMs or Linux; deploy patches; configure automatic patching; accept customer core counts; or manage physical-core pooled ESU licenses/unlimited virtualization.
+
+Review the [SQL Server ESU object-model overview](README.md) for VM vCore metering and the contrast with Windows Server license assignment. `ServerResourceGroupName` is the resource group containing the Arc machine; no separate SQL license object or license resource group is created.
 
 Only SQL Server 2014 and 2016 are supported. Enablement requires eligible inventory and explicit billing acknowledgements. Disable remains available with degraded inventory/provider/machine evidence so a customer is not blocked from canceling future charges; it still requires a readable extension with the exact expected identity and public settings.
 
@@ -11,6 +13,8 @@ Only SQL Server 2014 and 2016 are supported. Enablement requires eligible invent
 - PowerShell 7.x on Windows; registered providers; an existing connected, Full-mode Arc machine and healthy supported `WindowsAgent.SqlServer` extension for enablement.
 - `SqlManagement.IsEnabled=true`, effective `LicenseType` `Paid` or `PAYG`, and discovered SQL Server 2014/2016 inventory. Standard/Enterprise are production editions; Developer requires confirmed qualifying nonproduction coverage.
 - External entitlement, prior-year coverage, local permissions, connectivity, and HA/DR compliance must be confirmed outside ARM.
+
+`LicenseType` describes the underlying SQL Server software license; it does not indicate that ESUs are paid. `Paid` means qualifying Software Assurance/SQL subscription rights, while `PAYG` means Azure bills the SQL software license hourly. The separate `enableExtendedSecurityUpdates` setting starts or stops the ESU subscription and its metering. See [LicenseType describes the SQL Server software license](README.md#sql-license-type).
 
 The setting affects the entire host/OSE, not one named SQL instance. All eligible instances and associated services can be affected, and SQL Server 2014 and 2016 can meter separately. This script performs a settings-preserving GET-merge-PUT: it GETs the extension, deep-copies public settings, changes only `enableExtendedSecurityUpdates`, `esuLastUpdatedTimestamp`, and an explicitly approved enable-time `LicenseType`, then PUTs and verifies semantic preservation. Protected and response-only properties are never copied.
 

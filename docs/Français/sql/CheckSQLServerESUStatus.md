@@ -4,6 +4,8 @@
 
 `CheckSQLServerESUStatus.ps1` signale la configuration de l'hôte, l'inventaire SQL Server 2014/2016, les éléments d'éligibilité et de mesure ainsi que l'état ESU SQL Server d'une ou plusieurs machines Windows activées par Azure Arc. Il utilise uniquement des requêtes GET Azure Resource Manager et n'inscrit, ne crée, ne met à jour ni ne supprime aucune ressource.
 
+Consultez la [présentation du modèle d'objets ESU SQL Server](README.md) pour comprendre les différences avec les ressources de licence ESU Windows Server, la mesure des vCœurs des machines virtuelles et l'étendue du groupe de ressources de la machine Arc.
+
 Il prend uniquement en charge les machines Windows déjà connectées à Azure Arc au moyen des points de terminaison Azure global. Dans son état actuel, le script n'est pas compatible avec les points de terminaison Azure Government. L'installation, la mise à niveau ou la réparation de l'agent Connected Machine, les machines virtuelles Azure natives, Linux, les autres clouds, les licences mutualisées par cœurs physiques et la virtualisation illimitée, ainsi que le déploiement automatique des correctifs sont hors périmètre. Le rapport d'état n'inscrit aucun hôte et n'installe aucune mise à jour.
 
 ## Prérequis et limites
@@ -12,7 +14,7 @@ Il prend uniquement en charge les machines Windows déjà connectées à Azure A
 - Accès en lecture à la machine, l'extension, l'inscription des fournisseurs et l'inventaire des instances SQL Arc à l'échelle de l'abonnement.
 - Des fournisseurs inscrits et un inventaire récent améliorent la classification; le script signale les problèmes sans modifier Azure.
 
-Le paramètre ESU s'applique à l'hôte : toutes les instances et tous les services associés éligibles de l'OSE sont concernés. Les instances d'une même version partagent un compteur hôte/version; SQL Server 2014 et 2016 peuvent produire chacun un compteur. La sortie est un élément de preuve, pas une décision de droit. `AutomaticPatchStatus` est distinct; l'inscription ne signifie pas que ce script a déployé des correctifs.
+Le paramètre ESU s'applique par machine Arc/OSE : toutes les instances et tous les services associés éligibles de cet OSE sont concernés. Les instances d'une même version partagent un compteur OSE/version; SQL Server 2014 et 2016 dans le même OSE peuvent produire chacun un compteur. La sortie est un élément de preuve, pas une décision de droit. `AutomaticPatchStatus` est distinct; l'inscription ne signifie pas que ce script a déployé des correctifs.
 
 ## Rôle de moindre privilège
 

@@ -4,6 +4,8 @@
 
 `CheckSQLServerESUStatus.ps1` reports host configuration, SQL Server 2014/2016 inventory, eligibility evidence, metering evidence, and SQL Server ESU status for one or more Windows machines enabled by Azure Arc. It uses only Azure Resource Manager GET requests and never registers, creates, updates, or deletes resources.
 
+Review the [SQL Server ESU object-model overview](README.md) for the differences from Windows Server ESU license resources, VM vCore metering, and Arc machine resource-group scope.
+
 It supports already Arc-connected Windows machines through global Azure endpoints only. The script is not compatible with Azure Government endpoints as written. Connected Machine agent installation, upgrade, or repair; native Azure VMs; Linux; other clouds; physical-core pooled licenses and unlimited virtualization; and automatic patch deployment are out of scope. Status reporting does not enroll a host or install an update.
 
 ## Prerequisites and boundaries
@@ -12,7 +14,7 @@ It supports already Arc-connected Windows machines through global Azure endpoint
 - Read access to machine, extension, provider registration, and subscription-wide Arc SQL instance inventory.
 - Registered providers and current inventory improve classification, but the script reports warnings/errors rather than changing Azure.
 
-The ESU setting is host-level: all eligible instances and associated services on the operating system environment are affected. Same-version instances share one host/version meter; SQL Server 2014 and 2016 on the same host can each produce a meter. Output is evidence, not an entitlement decision. `AutomaticPatchStatus` is reported separately; enrollment does not mean this script deployed patches.
+The ESU setting applies per Arc machine/OSE: all eligible instances and associated services in that operating system environment are affected. Same-version instances share one OSE/version meter; SQL Server 2014 and 2016 in the same OSE can each produce a meter. Output is evidence, not an entitlement decision. `AutomaticPatchStatus` is reported separately; enrollment does not mean this script deployed patches.
 
 ## Least-privilege role
 

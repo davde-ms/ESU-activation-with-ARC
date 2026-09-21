@@ -4,6 +4,8 @@
 
 `InstallSQLServerArcExtension.ps1` installs `Microsoft.AzureData/WindowsAgent.SqlServer` on an existing Windows Arc machine only when the extension is absent. It enables SQL management and automatic extension upgrades and sets `LicenseType` to `Paid`, `PAYG`, or `LicenseOnly`. It does not update, upgrade, repair, or replace an existing extension, enable ESUs, or deploy patches.
 
+Review the [SQL Server ESU object-model overview](README.md) before installation. `ServerResourceGroupName` is the resource group containing the Arc machine; this workflow has no separate SQL license resource group.
+
 This workflow supports global Azure endpoints and Windows only, on machines already connected to Azure Arc. It is not compatible with Azure Government endpoints as written. Connected Machine agent installation, upgrade, and repair, native Azure VMs, Linux, other clouds, SQL versions beyond this repository's SQL Server 2014/2016 ESU workflow, physical-core pooled licenses, unlimited virtualization, and automatic patch deployment are out of scope.
 
 ## Prerequisites and boundaries
@@ -11,7 +13,7 @@ This workflow supports global Azure endpoints and Windows only, on machines alre
 - PowerShell 7.x on Windows; an existing Arc machine reporting `Connected`, agent mode `Full`, Windows, and a supported Arc SQL location.
 - Registered `Microsoft.HybridCompute` and `Microsoft.AzureArcData` providers. The script does not register them.
 - Customer confirmation of the external prerequisites represented by `-ConfirmExternalPrerequisites` or the CSV `TRUE` value.
-- A reviewed `LicenseType`. `Paid` represents a qualifying license with Software Assurance/subscription, `PAYG` uses pay-as-you-go SQL software billing, and `LicenseOnly` does not qualify for Arc-enabled SQL Server ESUs.
+- A reviewed `LicenseType`. This setting describes the underlying SQL Server software license, not ESU payment: `Paid` means a qualifying license with active Software Assurance/SQL subscription, `PAYG` uses Azure hourly billing for the SQL software license, and `LicenseOnly` means a license without the qualifying subscription benefit. Only `Paid` and `PAYG` qualify for Arc-enabled SQL Server ESUs. ESU enrollment and metering remain controlled separately by `enableExtendedSecurityUpdates`. See [LicenseType describes the SQL Server software license](README.md#sql-license-type).
 
 The extension is a host resource and its settings apply across SQL instances discovered on that host. Installation is create-only: if the expected extension exists, the script returns `AlreadyInstalled` and leaves all settings untouched. Later ESU lifecycle changes use [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md), which reads current settings, merges only approved ESU changes, and PUTs the preserved settings.
 

@@ -1,6 +1,8 @@
 // Run in Azure Resource Graph Explorer, review every value below, then download
 // the result as CSV. No Enable rows are returned until the required billing and
 // prerequisite acknowledgements are TRUE.
+// RequestedLicenseType changes the underlying SQL software license model; it
+// does not pay for ESUs. ESU enrollment is the separate RequestedAction value.
 resources
 | extend
     RequestedAction = 'Enable',

@@ -4,6 +4,8 @@
 
 `TestSQLServerArcESUPrerequisites.ps1` effectue une évaluation Azure Resource Manager en lecture seule avant l'installation de l'extension Azure pour SQL Server ou l'inscription aux ESU SQL Server. Il vérifie la machine Arc, l'inscription des fournisseurs, `WindowsAgent.SqlServer`, l'inventaire SQL Arc corrélé, les éléments d'éligibilité SQL Server 2014/2016 et l'actualisation de l'inventaire. Il n'inscrit aucun fournisseur et ne crée, ne met à jour ni ne supprime aucune ressource.
 
+Consultez la [présentation du modèle d'objets ESU SQL Server](README.md) pour les modèles par machine Arc/OSE implémentés et le modèle distinct de virtualisation illimitée non pris en charge.
+
 Cette procédure concerne uniquement les machines Windows déjà connectées à Azure Arc au moyen des points de terminaison Azure global. Dans son état actuel, elle n'est pas compatible avec les points de terminaison Azure Government. L'installation, la mise à niveau et la réparation de l'agent Connected Machine sont hors périmètre. Les machines virtuelles Azure natives, Linux, les autres clouds, les versions SQL autres que 2014/2016, les licences ESU mutualisées par cœurs physiques, la virtualisation illimitée et le déploiement automatique des correctifs sont hors périmètre.
 
 ## Prérequis et limites
@@ -14,7 +16,7 @@ Cette procédure concerne uniquement les machines Windows déjà connectées à 
 - Pour que l'activation des ESU soit prête : extension `WindowsAgent.SqlServer` saine et prise en charge, `SqlManagement.IsEnabled=true`, `LicenseType` égal à `Paid` ou `PAYG`, et au moins une instance SQL Server 2014/2016 Standard ou Enterprise.
 - Confirmez séparément la connectivité sortante, les autorisations Windows et SQL locales, les droits et la couverture des années précédentes, l'éligibilité Developer hors production et la conformité HA/DR. L'inventaire ARM ne peut pas les prouver.
 
-Le paramètre ESU s'applique à l'hôte et concerne les instances et services associés éligibles de l'environnement du système d'exploitation. Plusieurs versions éligibles sur un hôte peuvent produire des compteurs distincts. L'évaluation n'inscrit pas l'hôte et ne déploie aucun correctif.
+Le paramètre ESU s'applique par machine Arc/OSE et concerne les instances et services associés éligibles de cet environnement du système d'exploitation. Plusieurs versions éligibles dans un OSE peuvent produire des compteurs distincts. L'évaluation n'inscrit pas la machine et ne déploie aucun correctif.
 
 ## Rôle de moindre privilège
 

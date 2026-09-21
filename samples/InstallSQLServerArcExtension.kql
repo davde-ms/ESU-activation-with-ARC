@@ -1,5 +1,8 @@
 // Run in Azure Resource Graph Explorer, set both values below, then download
 // the result as CSV. No rows are returned until the values are valid.
+// LicenseType describes the underlying SQL software license, not ESU payment:
+// Paid = BYOL with active Software Assurance/SQL subscription; PAYG = Azure
+// hourly SQL software licensing; LicenseOnly = not eligible for Arc ESUs.
 resources
 | extend
     SelectedLicenseType = 'REPLACE_WITH_Paid_PAYG_OR_LicenseOnly',

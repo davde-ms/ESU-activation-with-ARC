@@ -2,7 +2,9 @@
 
 ## Objectif et périmètre
 
-`SetSQLServerESUSubscription.ps1` active ou désactive le paramètre ESU SQL Server au niveau de l'hôte sur une extension `WindowsAgent.SqlServer` existante. Il prend en charge les points de terminaison Azure global et les machines Windows déjà connectées à Azure Arc; dans son état actuel, il n'est pas compatible avec les points de terminaison Azure Government. Il n'installe, ne met à niveau ni ne répare l'agent Connected Machine ou l'extension SQL; ne gère pas les machines virtuelles Azure natives ou Linux; ne déploie aucun correctif; ne configure pas l'application automatique des correctifs; n'accepte pas de nombre de cœurs saisi par le client; et ne gère pas les licences ESU mutualisées par cœurs physiques ou la virtualisation illimitée.
+`SetSQLServerESUSubscription.ps1` active ou désactive le paramètre ESU SQL Server par machine Arc/OSE sur une extension `WindowsAgent.SqlServer` existante. Il prend en charge les points de terminaison Azure global et les machines Windows déjà connectées à Azure Arc; dans son état actuel, il n'est pas compatible avec les points de terminaison Azure Government. Il n'installe, ne met à niveau ni ne répare l'agent Connected Machine ou l'extension SQL; ne gère pas les machines virtuelles Azure natives ou Linux; ne déploie aucun correctif; ne configure pas l'application automatique des correctifs; n'accepte pas de nombre de cœurs saisi par le client; et ne gère pas les licences ESU mutualisées par cœurs physiques ou la virtualisation illimitée.
+
+Consultez la [présentation du modèle d'objets ESU SQL Server](README.md) pour la mesure des vCœurs des machines virtuelles et la comparaison avec l'attribution de licences Windows Server. `ServerResourceGroupName` désigne le groupe de ressources contenant la machine Arc; aucun objet ni groupe de ressources de licence SQL distinct n'est créé.
 
 Seuls SQL Server 2014 et 2016 sont pris en charge. L'activation exige un inventaire éligible et des confirmations explicites de facturation. La désactivation reste possible lorsque les éléments d'inventaire/fournisseur/machine sont dégradés afin que le client puisse annuler les frais futurs; elle exige toujours une extension lisible avec l'identité exacte et des paramètres publics.
 
@@ -11,6 +13,8 @@ Seuls SQL Server 2014 et 2016 sont pris en charge. L'activation exige un inventa
 - PowerShell 7.x sous Windows; fournisseurs inscrits; machine Arc existante connectée en mode `Full` et extension `WindowsAgent.SqlServer` saine et prise en charge pour l'activation.
 - `SqlManagement.IsEnabled=true`, `LicenseType` effectif `Paid` ou `PAYG` et inventaire SQL Server 2014/2016. Standard/Enterprise sont des éditions de production; Developer exige une couverture hors production admissible confirmée.
 - Les droits, la couverture antérieure, les autorisations locales, la connectivité et la conformité HA/DR doivent être confirmés hors ARM.
+
+`LicenseType` décrit la licence du logiciel SQL Server sous-jacent; il n'indique pas que les ESU sont payées. `Paid` désigne des droits éligibles avec Software Assurance/abonnement SQL, tandis que `PAYG` signifie qu'Azure facture la licence du logiciel SQL à l'heure. Le paramètre distinct `enableExtendedSecurityUpdates` démarre ou arrête l'abonnement ESU et sa mesure. Consultez [LicenseType décrit la licence du logiciel SQL Server](README.md#sql-license-type).
 
 Le paramètre concerne tout l'hôte/OSE, pas une instance nommée. Toutes les instances et tous les services associés éligibles peuvent être affectés, et 2014/2016 peuvent être mesurés séparément. Le script effectue un GET-fusion-PUT préservant les paramètres : il lit l'extension, copie profondément les paramètres publics, modifie uniquement `enableExtendedSecurityUpdates`, `esuLastUpdatedTimestamp` et un `LicenseType` explicitement approuvé lors de l'activation, puis écrit et vérifie la préservation sémantique. Les propriétés protégées ou de réponse ne sont jamais copiées.
 
