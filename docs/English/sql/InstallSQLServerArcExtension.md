@@ -2,7 +2,7 @@
 
 ## Purpose and scope
 
-`InstallSQLServerArcExtension.ps1` installs `Microsoft.AzureData/WindowsAgent.SqlServer` on an existing Windows Arc machine only when the extension is absent. It enables SQL management and automatic extension upgrades and sets `LicenseType` to `Paid`, `PAYG`, or `LicenseOnly`. It does not update, upgrade, repair, or replace an existing extension, enable ESUs, or deploy patches.
+`InstallSQLServerArcExtension.ps1` installs `Microsoft.AzureData/WindowsAgent.SqlServer` on an existing Windows Arc machine only when the extension is absent. It enables SQL management and automatic extension upgrades and sets `LicenseType` to `Paid` or `LicenseOnly`. It never selects `PAYG` (pay-as-you-go SQL Server software billing through Azure). It does not update, upgrade, repair, or replace an existing extension, enable ESUs, or deploy patches.
 
 Review the [SQL Server ESU object-model overview](README.md) before installation. `ServerResourceGroupName` is the resource group containing the Arc machine; this workflow has no separate SQL license resource group.
 
@@ -13,7 +13,7 @@ This workflow supports global Azure endpoints and Windows only, on machines alre
 - PowerShell 7.x on Windows; an existing Arc machine reporting `Connected`, agent mode `Full`, Windows, and a supported Arc SQL location.
 - Registered `Microsoft.HybridCompute` and `Microsoft.AzureArcData` providers. The script does not register them.
 - Customer confirmation of the external prerequisites represented by `-ConfirmExternalPrerequisites` or the CSV `TRUE` value.
-- A reviewed `LicenseType`. This setting describes the underlying SQL Server software license, not ESU payment: `Paid` means a qualifying license with active Software Assurance/SQL subscription, `PAYG` uses Azure hourly billing for the SQL software license, and `LicenseOnly` means a license without the qualifying subscription benefit. Only `Paid` and `PAYG` qualify for Arc-enabled SQL Server ESUs. ESU enrollment and metering remain controlled separately by `enableExtendedSecurityUpdates`. See [LicenseType describes the SQL Server software license](README.md#sql-license-type).
+- A reviewed `LicenseType`. This setting describes the underlying SQL Server software license, not ESU payment: `Paid` means a qualifying license with active Software Assurance/SQL subscription, `PAYG` uses Azure hourly billing for the SQL software license, and `LicenseOnly` means a license without the qualifying subscription benefit. This script accepts only `Paid` or `LicenseOnly` and rejects `PAYG` so that it cannot start Azure billing for the SQL software license. Only `Paid` (and an existing `PAYG` configuration set outside this script) qualifies for Arc-enabled SQL Server ESUs. ESU enrollment and metering remain controlled separately by `enableExtendedSecurityUpdates`. See [LicenseType describes the SQL Server software license](README.md#sql-license-type).
 
 The extension is a host resource and its settings apply across SQL instances discovered on that host. Installation is create-only: if the expected extension exists, the script returns `AlreadyInstalled` and leaves all settings untouched. Later ESU lifecycle changes use [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md), which reads current settings, merges only approved ESU changes, and PUTs the preserved settings.
 
@@ -79,7 +79,7 @@ SubscriptionId,ServerResourceGroupName,ARCServerName,LicenseType,ConfirmExternal
     -DryRun
 ```
 
-The exact required columns are `SubscriptionId`, `ServerResourceGroupName`, `ARCServerName`, `LicenseType`, and `ConfirmExternalPrerequisites`. A blank row subscription uses `-subscriptionId`. Names must use supported Azure characters; the machine name is 1-54 characters. `LicenseType` must be `Paid`, `PAYG`, or `LicenseOnly`; confirmation must be `TRUE`. Duplicate machine targets are rejected case-insensitively. Missing files, non-CSV files, no data rows, missing columns, and any invalid row reject the entire plan before authentication. Unknown columns are warned and ignored.
+The exact required columns are `SubscriptionId`, `ServerResourceGroupName`, `ARCServerName`, `LicenseType`, and `ConfirmExternalPrerequisites`. A blank row subscription uses `-subscriptionId`. Names must use supported Azure characters; the machine name is 1-54 characters. `LicenseType` must be `Paid` or `LicenseOnly` (`PAYG` is rejected); confirmation must be `TRUE`. Duplicate machine targets are rejected case-insensitively. Missing files, non-CSV files, no data rows, missing columns, and any invalid row reject the entire plan before authentication. Unknown columns are warned and ignored.
 
 ## Preview and execution safety
 
@@ -95,7 +95,7 @@ Statuses are `Succeeded`, `AlreadyInstalled`, `Previewed`, `Declined`, `Failed`,
 
 ## Billing and safety
 
-Installing this extension does not enroll the host in ESUs and does not deploy patches. However, `LicenseType` also represents SQL Server software licensing configuration, so confirm `Paid`, `PAYG`, or `LicenseOnly` with your licensing owner. ESU enrollment is a separate billing-sensitive operation. The extension detects host type and cores; do not infer physical-pool or unlimited-virtualization coverage from this script.
+Installing this extension does not enroll the host in ESUs and does not deploy patches. However, `LicenseType` also represents SQL Server software licensing configuration, so confirm `Paid` or `LicenseOnly` with your licensing owner. This script never selects `PAYG`. ESU enrollment is a separate billing-sensitive operation. The extension detects host type and cores; do not infer physical-pool or unlimited-virtualization coverage from this script.
 
 ## Troubleshooting
 

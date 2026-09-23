@@ -14,9 +14,9 @@ Seuls SQL Server 2014 et 2016 sont pris en charge. L'activation exige un inventa
 - `SqlManagement.IsEnabled=true`, `LicenseType` effectif `Paid` ou `PAYG` et inventaire SQL Server 2014/2016. Standard/Enterprise sont des éditions de production; Developer exige une couverture hors production admissible confirmée.
 - Les droits, la couverture antérieure, les autorisations locales, la connectivité et la conformité HA/DR doivent être confirmés hors ARM.
 
-`LicenseType` décrit la licence du logiciel SQL Server sous-jacent; il n'indique pas que les ESU sont payées. `Paid` désigne des droits éligibles avec Software Assurance/abonnement SQL, tandis que `PAYG` signifie qu'Azure facture la licence du logiciel SQL à l'heure. Le paramètre distinct `enableExtendedSecurityUpdates` démarre ou arrête l'abonnement ESU et sa mesure. Consultez [LicenseType décrit la licence du logiciel SQL Server](README.md#sql-license-type).
+`LicenseType` décrit la licence du logiciel SQL Server sous-jacent; il n'indique pas que les ESU sont payées. `Paid` désigne des droits éligibles avec Software Assurance/abonnement SQL, tandis que `PAYG` signifie qu'Azure facture la licence du logiciel SQL à l'heure. Le paramètre distinct `enableExtendedSecurityUpdates` démarre ou arrête l'abonnement ESU et sa mesure. Ce script ne modifie jamais `LicenseType` : il ne peut donc pas faire passer un hôte en `PAYG` ni changer un autre modèle de paiement SQL; les hôtes `LicenseOnly` ou sans valeur sont bloqués, jamais convertis. Consultez [LicenseType décrit la licence du logiciel SQL Server](README.md#sql-license-type).
 
-Le paramètre concerne tout l'hôte/OSE, pas une instance nommée. Toutes les instances et tous les services associés éligibles peuvent être affectés, et 2014/2016 peuvent être mesurés séparément. Le script effectue un GET-fusion-PUT préservant les paramètres : il lit l'extension, copie profondément les paramètres publics, modifie uniquement `enableExtendedSecurityUpdates`, `esuLastUpdatedTimestamp` et un `LicenseType` explicitement approuvé lors de l'activation, puis écrit et vérifie la préservation sémantique. Les propriétés protégées ou de réponse ne sont jamais copiées.
+Le paramètre concerne tout l'hôte/OSE, pas une instance nommée. Toutes les instances et tous les services associés éligibles peuvent être affectés, et 2014/2016 peuvent être mesurés séparément. Le script effectue un GET-fusion-PUT préservant les paramètres : il lit l'extension, copie profondément les paramètres publics, modifie uniquement `enableExtendedSecurityUpdates` et `esuLastUpdatedTimestamp`, refuse d'envoyer toute requête qui modifierait `LicenseType`, puis écrit et vérifie la préservation sémantique, y compris un `LicenseType` inchangé. Les propriétés protégées ou de réponse ne sont jamais copiées.
 
 Pour `Disable`, le script lit volontairement uniquement l'extension attendue et ignore les contrôles de machine, fournisseur et inventaire SQL. Cette voie d'annulation reste disponible lorsque la découverte ou l'état de santé sont dégradés, car exiger une découverte saine pourrait empêcher l'arrêt des frais ESU futurs. Une mauvaise identité d'extension ou des paramètres publics illisibles bloque toujours la modification.
 
@@ -35,10 +35,10 @@ Utilisez exactement une méthode : `-userToken` avec un objet `Get-AzAccessToken
 | `subscriptionId` | Mode unique; secours CSV facultatif | Abonnement de la machine Arc. |
 | `serverResourceGroupName`, `ARCServerName` | Mode unique | Hôte cible existant. |
 | `Action` | Mode unique | `Enable` ou `Disable`. |
-| `LicenseType` | Activation uniquement, facultatif | Vide conserve la valeur; sinon `Paid` ou `PAYG`. |
+| `LicenseType` | Activation uniquement, facultatif | Confirmation de la valeur actuelle (`Paid` ou `PAYG`). Le script ne modifie jamais `LicenseType`; une différence fait échouer la validation préalable. |
 | `Environment` | Activation uniquement | `Production` ou `NonProduction`. |
 | `AcceptBackBilling` | Activation uniquement | Confirmation obligatoire. |
-| `AcceptLicenseTypeChange` | Si la licence change | Approuve explicitement la modification. |
+| `AcceptLicenseTypeChange` | Doit être vide ou FALSE | Conservé pour compatibilité; TRUE est rejeté, car les changements de type de licence ne sont pas pris en charge. |
 | `ConfirmNonProductionCoverage` | Lorsque nécessaire | Obligatoire pour Developer en `NonProduction`. |
 | `ConfirmExternalPrerequisites` | Activation uniquement | Confirmation des contrôles externes. |
 | `csvFilePath` | Mode CSV | Schéma exact ci-dessous. |
@@ -94,7 +94,7 @@ SubscriptionId,ServerResourceGroupName,ARCServerName,Action,LicenseType,Environm
     -DryRun
 ```
 
-Les dix colonnes affichées sont obligatoires. Un abonnement vide utilise celui de la commande. Les contrôles booléens acceptent uniquement `TRUE`, `FALSE` ou vide lorsque cela est permis. `Enable` exige un environnement valide, `AcceptBackBilling=TRUE` et `ConfirmExternalPrerequisites=TRUE`; un changement de licence exige `AcceptLicenseTypeChange=TRUE`; Developer hors production exige `ConfirmNonProductionCoverage=TRUE`. `Disable` exige que tous les champs d'activation soient vides. Les hôtes en double/contradictoires sont rejetés. Une colonne inconnue ressemblant à un contrôle de facturation est rejetée; une colonne sans rapport est signalée puis ignorée. Toute erreur locale rejette tout le fichier avant l'authentification.
+Les dix colonnes affichées sont obligatoires. Un abonnement vide utilise celui de la commande. Les contrôles booléens acceptent uniquement `TRUE`, `FALSE` ou vide lorsque cela est permis. `Enable` exige un environnement valide, `AcceptBackBilling=TRUE` et `ConfirmExternalPrerequisites=TRUE`; un `LicenseType` non vide doit correspondre à la valeur actuelle de l'hôte et `AcceptLicenseTypeChange` doit être vide ou `FALSE`; Developer hors production exige `ConfirmNonProductionCoverage=TRUE`. `Disable` exige que tous les champs d'activation soient vides. Les hôtes en double/contradictoires sont rejetés. Une colonne inconnue ressemblant à un contrôle de facturation est rejetée; une colonne sans rapport est signalée puis ignorée. Toute erreur locale rejette tout le fichier avant l'authentification.
 
 ## Prévisualisation et sécurité d'exécution
 
@@ -119,7 +119,7 @@ Selon les instructions Microsoft actuelles, l'annulation arrête les frais ESU f
 | Symptôme | Vérification |
 | --- | --- |
 | Erreur de confirmation | Fournissez les valeurs `TRUE` uniquement après vérification des licences et prérequis externes. |
-| Changement de licence rejeté | Ajoutez `AcceptLicenseTypeChange=TRUE` uniquement après approbation des valeurs affichées. |
+| `LicenseType` différent ou `AcceptLicenseTypeChange` rejeté | Ce script ne modifie jamais `LicenseType`. Videz `LicenseType` ou indiquez la valeur actuelle de l'hôte, et laissez `AcceptLicenseTypeChange` vide ou à `FALSE`. Effectuez tout changement de licence séparément, uniquement après une décision de licence. |
 | Developer rejeté | Utilisez `NonProduction` avec une couverture admissible confirmée, ou arrêtez pour résoudre le droit. |
 | Avertissement d'inventaire ancien | Actualisez l'inventaire; l'ancienneté seule ne bloque pas, mais rend les éléments incertains. |
 | Avertissement de désactivation dégradée | Comportement prévu : l'annulation se fonde sur les paramètres vérifiés de l'extension pour arrêter les frais futurs. |
