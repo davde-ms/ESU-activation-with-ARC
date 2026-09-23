@@ -79,7 +79,7 @@ Les champs sont : `SubscriptionId`, `ResourceGroupName`, `MachineName`, `Machine
 
 ## Facturation et sécurité
 
-Le script ne modifie rien. Vérifiez `HostTypes`, les cœurs, la version, l'édition, l'environnement, l'état passif/DR et l'actualisation avant toute décision de facturation. Les règles Microsoft actuelles peuvent appliquer un minimum de quatre cœurs, des compteurs distincts pour 2014 et 2016 et une rétrofacturation annuelle. Les éléments absents ou contradictoires restent volontairement incertains. Les licences mutualisées par cœurs physiques sont hors périmètre.
+Le script ne modifie rien. Vérifiez `HostTypes`, les cœurs, la version, l'édition, l'état passif/DR et l'actualisation avant toute décision de facturation. `PassiveDRState` vaut `HADR` lorsque le `licenseType` de l'instance signalé par Azure est `HADR`. ARM n'expose pas l'environnement d'utilisation; `Environments` est donc vide et la couverture hors production doit être confirmée en dehors d'Azure. Les règles Microsoft actuelles peuvent appliquer un minimum de quatre cœurs, des compteurs distincts pour 2014 et 2016 et une rétrofacturation annuelle. Les éléments absents ou contradictoires restent volontairement incertains. Les licences mutualisées par cœurs physiques sont hors périmètre.
 
 ## Résolution des problèmes
 

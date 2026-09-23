@@ -19,7 +19,7 @@ The extension is a host resource and its settings apply across SQL instances dis
 
 ## Least-privilege role
 
-Create both custom roles in each target subscription. Assign [SQL Server Arc ESU Reader](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Reader.json) at subscription scope for provider, inventory, machine, and extension reads. Assign [SQL Server Arc ESU Operator](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) only on each target machine resource group; it grants only `Microsoft.HybridCompute/machines/extensions/write`. This split avoids subscription-wide extension write access. Neither role grants machine write/delete, provider registration, or `sqlServerEsuLicenses` permission. Replace the fictitious assignable subscription before creating each role.
+Create both custom roles in each target subscription. Assign [SQL Server Arc ESU Reader](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Reader.json) at subscription scope for provider, inventory, machine, and extension reads. Assign [SQL Server Arc ESU Operator](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) only on each target machine resource group; it grants only `Microsoft.HybridCompute/machines/extensions/write` plus the read-only `Microsoft.HybridCompute/locations/operationstatus/read` and `Microsoft.HybridCompute/locations/operationresults/read` actions needed to poll asynchronous extension updates. This split avoids subscription-wide extension write access. Neither role grants machine write/delete, provider registration, or `sqlServerEsuLicenses` permission. Replace the fictitious assignable subscription before creating each role.
 
 ## Authentication
 

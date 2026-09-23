@@ -10,7 +10,7 @@ Only SQL Server 2014 and 2016 are supported. Enablement requires eligible invent
 
 ## Prerequisites and boundaries
 
-- PowerShell 7.x on Windows; registered providers; an existing connected, Full-mode Arc machine and healthy supported `WindowsAgent.SqlServer` extension for enablement.
+- PowerShell 7.x on Windows; registered providers; an existing connected Arc machine whose `agentConfiguration.configMode` is `full`, and a healthy `WindowsAgent.SqlServer` extension at version `1.1.3518.465` or newer (the running version from `instanceView` is used when reported) for enablement.
 - `SqlManagement.IsEnabled=true`, effective `LicenseType` `Paid` or `PAYG`, and discovered SQL Server 2014/2016 inventory. Standard/Enterprise are production editions; Developer requires confirmed qualifying nonproduction coverage.
 - External entitlement, prior-year coverage, local permissions, connectivity, and HA/DR compliance must be confirmed outside ARM.
 

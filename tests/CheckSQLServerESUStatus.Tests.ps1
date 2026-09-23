@@ -62,7 +62,7 @@ function global:Start-Sleep {
     Write-Call ([string]`$Seconds) 'SLEEP' `$false
 }
 function global:New-Instance(`$machine, `$name, `$version, `$edition, `$inventory, `$usage, `$hostType = 'VirtualMachine', `$cores = 8, `$environment = 'Production', `$isDisasterRecovery = `$null) {
-    [pscustomobject]@{ id = "/subscriptions/$subscriptionId/resourceGroups/arc-rg/providers/Microsoft.AzureArcData/sqlServerInstances/`$name"; name = `$name; properties = [pscustomobject]@{ containerResourceId = "/subscriptions/$subscriptionId/resourceGroups/arc-rg/providers/Microsoft.HybridCompute/machines/`$machine/"; version = `$version; edition = `$edition; environment = `$environment; serviceType = 'Engine'; status = 'Connected'; hostType = `$hostType; cores = `$cores; lastInventoryUploadTime = `$inventory; lastUsageUploadTime = `$usage; isDisasterRecovery = `$isDisasterRecovery; billingType = 'PAYG'; automaticPatching = `$false } }
+    [pscustomobject]@{ id = "/subscriptions/$subscriptionId/resourceGroups/arc-rg/providers/Microsoft.AzureArcData/sqlServerInstances/`$name"; name = `$name; properties = [pscustomobject]@{ containerResourceId = "/subscriptions/$subscriptionId/resourceGroups/arc-rg/providers/Microsoft.HybridCompute/machines/`$machine/"; version = `$version; edition = `$edition; serviceType = 'Engine'; status = 'Connected'; hostType = `$hostType; cores = `$cores; lastInventoryUploadTime = `$inventory; lastUsageUploadTime = `$usage; licenseType = `$(if (`$isDisasterRecovery) { 'HADR' } else { 'Paid' }); billingType = 'PAYG'; automaticPatching = `$false } }
 }
 function global:Invoke-WebRequest {
     param(`$Uri, `$Method, `$ContentType, `$Body, `$ErrorAction)
@@ -110,12 +110,12 @@ function global:Invoke-RestMethod {
         if (`$global:scenario -eq 'MissingMachine' -or (`$global:scenario -eq 'PartialFailure' -and `$machine -eq 'sql-bad')) { throw '404 NotFound' }
         if (`$global:scenario -eq 'SecretFailure') { throw '500 Authorization: Bearer fictitious-access-token client_secret=fictitious-client-secret' }
         `$status = if (`$global:scenario -eq 'Disconnected') { 'Disconnected' } else { 'Connected' }
-        return [pscustomobject]@{ location = 'eastus'; properties = [pscustomobject]@{ status = `$status; agentConfiguration = [pscustomobject]@{ mode = 'Full' }; osName = 'Windows Server 2022'; detectedProperties = [pscustomobject]@{ cloudProvider = 'VMware' } } }
+        return [pscustomobject]@{ location = 'eastus'; properties = [pscustomobject]@{ status = `$status; agentConfiguration = [pscustomobject]@{ configMode = 'full' }; osName = 'Windows Server 2022'; detectedProperties = [pscustomobject]@{ cloudProvider = 'VMware' } } }
     }
     if (`$Uri -match '/machines/([^/?]+)/extensions/WindowsAgent\.SqlServer\?api-version=2026-07-15$') {
         if (`$global:scenario -eq 'AbsentExtension') { throw '404 NotFound' }
         `$state = if (`$global:scenario -eq 'FailedExtension') { 'Failed' } else { 'Succeeded' }
-        `$version = if (`$global:scenario -eq 'UnknownVersion') { '1.1.9999.999' } else { '1.1.3518.465' }
+        `$version = if (`$global:scenario -eq 'UnknownVersion') { '1.1.3000.0' } else { '1.1.3518.465' }
         `$esu = switch (`$global:scenario) { 'Disabled' { `$false }; 'RawString' { 'TrUe' }; 'RawInvalid' { 'enabled' }; default { `$true } }
         return [pscustomobject]@{ properties = [pscustomobject]@{ publisher = 'Microsoft.AzureData'; type = 'WindowsAgent.SqlServer'; provisioningState = `$state; typeHandlerVersion = `$version; enableAutomaticUpgrade = `$true; settings = [pscustomobject]@{ LicenseType = 'Paid'; SqlManagement = [pscustomobject]@{ IsEnabled = `$true }; enableExtendedSecurityUpdates = `$esu; esuLastUpdatedTimestamp = '$fresh'; AutomaticPatching = [pscustomobject]@{ IsEnabled = `$false } } } }
     }
@@ -255,18 +255,17 @@ Describe 'CheckSQLServerESUStatus classifications' {
     It 'distinguishes Developer and stale or missing usage uncertainty per instance' {
         $developer = Invoke-StatusScenario Developer
         $stale = Invoke-StatusScenario Stale
-        $developer.Exported[0].Instances | Should Match 'DeveloperNonProductionUncertain.*NonProduction'
+        $developer.Exported[0].Instances | Should Match 'DeveloperNonProductionUncertain'
         $developer.Exported[0].UncertainInstances | Should Match 'DeveloperNonProductionUncertain'
         $stale.Exported[0].Instances | Should Match 'InventoryOrUsageUncertain.*Stale.*Unknown'
         $stale.Exported[0].EligibleInstances | Should Match 'sql-2016'
         $stale.Exported[0].Classification | Should Be 'Warning'
     }
 
-    It 'reports explicit passive DR and environment evidence without using billingType' {
+    It 'reports passive DR evidence from the HADR instance license type without using billingType' {
         $result = Invoke-StatusScenario PassiveDR
-        $result.Exported[0].PassiveDRState | Should Be 'True'
-        $result.Exported[0].Environments | Should Be 'Production'
-        $result.Exported[0].Instances | Should Match 'Production'
+        $result.Exported[0].PassiveDRState | Should Be 'HADR'
+        $result.Exported[0].Environments | Should BeNullOrEmpty
     }
 
     It 'classifies conflicting host type and core evidence as uncertain' {
@@ -308,11 +307,11 @@ Describe 'CheckSQLServerESUStatus classifications' {
         $disconnected.Exported[0].Warnings | Should Match 'Disconnected'
     }
 
-    It 'reports unknown extension-version support without making an exact-version-only claim' {
+    It 'reports unknown support for extension versions older than the minimum baseline' {
         $result = Invoke-StatusScenario UnknownVersion
         $result.Exported[0].ExtensionVersionSupport | Should Be 'Unknown'
         $result.Exported[0].Classification | Should Be 'Warning'
-        $result.Exported[0].Warnings | Should Match 'current explicit supported baseline'
+        $result.Exported[0].Warnings | Should Match 'older than the minimum supported version'
     }
 }
 

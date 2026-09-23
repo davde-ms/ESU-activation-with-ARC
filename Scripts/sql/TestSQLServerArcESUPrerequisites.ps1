@@ -70,7 +70,7 @@ $script:CONFIG = @{
     SqlInstanceApiVersion = '2026-01-01'
     ProviderApiVersion = '2021-04-01'
     SqlExtensionName = 'WindowsAgent.SqlServer'
-    SupportedExtensionVersions = @('1.1.3518.465')
+    MinimumExtensionVersion = '1.1.3518.465'
 }
 
 function Get-AzureADBearerToken {
@@ -240,8 +240,8 @@ function Get-AllSqlServerInstances {
 function Get-SqlInstanceClassification {
     param([Parameter(Mandatory = $true)][object]$Instance)
 
-    $version = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.version', 'properties.currentVersion', 'properties.productVersion'))
-    $edition = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.edition', 'properties.currentEdition'))
+    $version = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.version', 'properties.currentVersion'))
+    $edition = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.edition'))
     $eligibleVersion = if ($version -match '(?i)SQL\s*Server\s*2014|^12(\.|$)') { 'SQL Server 2014' } elseif ($version -match '(?i)SQL\s*Server\s*2016|^13(\.|$)') { 'SQL Server 2016' } else { $null }
     $eligibleEdition = $edition -match '(?i)\b(Standard|Enterprise)\b'
     $eligibility = if (-not $eligibleVersion) { 'Ineligible' } elseif ($eligibleEdition) { 'Eligible' } elseif ($edition -match '(?i)\bDeveloper\b') { 'ExternalConfirmationRequired' } else { 'Ineligible' }
@@ -261,8 +261,8 @@ function Get-SqlInstanceClassification {
         Reason = $reason
         ServiceType = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.serviceType'))
         Status = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.status'))
-        HostType = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.hostType', 'properties.hostingType'))
-        DetectedCores = Get-ObjectValue -InputObject $Instance -Paths @('properties.vCore', 'properties.vCores', 'properties.coreCount', 'properties.cores', 'properties.hostResources.logicalCores')
+        HostType = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.hostType'))
+        DetectedCores = Get-ObjectValue -InputObject $Instance -Paths @('properties.vCore', 'properties.cores')
         InventoryTimestamp = Get-ObjectValue -InputObject $Instance -Paths @('properties.lastInventoryUploadTime')
         UsageTimestamp = Get-ObjectValue -InputObject $Instance -Paths @('properties.lastUsageUploadTime')
         PatchLevel = Get-ObjectValue -InputObject $Instance -Paths @('properties.patchLevel', 'properties.currentVersion')
@@ -327,10 +327,10 @@ function Get-PrerequisiteResult {
 
         if ($machine) {
             $connectionStatus = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.status', 'properties.connectionStatus'))
-            $agentMode = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.agentConfiguration.mode'))
+            $agentMode = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.agentConfiguration.configMode'))
             $operatingSystem = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.osName', 'properties.osType'))
             $location = [string]$machine.location
-            $cloudProvider = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.detectedProperties.cloudProvider', 'properties.cloudMetadataProvider'))
+            $cloudProvider = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.detectedProperties.cloudProvider', 'properties.cloudMetadata.provider'))
             if ($connectionStatus -ine 'Connected') { $blocking.Add("Arc machine connection status is '$connectionStatus', not 'Connected'.") }
             if ($agentMode -ine 'Full') { $blocking.Add("Arc agent mode is '$agentMode', not 'Full'.") }
             if ($operatingSystem -notmatch '(?i)Windows') { $blocking.Add("Operating system '$operatingSystem' is not Windows.") }
@@ -367,11 +367,14 @@ function Get-PrerequisiteResult {
     }
 
     $extensionState = if (-not $machine) { 'NotAssessed' } elseif (-not $extension) { 'Absent' } else { [string](Get-ObjectValue -InputObject $extension -Paths @('properties.provisioningState')) }
-    $extensionVersion = if ($extension) { [string](Get-ObjectValue -InputObject $extension -Paths @('properties.typeHandlerVersion')) } else { $null }
+    # instanceView reports the running handler version; properties.typeHandlerVersion is the requested one.
+    $extensionVersion = if ($extension) { [string](Get-ObjectValue -InputObject $extension -Paths @('properties.instanceView.typeHandlerVersion', 'properties.typeHandlerVersion')) } else { $null }
+    $parsedExtensionVersion = $null
+    $extensionVersionSupported = [version]::TryParse([string]$extensionVersion, [ref]$parsedExtensionVersion) -and $parsedExtensionVersion -ge [version]$script:CONFIG.MinimumExtensionVersion
     $publisher = if ($extension) { [string](Get-ObjectValue -InputObject $extension -Paths @('properties.publisher')) } else { $null }
     $extensionType = if ($extension) { [string](Get-ObjectValue -InputObject $extension -Paths @('properties.type')) } else { $null }
     $automaticUpgrade = if ($extension) { ConvertTo-BooleanValue (Get-ObjectValue -InputObject $extension -Paths @('properties.enableAutomaticUpgrade', 'properties.autoUpgradeMinorVersion')) } else { $null }
-    $extensionSupported = if (-not $extension) { $false } elseif ($publisher -ne 'Microsoft.AzureData' -or $extensionType -ne 'WindowsAgent.SqlServer') { $false } elseif ($extensionState -ne 'Succeeded') { $false } elseif ($extensionVersion -notin $script:CONFIG.SupportedExtensionVersions) { $false } else { $true }
+    $extensionSupported = if (-not $extension) { $false } elseif ($publisher -ne 'Microsoft.AzureData' -or $extensionType -ne 'WindowsAgent.SqlServer') { $false } elseif ($extensionState -ne 'Succeeded') { $false } elseif (-not $extensionVersionSupported) { $false } else { $true }
     $settings = if ($extension) { Get-ObjectValue -InputObject $extension -Paths @('properties.settings') } else { $null }
     $licenseType = [string](Get-ObjectValue -InputObject $settings -Paths @('LicenseType'))
     $sqlManagementEnabled = ConvertTo-BooleanValue (Get-ObjectValue -InputObject $settings -Paths @('SqlManagement.IsEnabled'))
@@ -381,8 +384,8 @@ function Get-PrerequisiteResult {
     if ($extension) {
         if ($publisher -ne 'Microsoft.AzureData' -or $extensionType -ne 'WindowsAgent.SqlServer') { $blocking.Add('The SQL extension has an unexpected publisher or type.') }
         if ($extensionState -ne 'Succeeded') { $blocking.Add("SQL extension provisioning state is '$extensionState'.") }
-        if ([string]::IsNullOrWhiteSpace($extensionVersion)) { $blocking.Add('SQL extension version is missing and cannot be evaluated against the supported 12-month release baseline.') }
-        elseif ($extensionVersion -notin $script:CONFIG.SupportedExtensionVersions) { $blocking.Add("SQL extension version '$extensionVersion' is not in the implementation-day 12-month supported release baseline ($($script:CONFIG.SupportedExtensionVersions -join ', ')).") }
+        if ([string]::IsNullOrWhiteSpace($extensionVersion)) { $blocking.Add("SQL extension version is missing and cannot be evaluated against the minimum supported version $($script:CONFIG.MinimumExtensionVersion).") }
+        elseif (-not $extensionVersionSupported) { $blocking.Add("SQL extension version '$extensionVersion' is older than the minimum supported version $($script:CONFIG.MinimumExtensionVersion).") }
         if (-not $automaticUpgrade) { $warnings.Add('Automatic extension upgrade is not enabled; verify that the installed version was released within the last 12 months.') }
         if (-not $sqlManagementEnabled) { $blocking.Add('SqlManagement.IsEnabled is not true.') }
         if ($licenseType -notin @('Paid', 'PAYG')) { $blocking.Add("LicenseType '$licenseType' is not eligible for Arc-enabled SQL Server ESUs.") }
@@ -409,10 +412,10 @@ function Get-PrerequisiteResult {
     $machineExists = $null -ne $machine
     $machineBaseReady = $machineExists -and
         ([string](Get-ObjectValue -InputObject $machine -Paths @('properties.status', 'properties.connectionStatus')) -ieq 'Connected') -and
-        ([string](Get-ObjectValue -InputObject $machine -Paths @('properties.agentConfiguration.mode')) -ieq 'Full') -and
+        ([string](Get-ObjectValue -InputObject $machine -Paths @('properties.agentConfiguration.configMode')) -ieq 'Full') -and
         ([string](Get-ObjectValue -InputObject $machine -Paths @('properties.osName', 'properties.osType')) -match '(?i)Windows') -and
         -not [string]::IsNullOrWhiteSpace([string]$machine.location) -and
-        ([string](Get-ObjectValue -InputObject $machine -Paths @('properties.detectedProperties.cloudProvider', 'properties.cloudMetadataProvider')) -ine 'Azure') -and
+        ([string](Get-ObjectValue -InputObject $machine -Paths @('properties.detectedProperties.cloudProvider', 'properties.cloudMetadata.provider')) -ine 'Azure') -and
         ($regionSupported -eq $true) -and
         $hybridRegistered -and $arcDataRegistered
     $readyForInstall = $machineBaseReady -and -not $extension
@@ -426,7 +429,7 @@ function Get-PrerequisiteResult {
         MachineResourceId = $machineId
         MachineExists = $machineExists
         ConnectionStatus = if ($machine) { [string](Get-ObjectValue -InputObject $machine -Paths @('properties.status', 'properties.connectionStatus')) } else { $null }
-        AgentMode = if ($machine) { [string](Get-ObjectValue -InputObject $machine -Paths @('properties.agentConfiguration.mode')) } else { $null }
+        AgentMode = if ($machine) { [string](Get-ObjectValue -InputObject $machine -Paths @('properties.agentConfiguration.configMode')) } else { $null }
         OperatingSystem = if ($machine) { [string](Get-ObjectValue -InputObject $machine -Paths @('properties.osName', 'properties.osType')) } else { $null }
         Location = if ($machine) { [string]$machine.location } else { $null }
         HybridComputeRegistered = $hybridRegistered

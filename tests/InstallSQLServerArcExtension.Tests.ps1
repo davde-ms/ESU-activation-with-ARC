@@ -179,7 +179,7 @@ function global:Invoke-WebRequest {
             properties = @{
                 status = 'Connected'
                 osName = 'Windows Server 2022'
-                agentConfiguration = @{ mode = 'Full' }
+                agentConfiguration = @{ configMode = 'full' }
                 detectedProperties = @{ cloudProvider = 'VMware' }
             }
         }

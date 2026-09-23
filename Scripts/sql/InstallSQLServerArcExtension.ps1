@@ -427,8 +427,8 @@ function Test-MachinePreflight {
     if ([string]$machine.properties.status -ine 'Connected') {
         throw "Arc machine is not connected. Status: '$($machine.properties.status)'."
     }
-    if ([string]$machine.properties.agentConfiguration.mode -ine 'Full') {
-        throw "Arc machine agent mode must be Full. Mode: '$($machine.properties.agentConfiguration.mode)'."
+    if ([string]$machine.properties.agentConfiguration.configMode -ine 'Full') {
+        throw "Arc machine agent mode must be Full. Mode: '$($machine.properties.agentConfiguration.configMode)'."
     }
     $operatingSystem = if ($machine.properties.osName) { $machine.properties.osName } else { $machine.properties.osType }
     if ([string]$operatingSystem -notmatch 'Windows') {
@@ -437,7 +437,7 @@ function Test-MachinePreflight {
     $cloudProvider = if ($machine.properties.detectedProperties.cloudProvider) {
         $machine.properties.detectedProperties.cloudProvider
     } else {
-        $machine.properties.cloudMetadataProvider
+        $machine.properties.cloudMetadata.provider
     }
     if ([string]$cloudProvider -ieq 'Azure') {
         throw 'Native Azure virtual machines must use the SQL IaaS Agent extension, not this Arc workflow.'

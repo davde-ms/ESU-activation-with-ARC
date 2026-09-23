@@ -8,7 +8,9 @@
         "permissions": [
             {
                 "actions": [
-                    "Microsoft.HybridCompute/machines/extensions/write"
+                    "Microsoft.HybridCompute/machines/extensions/write",
+                    "Microsoft.HybridCompute/locations/operationstatus/read",
+                    "Microsoft.HybridCompute/locations/operationresults/read"
                 ],
                 "notActions": [],
                 "dataActions": [],

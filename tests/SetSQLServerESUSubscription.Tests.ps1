@@ -6,7 +6,7 @@ $appId = '00000000-0000-0000-0000-000000000003'
 
 function Invoke-SetScenario {
     param(
-        [ValidateSet('Normal', 'LegacyString', 'AlreadyEnabled', 'AlreadyDisabled', 'LicenseOnly', 'Developer', 'UnsupportedVersion', 'UnsupportedEdition', 'Stale', 'Mixed', 'Physical', 'Async', 'VerificationConverges', 'VerificationMismatch', 'UnrelatedMismatch', 'RuntimeFailure', 'TransientPut', 'TransientPutFallback', 'UnsafeAsync', 'EvidenceUnavailable', 'WrongIdentity', 'LowercaseLicense')]
+        [ValidateSet('Normal', 'LegacyString', 'AlreadyEnabled', 'AlreadyDisabled', 'LicenseOnly', 'Developer', 'UnsupportedVersion', 'UnsupportedEdition', 'Stale', 'Mixed', 'Physical', 'Async', 'VerificationConverges', 'VerificationMismatch', 'UnrelatedMismatch', 'RuntimeFailure', 'TransientPut', 'TransientPutFallback', 'UnsafeAsync', 'EvidenceUnavailable', 'WrongIdentity', 'LowercaseLicense', 'MonitorMode', 'OlderExtension', 'NewerExtension', 'InstanceViewVersion', 'PassiveHADR')]
         [string]$Scenario = 'Normal',
         [string]$AdditionalArguments,
         [string]$CsvContent,
@@ -79,15 +79,16 @@ function global:New-MockExtension {
         type = 'Microsoft.HybridCompute/machines/extensions'
         location = 'westus2'
         systemData = @{ createdBy = 'response-only' }
+        tags = @{ owner = 'dba-team' }
         properties = [ordered]@{
             publisher = if (`$global:mockScenario -eq 'WrongIdentity') { 'Contoso.Unsupported' } else { 'Microsoft.AzureData' }
             type = 'WindowsAgent.SqlServer'
-            typeHandlerVersion = if (`$global:mockScenario -eq 'EvidenceUnavailable' -and -not `$global:updatedBodies.ContainsKey(`$MachineName)) { `$null } else { '1.1.3518.465' }
+            typeHandlerVersion = if (`$global:mockScenario -eq 'EvidenceUnavailable' -and -not `$global:updatedBodies.ContainsKey(`$MachineName)) { `$null } elseif (`$global:mockScenario -in @('OlderExtension', 'InstanceViewVersion')) { '1.1.3394.392' } elseif (`$global:mockScenario -eq 'NewerExtension') { '1.1.3600.500' } else { '1.1.3518.465' }
             autoUpgradeMinorVersion = `$true
             enableAutomaticUpgrade = `$true
             forceUpdateTag = 'existing-tag'
             provisioningState = if (`$global:mockScenario -eq 'EvidenceUnavailable' -and -not `$global:updatedBodies.ContainsKey(`$MachineName)) { `$null } else { 'Succeeded' }
-            instanceView = @{ status = @{ code = 'response-only' } }
+            instanceView = if (`$global:mockScenario -eq 'InstanceViewVersion') { @{ typeHandlerVersion = '1.1.3518.465'; status = @{ code = 'response-only' } } } else { @{ status = @{ code = 'response-only' } } }
             protectedSettings = @{ secret = 'must-not-copy' }
             settings = `$settings
         }
@@ -109,7 +110,7 @@ function global:New-MockInstance {
             vCore = `$Cores
             lastInventoryUploadTime = `$timestamp
             lastUsageUploadTime = `$timestamp
-            isPassive = `$false
+            licenseType = if (`$global:mockScenario -eq 'PassiveHADR') { 'HADR' } else { 'Paid' }
         }
     }
 }
@@ -173,7 +174,7 @@ function global:Invoke-WebRequest {
         return New-MockWebResponse 200 @{
             id = "/subscriptions/$subscriptionId/resourceGroups/server-rg/providers/Microsoft.HybridCompute/machines/`$machine"
             location = 'westus2'
-            properties = @{ status = 'Connected'; osName = 'Windows Server 2022'; agentConfiguration = @{ mode = 'Full' }; detectedProperties = @{ cloudProvider = 'VMware' } }
+            properties = @{ status = 'Connected'; osName = 'Windows Server 2022'; agentConfiguration = @{ configMode = if (`$global:mockScenario -eq 'MonitorMode') { 'monitor' } else { 'full' } }; detectedProperties = @{ cloudProvider = 'VMware' } }
         }
     }
     return New-MockWebResponse 404 @{ error = @{ code = 'UnexpectedMockUri'; message = [string]`$Uri } }
@@ -341,6 +342,36 @@ Describe 'SetSQLServerESUSubscription exact mutation behavior' {
 }
 
 Describe 'SetSQLServerESUSubscription eligibility and billing gates' {
+    It 'reads the documented agentConfiguration.configMode and blocks monitor mode without mutation' {
+        $result = Invoke-SetScenario -Scenario MonitorMode
+        $result.ExitCode | Should Be 1
+        $result.Output | Should Match "agent mode must be Full. Mode: 'monitor'"
+        @($result.Calls | Where-Object Method -eq 'PUT').Count | Should Be 0
+    }
+
+    It 'enforces a minimum extension version and prefers the instanceView running version' {
+        $older = Invoke-SetScenario -Scenario OlderExtension
+        $older.ExitCode | Should Be 1
+        $older.Output | Should Match 'older than the minimum supported version'
+        @($older.Calls | Where-Object Method -eq 'PUT').Count | Should Be 0
+        foreach ($scenario in @('NewerExtension', 'InstanceViewVersion')) {
+            $result = Invoke-SetScenario -Scenario $scenario
+            $result.ExitCode | Should Be 0
+            @($result.Calls | Where-Object Method -eq 'PUT').Count | Should Be 1
+        }
+    }
+
+    It 'preserves extension tags in the PUT body' {
+        $result = Invoke-SetScenario
+        $body = ($result.Calls | Where-Object Method -eq 'PUT' | Select-Object -First 1).Body | ConvertFrom-Json -Depth 100
+        $body.tags.owner | Should Be 'dba-team'
+    }
+
+    It 'warns when the instance license type reports a passive HADR replica' {
+        $result = Invoke-SetScenario -Scenario PassiveHADR -AdditionalArguments '-DryRun'
+        $result.Output | Should Match 'Passive/DR state is extension-reported'
+        (Invoke-SetScenario -AdditionalArguments '-DryRun').Output | Should Not Match 'Passive/DR state'
+    }
     It 'rejects LicenseOnly, unsupported versions, and unsupported editions without mutation' {
         foreach ($scenario in @('LicenseOnly', 'UnsupportedVersion', 'UnsupportedEdition')) {
             $result = Invoke-SetScenario -Scenario $scenario

@@ -59,7 +59,7 @@ $script:Configuration = @{
     ProviderApiVersion = '2021-04-01'
     ExtensionName = 'WindowsAgent.SqlServer'
     ExtensionPublisher = 'Microsoft.AzureData'
-    SupportedExtensionVersions = @('1.1.3518.465')
+    MinimumExtensionVersion = '1.1.3518.465'
     RequestAttempts = 4
     MaximumPageCount = 100
     MaximumRetryDelaySeconds = 8
@@ -390,8 +390,8 @@ function Get-TimestampFreshness {
 function Get-SqlInstanceStatus {
     param([Parameter(Mandatory)][object]$Instance)
 
-    $version = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.version', 'properties.currentVersion', 'properties.productVersion'))
-    $edition = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.edition', 'properties.currentEdition'))
+    $version = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.version', 'properties.currentVersion'))
+    $edition = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.edition'))
     $eligibleVersion = if ($version -match '(?i)SQL\s*Server\s*2014|^12(\.|$)') {
         'SQL Server 2014'
     }
@@ -425,18 +425,10 @@ function Get-SqlInstanceStatus {
     else {
         $baseEligibility
     }
-    $environment = Get-ObjectValue -InputObject $Instance -Paths @(
-        'properties.environment',
-        'properties.usageEnvironment',
-        'properties.licenseDetails.environment'
-    )
-    $passiveState = Get-ObjectValue -InputObject $Instance -Paths @(
-        'properties.isPassive',
-        'properties.isDisasterRecovery',
-        'properties.licenseDetails.isPassive',
-        'properties.licenseDetails.isDisasterRecovery',
-        'properties.failoverCluster.isPassive'
-    )
+    # ARM does not expose a usage environment for SQL Server instances; nonproduction coverage is external evidence.
+    $environment = $null
+    # The instance licenseType is HADR when the extension reports a passive HA/DR replica.
+    $passiveState = if ([string](Get-ObjectValue -InputObject $Instance -Paths @('properties.licenseType')) -ieq 'HADR') { 'HADR' } else { $null }
     return [pscustomobject][ordered]@{
         Name = [string]$Instance.name
         ResourceId = [string]$Instance.id
@@ -448,8 +440,8 @@ function Get-SqlInstanceStatus {
         Environment = $environment
         ServiceType = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.serviceType'))
         Status = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.status'))
-        HostType = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.hostType', 'properties.hostingType'))
-        DetectedCores = Get-ObjectValue -InputObject $Instance -Paths @('properties.vCore', 'properties.vCores', 'properties.coreCount', 'properties.cores', 'properties.hostResources.logicalCores')
+        HostType = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.hostType'))
+        DetectedCores = Get-ObjectValue -InputObject $Instance -Paths @('properties.vCore', 'properties.cores')
         InventoryTimestamp = $inventoryTimestamp
         UsageTimestamp = $usageTimestamp
         InventoryFreshness = $inventoryFreshness
@@ -556,22 +548,24 @@ function Get-SqlServerEsuStatus {
         $reasons = [System.Collections.Generic.List[string]]::new()
         $warnings = [System.Collections.Generic.List[string]]::new()
         $connectionStatus = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.status', 'properties.connectionStatus'))
-        $agentMode = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.agentConfiguration.mode'))
+        $agentMode = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.agentConfiguration.configMode'))
         $operatingSystem = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.osName', 'properties.osType'))
-        $cloudProvider = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.detectedProperties.cloudProvider', 'properties.cloudMetadataProvider'))
+        $cloudProvider = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.detectedProperties.cloudProvider', 'properties.cloudMetadata.provider'))
         $nativeAzureExcluded = $cloudProvider -ieq 'Azure'
         $extensionInstalled = $null -ne $extension
         $extensionPublisher = if ($extension) { [string](Get-ObjectValue -InputObject $extension -Paths @('properties.publisher')) } else { $null }
         $extensionType = if ($extension) { [string](Get-ObjectValue -InputObject $extension -Paths @('properties.type')) } else { $null }
         $extensionState = if ($extension) { [string](Get-ObjectValue -InputObject $extension -Paths @('properties.provisioningState')) } else { 'NotInstalled' }
-        $extensionVersion = if ($extension) { [string](Get-ObjectValue -InputObject $extension -Paths @('properties.typeHandlerVersion')) } else { $null }
+        # instanceView reports the running handler version; properties.typeHandlerVersion is the requested one.
+        $extensionVersion = if ($extension) { [string](Get-ObjectValue -InputObject $extension -Paths @('properties.instanceView.typeHandlerVersion', 'properties.typeHandlerVersion')) } else { $null }
+        $parsedExtensionVersion = $null
         $extensionVersionSupport = if (-not $extension) {
             'NotInstalled'
         }
         elseif ([string]::IsNullOrWhiteSpace($extensionVersion)) {
             'Unknown'
         }
-        elseif ($extensionVersion -in $script:Configuration.SupportedExtensionVersions) {
+        elseif ([version]::TryParse($extensionVersion, [ref]$parsedExtensionVersion) -and $parsedExtensionVersion -ge [version]$script:Configuration.MinimumExtensionVersion) {
             'SupportedBaseline'
         }
         else {
@@ -618,7 +612,7 @@ function Get-SqlServerEsuStatus {
         }
         if ($extension -and $extensionState -ine 'Succeeded') { $reasons.Add("SQL extension provisioning state is '$extensionState'.") }
         if ($extension -and $extensionVersionSupport -eq 'Unknown') {
-            $warnings.Add("Extension version '$extensionVersion' is not established by the current explicit supported baseline; support is Unknown and should be checked against current release dates.")
+            $warnings.Add("Extension version '$extensionVersion' is missing or older than the minimum supported version $($script:Configuration.MinimumExtensionVersion); support is Unknown and should be checked against current release notes.")
         }
         if ($extension -and $automaticUpgrade -ne $true) { $warnings.Add('Automatic extension upgrade is not enabled or could not be determined.') }
         if ($extension -and $sqlManagement -ne $true) { $warnings.Add('SqlManagement.IsEnabled is not true or could not be determined.') }

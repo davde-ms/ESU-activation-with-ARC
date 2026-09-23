@@ -79,7 +79,7 @@ Output fields are: `SubscriptionId`, `ResourceGroupName`, `MachineName`, `Machin
 
 ## Billing and safety
 
-The script is non-mutating. Review `HostTypes`, core evidence, version, edition, environment, passive/DR evidence, and freshness before making billing decisions. Current Microsoft rules can apply a four-core host minimum, separate meters for SQL Server 2014 and 2016, and current-year bill-back. Missing/conflicting evidence is deliberately classified as uncertain. Physical-core pooled licenses are outside this script.
+The script is non-mutating. Review `HostTypes`, core evidence, version, edition, passive/DR evidence, and freshness before making billing decisions. `PassiveDRState` is `HADR` when the instance `licenseType` reported by Azure is `HADR`. ARM does not expose a usage environment, so `Environments` is empty and nonproduction coverage must be confirmed externally. Current Microsoft rules can apply a four-core host minimum, separate meters for SQL Server 2014 and 2016, and current-year bill-back. Missing/conflicting evidence is deliberately classified as uncertain. Physical-core pooled licenses are outside this script.
 
 ## Troubleshooting
 

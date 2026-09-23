@@ -90,7 +90,7 @@ $script:Configuration = @{
     ProviderApiVersion = '2021-04-01'
     ExtensionName = 'WindowsAgent.SqlServer'
     ExtensionPublisher = 'Microsoft.AzureData'
-    SupportedExtensionVersions = @('1.1.3518.465')
+    MinimumExtensionVersion = '1.1.3518.465'
     PollAttempts = 12
     PollIntervalSeconds = 5
     RequestAttempts = 4
@@ -498,6 +498,20 @@ function Assert-ExpectedExtensionIdentity {
     }
 }
 
+function Get-ExtensionVersion {
+    param([AllowNull()][object]$Extension)
+
+    # instanceView reports the running handler version; properties.typeHandlerVersion is the requested one.
+    return [string](Get-ObjectValue -InputObject $Extension -Paths @('properties.instanceView.typeHandlerVersion', 'properties.typeHandlerVersion'))
+}
+
+function Test-SupportedExtensionVersion {
+    param([AllowNull()][string]$Version)
+
+    $parsed = $null
+    return [version]::TryParse([string]$Version, [ref]$parsed) -and $parsed -ge [version]$script:Configuration.MinimumExtensionVersion
+}
+
 function Get-AllSqlInstances {
     param([string]$Subscription, [hashtable]$Headers)
 
@@ -515,10 +529,12 @@ function Get-AllSqlInstances {
 function Get-InstanceFacts {
     param([object]$Instance)
 
-    $version = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.version', 'properties.currentVersion', 'properties.productVersion'))
-    $edition = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.edition', 'properties.currentEdition'))
+    $version = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.version', 'properties.currentVersion'))
+    $edition = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.edition'))
     $eligibleVersion = if ($version -match '(?i)SQL\s*Server\s*2014|^12(\.|$)') { 'SQL Server 2014' } elseif ($version -match '(?i)SQL\s*Server\s*2016|^13(\.|$)') { 'SQL Server 2016' } else { $null }
     $editionKind = if ($edition -match '(?i)\b(Standard|Enterprise)\b') { 'Production' } elseif ($edition -match '(?i)\bDeveloper\b') { 'Developer' } else { 'Unsupported' }
+    # The instance licenseType is HADR when the extension reports a passive HA/DR replica.
+    $licenseType = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.licenseType'))
     return [pscustomobject][ordered]@{
         Name = [string]$Instance.name
         Version = $version
@@ -526,11 +542,11 @@ function Get-InstanceFacts {
         Edition = $edition
         EditionKind = $editionKind
         ServiceType = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.serviceType'))
-        HostType = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.hostType', 'properties.hostingType'))
-        DetectedCores = Get-ObjectValue -InputObject $Instance -Paths @('properties.vCore', 'properties.vCores', 'properties.coreCount', 'properties.cores', 'properties.hostResources.logicalCores')
+        HostType = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.hostType'))
+        DetectedCores = Get-ObjectValue -InputObject $Instance -Paths @('properties.vCore', 'properties.cores')
         InventoryTimestamp = Get-ObjectValue -InputObject $Instance -Paths @('properties.lastInventoryUploadTime')
         UsageTimestamp = Get-ObjectValue -InputObject $Instance -Paths @('properties.lastUsageUploadTime')
-        PassiveStatus = Get-ObjectValue -InputObject $Instance -Paths @('properties.isPassive', 'properties.passiveStatus', 'properties.licenseDetails.isPassive')
+        PassiveStatus = if ($licenseType -ieq 'HADR') { 'HADR' } else { $null }
     }
 }
 
@@ -571,9 +587,9 @@ function Get-PreflightRecord {
         if ([string]$extension.properties.provisioningState -ine 'Succeeded') {
             $warnings.Add("Cancellation is proceeding with degraded extension health evidence: provisioning state is '$($extension.properties.provisioningState)'.")
         }
-        if ([string]::IsNullOrWhiteSpace([string]$extension.properties.typeHandlerVersion) -or
-            [string]$extension.properties.typeHandlerVersion -notin $script:Configuration.SupportedExtensionVersions) {
-            $warnings.Add("Cancellation is proceeding with unavailable or unsupported extension version evidence: '$($extension.properties.typeHandlerVersion)'.")
+        $extensionVersion = Get-ExtensionVersion -Extension $extension
+        if (-not (Test-SupportedExtensionVersion -Version $extensionVersion)) {
+            $warnings.Add("Cancellation is proceeding with unavailable or unsupported extension version evidence: '$extensionVersion'.")
         }
         try {
             if ((ConvertTo-StrictBoolean -Value $extension.properties.settings.SqlManagement.IsEnabled) -ne $true) {
@@ -617,9 +633,9 @@ function Get-PreflightRecord {
     if ($machineResponse.StatusCode -ne 200) { throw "Arc machine GET failed (HTTP $($machineResponse.StatusCode))." }
     $machine = $machineResponse.Content
     $connection = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.status', 'properties.connectionStatus'))
-    $mode = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.agentConfiguration.mode'))
+    $mode = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.agentConfiguration.configMode'))
     $operatingSystem = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.osName', 'properties.osType'))
-    $cloudProvider = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.detectedProperties.cloudProvider', 'properties.cloudMetadataProvider'))
+    $cloudProvider = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.detectedProperties.cloudProvider', 'properties.cloudMetadata.provider'))
     if ($connection -ine 'Connected') { throw "Arc machine is not connected. Status: '$connection'." }
     if ($mode -ine 'Full') { throw "Arc machine agent mode must be Full. Mode: '$mode'." }
     if ($operatingSystem -notmatch '(?i)Windows') { throw "Arc machine must report Windows. Operating system: '$operatingSystem'." }
@@ -637,7 +653,8 @@ function Get-PreflightRecord {
     $extension = $extensionResponse.Content
     Assert-ExpectedExtensionIdentity -Item $Item -Extension $extension
     if ([string]$extension.properties.provisioningState -ine 'Succeeded') { throw "SQL extension provisioning state is '$($extension.properties.provisioningState)', not Succeeded." }
-    if ([string]$extension.properties.typeHandlerVersion -notin $script:Configuration.SupportedExtensionVersions) { throw "SQL extension version '$($extension.properties.typeHandlerVersion)' is outside the supported release baseline." }
+    $extensionVersion = Get-ExtensionVersion -Extension $extension
+    if (-not (Test-SupportedExtensionVersion -Version $extensionVersion)) { throw "SQL extension version '$extensionVersion' is older than the minimum supported version $($script:Configuration.MinimumExtensionVersion) or could not be determined." }
     if ((ConvertTo-StrictBoolean -Value $extension.properties.settings.SqlManagement.IsEnabled) -ne $true) { throw 'SqlManagement.IsEnabled is not true.' }
 
     if (-not $InstanceCache.ContainsKey($Item.SubscriptionId)) {
@@ -734,7 +751,11 @@ function ConvertTo-ExtensionRequestBody {
         if ($null -ne $extension.properties.PSObject.Properties[$name]) { $properties[$name] = $extension.properties.$name }
     }
     $properties.settings = $settings
-    return ([ordered]@{ location = [string]$extension.location; properties = $properties } | ConvertTo-Json -Depth 100 -Compress)
+    $body = [ordered]@{ location = [string]$extension.location }
+    # PUT replaces the tracked resource, so existing extension tags must be sent back.
+    if ($null -ne $extension.PSObject.Properties['tags'] -and $null -ne $extension.tags) { $body.tags = $extension.tags }
+    $body.properties = $properties
+    return ($body | ConvertTo-Json -Depth 100 -Compress)
 }
 
 function Get-ComparableSettings {
