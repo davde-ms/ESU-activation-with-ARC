@@ -10,7 +10,7 @@ Only SQL Server 2014 and 2016 are supported. Enablement requires eligible invent
 
 ## Prerequisites and boundaries
 
-- PowerShell 7.x on Windows; registered providers; an existing connected, Full-mode Arc machine and healthy supported `WindowsAgent.SqlServer` extension for enablement.
+- PowerShell 7.x on Windows; registered providers; an existing connected Arc machine whose `agentConfiguration.configMode` is `full`, and a healthy `WindowsAgent.SqlServer` extension at version `1.1.3518.465` or newer (the running version from `instanceView` is used when reported) for enablement.
 - `SqlManagement.IsEnabled=true`, effective `LicenseType` `Paid` or `PAYG`, and discovered SQL Server 2014/2016 inventory. Standard/Enterprise are production editions; Developer requires confirmed qualifying nonproduction coverage.
 - External entitlement, prior-year coverage, local permissions, connectivity, and HA/DR compliance must be confirmed outside ARM.
 
@@ -35,10 +35,10 @@ Use exactly one path: `-userToken` with an unexpired `Get-AzAccessToken` object,
 | `subscriptionId` | Single mode; optional CSV fallback | Subscription containing the Arc machine. |
 | `serverResourceGroupName`, `ARCServerName` | Single mode | Existing target host. |
 | `Action` | Single mode | `Enable` or `Disable`. |
-| `LicenseType` | Enable only, optional | Empty preserves current value; otherwise `Paid` or `PAYG`. |
+| `LicenseType` | Enable only, optional | Assertion of the current value (`Paid` or `PAYG`). The script never changes `LicenseType`; a mismatch fails preflight. |
 | `Environment` | Enable only | `Production` or `NonProduction`. |
 | `AcceptBackBilling` | Enable only | Required acknowledgement. |
-| `AcceptLicenseTypeChange` | Enable only when value changes | Explicitly approves changing the existing license type. |
+| `AcceptLicenseTypeChange` | Must be empty or FALSE | Retained for compatibility; TRUE is rejected because license type changes are not supported. |
 | `ConfirmNonProductionCoverage` | Enable only when required | Required for Developer on `NonProduction`. |
 | `ConfirmExternalPrerequisites` | Enable only | Required acknowledgement of checks ARM cannot prove. |
 | `csvFilePath` | CSV mode | Exact schema below. |

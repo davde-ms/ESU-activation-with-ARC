@@ -6,8 +6,13 @@ Enables or disables a SQL Server ESU subscription on an existing Arc-enabled Win
 Updates the host-level WindowsAgent.SqlServer extension by using direct Azure Resource
 Manager REST calls. The script validates all local input before authentication and completes
 read-only Azure preflight for every target before any mutation. It preserves all existing
-public extension settings and changes only the ESU Boolean, its UTC timestamp, and an
-explicitly approved enable-time LicenseType change.
+public extension settings and changes only the ESU Boolean and its UTC timestamp.
+
+The script never changes LicenseType, so it cannot switch SQL Server software billing to
+pay-as-you-go (PAYG) or change any other SQL payment model. LicenseType is an optional
+assertion of the current value: if it is supplied and differs from the value on the host, the
+target fails preflight. AcceptLicenseTypeChange is retained only for compatibility and is
+rejected when TRUE. The host must already be Paid or PAYG to enable ESUs.
 
 The target must already be connected to Azure Arc through global Azure endpoints in full mode and have a
 healthy, supported Azure Extension for SQL Server. The script does not install or repair
@@ -90,7 +95,7 @@ $script:Configuration = @{
     ProviderApiVersion = '2021-04-01'
     ExtensionName = 'WindowsAgent.SqlServer'
     ExtensionPublisher = 'Microsoft.AzureData'
-    SupportedExtensionVersions = @('1.1.3518.465')
+    MinimumExtensionVersion = '1.1.3518.465'
     PollAttempts = 12
     PollIntervalSeconds = 5
     RequestAttempts = 4
@@ -288,6 +293,7 @@ function ConvertTo-PlanItems {
 
         if ($effectiveAction -eq 'Enable') {
             if ($effectiveLicenseType -and $effectiveLicenseType -notin @('Paid', 'PAYG')) { $rowErrors.Add('LicenseType must be empty, Paid, or PAYG for Enable.') }
+            if ($licenseChange -eq $true) { $rowErrors.Add('AcceptLicenseTypeChange is not supported: this script never changes LicenseType. Leave it empty or FALSE.') }
             if ($effectiveEnvironment -notin @('Production', 'NonProduction')) { $rowErrors.Add('Environment must be Production or NonProduction for Enable.') }
             if ($backBilling -ne $true) { $rowErrors.Add('AcceptBackBilling must be TRUE for Enable.') }
             if ($externalPrerequisites -ne $true) { $rowErrors.Add('ConfirmExternalPrerequisites must be TRUE for Enable.') }
@@ -498,6 +504,20 @@ function Assert-ExpectedExtensionIdentity {
     }
 }
 
+function Get-ExtensionVersion {
+    param([AllowNull()][object]$Extension)
+
+    # instanceView reports the running handler version; properties.typeHandlerVersion is the requested one.
+    return [string](Get-ObjectValue -InputObject $Extension -Paths @('properties.instanceView.typeHandlerVersion', 'properties.typeHandlerVersion'))
+}
+
+function Test-SupportedExtensionVersion {
+    param([AllowNull()][string]$Version)
+
+    $parsed = $null
+    return [version]::TryParse([string]$Version, [ref]$parsed) -and $parsed -ge [version]$script:Configuration.MinimumExtensionVersion
+}
+
 function Get-AllSqlInstances {
     param([string]$Subscription, [hashtable]$Headers)
 
@@ -515,10 +535,12 @@ function Get-AllSqlInstances {
 function Get-InstanceFacts {
     param([object]$Instance)
 
-    $version = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.version', 'properties.currentVersion', 'properties.productVersion'))
-    $edition = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.edition', 'properties.currentEdition'))
+    $version = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.version', 'properties.currentVersion'))
+    $edition = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.edition'))
     $eligibleVersion = if ($version -match '(?i)SQL\s*Server\s*2014|^12(\.|$)') { 'SQL Server 2014' } elseif ($version -match '(?i)SQL\s*Server\s*2016|^13(\.|$)') { 'SQL Server 2016' } else { $null }
     $editionKind = if ($edition -match '(?i)\b(Standard|Enterprise)\b') { 'Production' } elseif ($edition -match '(?i)\bDeveloper\b') { 'Developer' } else { 'Unsupported' }
+    # The instance licenseType is HADR when the extension reports a passive HA/DR replica.
+    $licenseType = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.licenseType'))
     return [pscustomobject][ordered]@{
         Name = [string]$Instance.name
         Version = $version
@@ -526,11 +548,11 @@ function Get-InstanceFacts {
         Edition = $edition
         EditionKind = $editionKind
         ServiceType = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.serviceType'))
-        HostType = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.hostType', 'properties.hostingType'))
-        DetectedCores = Get-ObjectValue -InputObject $Instance -Paths @('properties.vCore', 'properties.vCores', 'properties.coreCount', 'properties.cores', 'properties.hostResources.logicalCores')
+        HostType = [string](Get-ObjectValue -InputObject $Instance -Paths @('properties.hostType'))
+        DetectedCores = Get-ObjectValue -InputObject $Instance -Paths @('properties.vCore', 'properties.cores')
         InventoryTimestamp = Get-ObjectValue -InputObject $Instance -Paths @('properties.lastInventoryUploadTime')
         UsageTimestamp = Get-ObjectValue -InputObject $Instance -Paths @('properties.lastUsageUploadTime')
-        PassiveStatus = Get-ObjectValue -InputObject $Instance -Paths @('properties.isPassive', 'properties.passiveStatus', 'properties.licenseDetails.isPassive')
+        PassiveStatus = if ($licenseType -ieq 'HADR') { 'HADR' } else { $null }
     }
 }
 
@@ -571,9 +593,9 @@ function Get-PreflightRecord {
         if ([string]$extension.properties.provisioningState -ine 'Succeeded') {
             $warnings.Add("Cancellation is proceeding with degraded extension health evidence: provisioning state is '$($extension.properties.provisioningState)'.")
         }
-        if ([string]::IsNullOrWhiteSpace([string]$extension.properties.typeHandlerVersion) -or
-            [string]$extension.properties.typeHandlerVersion -notin $script:Configuration.SupportedExtensionVersions) {
-            $warnings.Add("Cancellation is proceeding with unavailable or unsupported extension version evidence: '$($extension.properties.typeHandlerVersion)'.")
+        $extensionVersion = Get-ExtensionVersion -Extension $extension
+        if (-not (Test-SupportedExtensionVersion -Version $extensionVersion)) {
+            $warnings.Add("Cancellation is proceeding with unavailable or unsupported extension version evidence: '$extensionVersion'.")
         }
         try {
             if ((ConvertTo-StrictBoolean -Value $extension.properties.settings.SqlManagement.IsEnabled) -ne $true) {
@@ -617,9 +639,9 @@ function Get-PreflightRecord {
     if ($machineResponse.StatusCode -ne 200) { throw "Arc machine GET failed (HTTP $($machineResponse.StatusCode))." }
     $machine = $machineResponse.Content
     $connection = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.status', 'properties.connectionStatus'))
-    $mode = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.agentConfiguration.mode'))
+    $mode = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.agentConfiguration.configMode'))
     $operatingSystem = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.osName', 'properties.osType'))
-    $cloudProvider = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.detectedProperties.cloudProvider', 'properties.cloudMetadataProvider'))
+    $cloudProvider = [string](Get-ObjectValue -InputObject $machine -Paths @('properties.detectedProperties.cloudProvider', 'properties.cloudMetadata.provider'))
     if ($connection -ine 'Connected') { throw "Arc machine is not connected. Status: '$connection'." }
     if ($mode -ine 'Full') { throw "Arc machine agent mode must be Full. Mode: '$mode'." }
     if ($operatingSystem -notmatch '(?i)Windows') { throw "Arc machine must report Windows. Operating system: '$operatingSystem'." }
@@ -637,7 +659,8 @@ function Get-PreflightRecord {
     $extension = $extensionResponse.Content
     Assert-ExpectedExtensionIdentity -Item $Item -Extension $extension
     if ([string]$extension.properties.provisioningState -ine 'Succeeded') { throw "SQL extension provisioning state is '$($extension.properties.provisioningState)', not Succeeded." }
-    if ([string]$extension.properties.typeHandlerVersion -notin $script:Configuration.SupportedExtensionVersions) { throw "SQL extension version '$($extension.properties.typeHandlerVersion)' is outside the supported release baseline." }
+    $extensionVersion = Get-ExtensionVersion -Extension $extension
+    if (-not (Test-SupportedExtensionVersion -Version $extensionVersion)) { throw "SQL extension version '$extensionVersion' is older than the minimum supported version $($script:Configuration.MinimumExtensionVersion) or could not be determined." }
     if ((ConvertTo-StrictBoolean -Value $extension.properties.settings.SqlManagement.IsEnabled) -ne $true) { throw 'SqlManagement.IsEnabled is not true.' }
 
     if (-not $InstanceCache.ContainsKey($Item.SubscriptionId)) {
@@ -658,15 +681,16 @@ function Get-PreflightRecord {
     if ($instances | Where-Object { $null -ne $_.PassiveStatus }) { $warnings.Add('Passive/DR state is extension-reported and does not independently prove free coverage.') }
 
     $currentLicense = ConvertTo-CanonicalLicenseType -Value $extension.properties.settings.LicenseType
-    $effectiveLicense = if ($Item.Action -eq 'Enable' -and $Item.LicenseType) { $Item.LicenseType } else { $currentLicense }
+    # LicenseType is never written; the requested value is only an assertion of the current value.
+    $effectiveLicense = $currentLicense
     $currentState = ConvertTo-StrictBoolean -Value $extension.properties.settings.enableExtendedSecurityUpdates -AllowEmpty
     if ($null -eq $currentState) { $currentState = $false }
     $desiredState = $Item.Action -eq 'Enable'
-    $licenseChangeRequested = $Item.Action -eq 'Enable' -and $Item.LicenseType -and $Item.LicenseType -cne $currentLicense
+    $licenseChangeRequested = $false
 
     if ($Item.Action -eq 'Enable') {
-        if ($effectiveLicense -notin @('Paid', 'PAYG')) { throw "Effective LicenseType '$effectiveLicense' is not eligible for Arc-enabled SQL Server ESUs." }
-        if ($licenseChangeRequested -and -not $Item.AcceptLicenseTypeChange) { throw "AcceptLicenseTypeChange must be TRUE because LicenseType would change from '$currentLicense' to '$effectiveLicense'." }
+        if ($Item.LicenseType -and $Item.LicenseType -cne $currentLicense) { throw "LicenseType on the host is '$currentLicense', not the expected '$($Item.LicenseType)'. This script never changes LicenseType; no change was made." }
+        if ($effectiveLicense -notin @('Paid', 'PAYG')) { throw "Current LicenseType '$effectiveLicense' is not eligible for Arc-enabled SQL Server ESUs. This script never changes LicenseType; change it separately only after a licensing decision." }
         if ($instances.Count -eq 0) { throw 'No SQL Server inventory was discovered for the Arc machine.' }
         $unsupportedVersions = @($instances | Where-Object { -not $_.EligibleVersion })
         if ($unsupportedVersions.Count -gt 0) { throw "Unsupported SQL Server version detected: $(@($unsupportedVersions | ForEach-Object Version | Select-Object -Unique) -join ', ')." }
@@ -722,8 +746,10 @@ function ConvertTo-ExtensionRequestBody {
     $settings = Copy-JsonObject -InputObject $extension.properties.settings
     Add-OrReplaceObjectProperty -InputObject $settings -Name 'enableExtendedSecurityUpdates' -Value ([bool]$Preflight.DesiredState)
     Add-OrReplaceObjectProperty -InputObject $settings -Name 'esuLastUpdatedTimestamp' -Value $Timestamp
-    if (-not [string]::IsNullOrWhiteSpace([string]$Preflight.DesiredLicenseType)) {
-        Add-OrReplaceObjectProperty -InputObject $settings -Name 'LicenseType' -Value (ConvertTo-CanonicalLicenseType -Value $Preflight.DesiredLicenseType)
+    $originalHasLicense = $null -ne $extension.properties.settings.PSObject.Properties['LicenseType']
+    $requestHasLicense = $null -ne $settings.PSObject.Properties['LicenseType']
+    if ($originalHasLicense -ne $requestHasLicense -or [string]$settings.LicenseType -cne [string]$extension.properties.settings.LicenseType) {
+        throw 'Refusing to send a request that would change LicenseType; this script never changes the SQL payment model.'
     }
 
     $properties = [ordered]@{
@@ -734,14 +760,19 @@ function ConvertTo-ExtensionRequestBody {
         if ($null -ne $extension.properties.PSObject.Properties[$name]) { $properties[$name] = $extension.properties.$name }
     }
     $properties.settings = $settings
-    return ([ordered]@{ location = [string]$extension.location; properties = $properties } | ConvertTo-Json -Depth 100 -Compress)
+    $body = [ordered]@{ location = [string]$extension.location }
+    # PUT replaces the tracked resource, so existing extension tags must be sent back.
+    if ($null -ne $extension.PSObject.Properties['tags'] -and $null -ne $extension.tags) { $body.tags = $extension.tags }
+    $body.properties = $properties
+    return ($body | ConvertTo-Json -Depth 100 -Compress)
 }
 
 function Get-ComparableSettings {
     param([object]$Settings)
 
     $copy = Copy-JsonObject -InputObject $Settings
-    foreach ($name in @('enableExtendedSecurityUpdates', 'esuLastUpdatedTimestamp', 'LicenseType')) {
+    # LicenseType stays in the comparison so any post-update change to it fails verification.
+    foreach ($name in @('enableExtendedSecurityUpdates', 'esuLastUpdatedTimestamp')) {
         if ($null -ne $copy.PSObject.Properties[$name]) { $copy.PSObject.Properties.Remove($name) }
     }
     return $copy
@@ -858,7 +889,7 @@ function Get-BillingPreview {
 
     $item = $Preflight.Item
     $minimumStatement = if ($null -ne $Preflight.DetectedCores -and [int]$Preflight.DetectedCores -lt 4) { 'Azure applies a four-core minimum.' } else { 'The per-host meter has a four-core minimum.' }
-    return "Machine=$($item.MachineResourceId); ESU=$($Preflight.CurrentState)->$($Preflight.DesiredState); LicenseType=$($Preflight.CurrentLicenseType)->$($Preflight.DesiredLicenseType); Environment=$($item.Environment); HostType=$($Preflight.HostType); DetectedCores=$($Preflight.DetectedCores); Instances=$($Preflight.InstanceNames -join ','); ServiceTypes=$($Preflight.ServiceTypes -join ','); Versions=$($Preflight.EligibleVersions -join ','); Editions=$($Preflight.Editions -join ','); $minimumStatement Current-year back-billing and re-enable/reconnection bill-back can apply. Cancellation stops future charges but removes future patch access. This operation does not enable automatic patching. This is per-host metering and does not establish pooled physical-core unlimited virtualization."
+    return "Machine=$($item.MachineResourceId); ESU=$($Preflight.CurrentState)->$($Preflight.DesiredState); LicenseType=$($Preflight.CurrentLicenseType) (unchanged; this script never changes the SQL payment model); Environment=$($item.Environment); HostType=$($Preflight.HostType); DetectedCores=$($Preflight.DetectedCores); Instances=$($Preflight.InstanceNames -join ','); ServiceTypes=$($Preflight.ServiceTypes -join ','); Versions=$($Preflight.EligibleVersions -join ','); Editions=$($Preflight.Editions -join ','); $minimumStatement Current-year back-billing and re-enable/reconnection bill-back can apply. Cancellation stops future charges but removes future patch access. This operation does not enable automatic patching. This is per-host metering and does not establish pooled physical-core unlimited virtualization."
 }
 
 function Format-Result {

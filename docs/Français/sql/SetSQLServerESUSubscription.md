@@ -10,7 +10,7 @@ Seuls SQL Server 2014 et 2016 sont pris en charge. L'activation exige un inventa
 
 ## Prérequis et limites
 
-- PowerShell 7.x sous Windows; fournisseurs inscrits; machine Arc existante connectée en mode `Full` et extension `WindowsAgent.SqlServer` saine et prise en charge pour l'activation.
+- PowerShell 7.x sous Windows; fournisseurs inscrits; machine Arc existante connectée dont `agentConfiguration.configMode` vaut `full`, et extension `WindowsAgent.SqlServer` saine en version `1.1.3518.465` ou ultérieure (la version en cours d'exécution de `instanceView` est utilisée lorsqu'elle est signalée) pour l'activation.
 - `SqlManagement.IsEnabled=true`, `LicenseType` effectif `Paid` ou `PAYG` et inventaire SQL Server 2014/2016. Standard/Enterprise sont des éditions de production; Developer exige une couverture hors production admissible confirmée.
 - Les droits, la couverture antérieure, les autorisations locales, la connectivité et la conformité HA/DR doivent être confirmés hors ARM.
 

@@ -179,7 +179,7 @@ function global:Invoke-WebRequest {
             properties = @{
                 status = 'Connected'
                 osName = 'Windows Server 2022'
-                agentConfiguration = @{ mode = 'Full' }
+                agentConfiguration = @{ configMode = 'full' }
                 detectedProperties = @{ cloudProvider = 'VMware' }
             }
         }
@@ -243,7 +243,7 @@ Describe 'InstallSQLServerArcExtension command contract' {
     }
 
     It 'accepts each explicit license type' {
-        foreach ($licenseType in @('Paid', 'PAYG', 'LicenseOnly')) {
+        foreach ($licenseType in @('Paid', 'LicenseOnly')) {
             $result = Invoke-InstallScenario -AdditionalArguments "-LicenseType '$licenseType' -DryRun"
             $result.ExitCode | Should Be 0
             $result.Output | Should Match 'Previewed'
@@ -357,7 +357,7 @@ not-a-guid,server-rg,server-02,Unknown,FALSE
         $csv = @"
 SubscriptionId,ServerResourceGroupName,ARCServerName,LicenseType,ConfirmExternalPrerequisites
 $subscriptionId,server-rg,server-01,Paid,TRUE
-$subscriptionId,server-rg,server-02,PAYG,TRUE
+$subscriptionId,server-rg,server-02,LicenseOnly,TRUE
 "@
         $result = Invoke-InstallScenario -Scenario ProviderFailure -CsvContent $csv
 
@@ -398,7 +398,7 @@ Describe 'InstallSQLServerArcExtension authentication and subscription behavior'
     It 'uses a nonempty CSV subscription override for every row URI' {
         $csv = @"
 SubscriptionId,ServerResourceGroupName,ARCServerName,LicenseType,ConfirmExternalPrerequisites
-$overrideSubscriptionId,override-rg,server-02,PAYG,TRUE
+$overrideSubscriptionId,override-rg,server-02,LicenseOnly,TRUE
 "@
         $result = Invoke-InstallScenario -CsvContent $csv -AdditionalArguments '-DryRun'
 

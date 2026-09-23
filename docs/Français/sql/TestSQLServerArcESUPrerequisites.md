@@ -13,7 +13,7 @@ Cette procédure concerne uniquement les machines Windows déjà connectées à 
 - PowerShell 7.x sous Windows et accès réseau aux points de terminaison Azure global.
 - Une machine Arc existante indiquant `Connected`, le mode d'agent `Full`, Windows, une région prise en charge pour `Microsoft.AzureArcData/sqlServerInstances` et un fournisseur cloud autre qu'Azure.
 - Les fournisseurs `Microsoft.HybridCompute` et `Microsoft.AzureArcData` inscrits. Le script signale une inscription manquante, mais ne l'effectue pas.
-- Pour que l'activation des ESU soit prête : extension `WindowsAgent.SqlServer` saine et prise en charge, `SqlManagement.IsEnabled=true`, `LicenseType` égal à `Paid` ou `PAYG`, et au moins une instance SQL Server 2014/2016 Standard ou Enterprise.
+- Pour que l'activation des ESU soit prête : extension `WindowsAgent.SqlServer` saine en version `1.1.3518.465` ou ultérieure, `SqlManagement.IsEnabled=true`, `LicenseType` égal à `Paid` ou `PAYG`, et au moins une instance SQL Server 2014/2016 Standard ou Enterprise.
 - Confirmez séparément la connectivité sortante, les autorisations Windows et SQL locales, les droits et la couverture des années précédentes, l'éligibilité Developer hors production et la conformité HA/DR. L'inventaire ARM ne peut pas les prouver.
 
 Le paramètre ESU s'applique par machine Arc/OSE et concerne les instances et services associés éligibles de cet environnement du système d'exploitation. Plusieurs versions éligibles dans un OSE peuvent produire des compteurs distincts. L'évaluation n'inscrit pas la machine et ne déploie aucun correctif.

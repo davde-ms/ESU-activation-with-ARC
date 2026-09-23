@@ -33,7 +33,7 @@ function Invoke-PrerequisiteScenario {
     $fresh = [datetime]::UtcNow.AddHours(-1).ToString('o')
     $machineOverrides = switch ($Scenario) {
         'Disconnected' { "`$properties.status = 'Disconnected'" }
-        'MonitorMode' { "`$properties.agentConfiguration.mode = 'Monitor'" }
+        'MonitorMode' { "`$properties.agentConfiguration.configMode = 'monitor'" }
         'Linux' { "`$properties.osName = 'linux'" }
         'NativeAzureVm' { "`$properties | Add-Member -NotePropertyName detectedProperties -NotePropertyValue ([pscustomobject]@{ cloudProvider = 'Azure' })" }
         default { '' }
@@ -76,7 +76,7 @@ function global:Invoke-RestMethod {
     if (`$Uri -match '/providers/Microsoft\.HybridCompute\?') { return [pscustomobject]@{ registrationState = 'Registered' } }
     if (`$Uri -match '/providers/Microsoft\.AzureArcData\?') { $arcDataProviderResponse }
     if (`$Uri -match '/extensions/WindowsAgent\.SqlServer') { $extensionResponse }
-    if (`$Uri -match '/machines/sql-01\?') { `$properties = [pscustomobject]@{ status = 'Connected'; agentConfiguration = [pscustomobject]@{ mode = 'Full' }; osName = 'windows' }; $machineOverrides; $machineResponse }
+    if (`$Uri -match '/machines/sql-01\?') { `$properties = [pscustomobject]@{ status = 'Connected'; agentConfiguration = [pscustomobject]@{ configMode = 'full' }; osName = 'windows' }; $machineOverrides; $machineResponse }
     if (`$Uri -match 'page=2') { return [pscustomobject]@{ value = $instanceValues; nextLink = `$null } }
     if (`$Uri -match 'sqlServerInstances') { return [pscustomobject]@{ value = @([pscustomobject]@{ id = '/subscriptions/$subscriptionId/resourceGroups/other-rg/providers/Microsoft.AzureArcData/sqlServerInstances/other'; name = 'other'; properties = [pscustomobject]@{ containerResourceId = '/subscriptions/$subscriptionId/resourceGroups/other-rg/providers/Microsoft.HybridCompute/machines/other'; version = '13.0'; edition = 'Enterprise' } }); nextLink = '$nextLink' } }
     throw "Unexpected URI: `$Uri"
@@ -241,15 +241,22 @@ Describe 'TestSQLServerArcESUPrerequisites read-only ARM behavior' {
         [string]::IsNullOrWhiteSpace($indeterminate.Exported[0].RegionSupported) | Should Be $true
     }
 
-    It 'blocks extension versions outside or missing from the frozen 12-month baseline' {
-        foreach ($scenario in @('OldExtensionVersion', 'UnknownExtensionVersion', 'MissingExtensionVersion')) {
+    It 'blocks extension versions older than or missing from the minimum baseline' {
+        foreach ($scenario in @('OldExtensionVersion', 'MissingExtensionVersion')) {
             Remove-Item -LiteralPath $script:tracePath -ErrorAction SilentlyContinue
             $result = Invoke-PrerequisiteScenario -Arguments "-subscriptionId '$subscriptionId' -serverResourceGroupName 'arc-rg' -ARCServerName 'sql-01'" -Scenario $scenario -TracePath $script:tracePath
             $object = $result.Exported[0]
             $object.ExtensionSupported | Should Be 'False'
             $object.ReadyForESUEnablement | Should Be 'False'
-            $object.BlockingIssues | Should Match '12-month supported release baseline|version is missing'
+            $object.BlockingIssues | Should Match 'older than the minimum supported version|version is missing'
         }
+    }
+
+    It 'accepts extension versions newer than the minimum baseline' {
+        Remove-Item -LiteralPath $script:tracePath -ErrorAction SilentlyContinue
+        $result = Invoke-PrerequisiteScenario -Arguments "-subscriptionId '$subscriptionId' -serverResourceGroupName 'arc-rg' -ARCServerName 'sql-01'" -Scenario UnknownExtensionVersion -TracePath $script:tracePath
+        $result.Exported[0].ExtensionSupported | Should Be 'True'
+        $result.Exported[0].BlockingIssues | Should Not Match 'minimum supported version'
     }
 
     It 'returns exit 1 when the requested machine is not found' {
