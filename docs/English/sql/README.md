@@ -41,7 +41,7 @@ LicenseType                       How the underlying SQL Server software is lice
 enableExtendedSecurityUpdates    Whether the separate SQL ESU subscription is enabled
 ```
 
-Changing `LicenseType` can change SQL Server software billing and use rights. Changing `enableExtendedSecurityUpdates` controls the ESU subscription. Review and approve each change independently; never interpret `Paid` as "ESUs paid."
+Changing `LicenseType` can change SQL Server software billing and use rights. Changing `enableExtendedSecurityUpdates` controls the ESU subscription. Review and approve each change independently; never interpret `Paid` as "ESUs paid." In this repository, [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md) never sets or changes `LicenseType`; it only toggles `enableExtendedSecurityUpdates` and requires the host to already be `Paid` or `PAYG`. [InstallSQLServerArcExtension.ps1](InstallSQLServerArcExtension.md) sets `LicenseType` only when it installs a missing extension, and only to `Paid` or `LicenseOnly`. No script here selects `PAYG`; make any license type change separately after a licensing decision.
 
 ## Contrast with Windows Server ESUs
 
@@ -82,7 +82,7 @@ That resource does not replace VM configuration: intended VMs must still be conn
 2. Run [TestSQLServerArcESUPrerequisites.ps1](TestSQLServerArcESUPrerequisites.md).
 3. If needed, run [InstallSQLServerArcExtension.ps1](InstallSQLServerArcExtension.md).
 4. Run [CheckSQLServerESUStatus.ps1](CheckSQLServerESUStatus.md).
-5. Preview and then run [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md).
+5. Preview and then run [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md). It keeps the current `LicenseType` unchanged.
 6. Run the status check again.
 
 Use `Enable` and `Disable` for the SQL subscription lifecycle. Reserve create, assign, unassign, and delete terminology for Windows Server license resources or the separate pooled SQL physical-core resource.

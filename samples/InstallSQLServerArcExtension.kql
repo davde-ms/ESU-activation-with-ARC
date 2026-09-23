@@ -1,11 +1,12 @@
 // Run in Azure Resource Graph Explorer, set both values below, then download
 // the result as CSV. No rows are returned until the values are valid.
 // LicenseType describes the underlying SQL software license, not ESU payment:
-// Paid = BYOL with active Software Assurance/SQL subscription; PAYG = Azure
-// hourly SQL software licensing; LicenseOnly = not eligible for Arc ESUs.
+// Paid = BYOL with active Software Assurance/SQL subscription; LicenseOnly =
+// not eligible for Arc ESUs. PAYG is intentionally not offered: the install
+// script never selects pay-as-you-go SQL software billing and rejects PAYG.
 resources
 | extend
-    SelectedLicenseType = 'REPLACE_WITH_Paid_PAYG_OR_LicenseOnly',
+    SelectedLicenseType = 'REPLACE_WITH_Paid_OR_LicenseOnly',
     ConfirmExternalPrerequisites = 'FALSE'
 | where type =~ 'microsoft.hybridcompute/machines'
 | where tostring(properties.status) =~ 'Connected'
@@ -26,7 +27,7 @@ resources
     | project ParentMachineId, ExistingSqlExtensionId = id
 ) on $left.MachineResourceId == $right.ParentMachineId
 | where isempty(ExistingSqlExtensionId)
-| where SelectedLicenseType in ('Paid', 'PAYG', 'LicenseOnly')
+| where SelectedLicenseType in ('Paid', 'LicenseOnly')
 | where ConfirmExternalPrerequisites == 'TRUE'
 | project
     SubscriptionId,

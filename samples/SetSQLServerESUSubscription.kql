@@ -1,8 +1,11 @@
 // Run in Azure Resource Graph Explorer, review every value below, then download
 // the result as CSV. No Enable rows are returned until the required billing and
 // prerequisite acknowledgements are TRUE.
-// RequestedLicenseType changes the underlying SQL software license model; it
-// does not pay for ESUs. ESU enrollment is the separate RequestedAction value.
+// RequestedLicenseType is only an optional check of the current host value.
+// SetSQLServerESUSubscription.ps1 never changes LicenseType, so leave it empty
+// or set it to the value you expect; hosts that differ are not returned.
+// AcceptLicenseTypeChange must stay 'FALSE' because license changes are not
+// supported. ESU enrollment is the separate RequestedAction value.
 resources
 | extend
     RequestedAction = 'Enable',
@@ -50,13 +53,14 @@ resources
         SqlVersion contains 'SQL Server 2014' or SqlVersion contains 'SQL Server 2016'
     | summarize EligibleInstanceCount = count() by MachineResourceId
 ) on MachineResourceId
-| extend EffectiveLicenseType = iff(isempty(RequestedLicenseType), CurrentLicenseType, RequestedLicenseType)
+| extend EffectiveLicenseType = CurrentLicenseType
 | where RequestedAction in ('Enable', 'Disable')
 | where RequestedAction == 'Disable' or (
     EligibleInstanceCount > 0 and
     RequestedEnvironment in ('Production', 'NonProduction') and
     EffectiveLicenseType in ('Paid', 'PAYG') and
-    (isempty(RequestedLicenseType) or RequestedLicenseType == CurrentLicenseType or AcceptLicenseTypeChange == 'TRUE') and
+    (isempty(RequestedLicenseType) or RequestedLicenseType =~ CurrentLicenseType) and
+    AcceptLicenseTypeChange != 'TRUE' and
     AcceptBackBilling == 'TRUE' and
     ConfirmExternalPrerequisites == 'TRUE'
 )
@@ -70,7 +74,7 @@ resources
     LicenseType = iff(RequestedAction == 'Enable', RequestedLicenseType, ''),
     Environment = iff(RequestedAction == 'Enable', RequestedEnvironment, ''),
     AcceptBackBilling = iff(RequestedAction == 'Enable', AcceptBackBilling, ''),
-    AcceptLicenseTypeChange = iff(RequestedAction == 'Enable', AcceptLicenseTypeChange, ''),
+    AcceptLicenseTypeChange = iff(RequestedAction == 'Enable', 'FALSE', ''),
     ConfirmNonProductionCoverage = iff(RequestedAction == 'Enable', ConfirmNonProductionCoverage, ''),
     ConfirmExternalPrerequisites = iff(RequestedAction == 'Enable', ConfirmExternalPrerequisites, '')
 | order by SubscriptionId asc, ServerResourceGroupName asc, ARCServerName asc

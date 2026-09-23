@@ -45,7 +45,7 @@ Describe 'SQL Azure Resource Graph CSV queries' {
 
     It 'requires explicit installation choices before returning rows' {
         $query = Get-Content -LiteralPath (Join-Path $repositoryRoot 'samples/InstallSQLServerArcExtension.kql') -Raw
-        $query | Should Match "SelectedLicenseType = 'REPLACE_WITH_Paid_PAYG_OR_LicenseOnly'"
+        $query | Should Match "SelectedLicenseType = 'REPLACE_WITH_Paid_OR_LicenseOnly'"
         $query | Should Match "ConfirmExternalPrerequisites = 'FALSE'"
     }
 
