@@ -35,10 +35,10 @@ Use exactly one path: `-userToken` with an unexpired `Get-AzAccessToken` object,
 | `subscriptionId` | Single mode; optional CSV fallback | Subscription containing the Arc machine. |
 | `serverResourceGroupName`, `ARCServerName` | Single mode | Existing target host. |
 | `Action` | Single mode | `Enable` or `Disable`. |
-| `LicenseType` | Enable only, optional | Empty preserves current value; otherwise `Paid` or `PAYG`. |
+| `LicenseType` | Enable only, optional | Assertion of the current value (`Paid` or `PAYG`). The script never changes `LicenseType`; a mismatch fails preflight. |
 | `Environment` | Enable only | `Production` or `NonProduction`. |
 | `AcceptBackBilling` | Enable only | Required acknowledgement. |
-| `AcceptLicenseTypeChange` | Enable only when value changes | Explicitly approves changing the existing license type. |
+| `AcceptLicenseTypeChange` | Must be empty or FALSE | Retained for compatibility; TRUE is rejected because license type changes are not supported. |
 | `ConfirmNonProductionCoverage` | Enable only when required | Required for Developer on `NonProduction`. |
 | `ConfirmExternalPrerequisites` | Enable only | Required acknowledgement of checks ARM cannot prove. |
 | `csvFilePath` | CSV mode | Exact schema below. |

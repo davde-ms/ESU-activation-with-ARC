@@ -11,6 +11,8 @@ the first PUT request.
 The script supports service principal authentication or a valid Get-AzAccessToken token
 object. It targets global Azure endpoints and does not install or modify the Connected Machine
 agent. Installing this extension does not enable SQL Server Extended Security Updates.
+The script never selects pay-as-you-go (PAYG) SQL Server software billing; LicenseType
+accepts only Paid or LicenseOnly.
 
 .EXAMPLE
 $token = Get-AzAccessToken -ResourceUrl 'https://management.azure.com/'
@@ -42,7 +44,7 @@ param(
     [string]$ARCServerName,
 
     [Parameter(Mandatory, ParameterSetName = 'Single')]
-    [ValidateSet('Paid', 'PAYG', 'LicenseOnly')]
+    [ValidateSet('Paid', 'LicenseOnly')]
     [string]$LicenseType,
 
     [Parameter(ParameterSetName = 'Single')]
@@ -183,8 +185,10 @@ function ConvertTo-PlanItems {
         if (-not (Test-MachineName $effectiveMachineName)) {
             $rowErrors.Add('ARCServerName must be 1-54 supported characters.')
         }
-        if ($effectiveLicenseType -notin @('Paid', 'PAYG', 'LicenseOnly')) {
-            $rowErrors.Add('LicenseType must be Paid, PAYG, or LicenseOnly.')
+        if ($effectiveLicenseType -ieq 'PAYG') {
+            $rowErrors.Add('LicenseType PAYG is not supported: this script never selects pay-as-you-go SQL Server software billing. Use Paid or LicenseOnly.')
+        } elseif ($effectiveLicenseType -notin @('Paid', 'LicenseOnly')) {
+            $rowErrors.Add('LicenseType must be Paid or LicenseOnly.')
         }
         if ($confirmation -ine 'TRUE') {
             $rowErrors.Add('ConfirmExternalPrerequisites must be TRUE.')

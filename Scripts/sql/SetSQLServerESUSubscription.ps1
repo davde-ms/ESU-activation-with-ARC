@@ -6,8 +6,13 @@ Enables or disables a SQL Server ESU subscription on an existing Arc-enabled Win
 Updates the host-level WindowsAgent.SqlServer extension by using direct Azure Resource
 Manager REST calls. The script validates all local input before authentication and completes
 read-only Azure preflight for every target before any mutation. It preserves all existing
-public extension settings and changes only the ESU Boolean, its UTC timestamp, and an
-explicitly approved enable-time LicenseType change.
+public extension settings and changes only the ESU Boolean and its UTC timestamp.
+
+The script never changes LicenseType, so it cannot switch SQL Server software billing to
+pay-as-you-go (PAYG) or change any other SQL payment model. LicenseType is an optional
+assertion of the current value: if it is supplied and differs from the value on the host, the
+target fails preflight. AcceptLicenseTypeChange is retained only for compatibility and is
+rejected when TRUE. The host must already be Paid or PAYG to enable ESUs.
 
 The target must already be connected to Azure Arc through global Azure endpoints in full mode and have a
 healthy, supported Azure Extension for SQL Server. The script does not install or repair
@@ -288,6 +293,7 @@ function ConvertTo-PlanItems {
 
         if ($effectiveAction -eq 'Enable') {
             if ($effectiveLicenseType -and $effectiveLicenseType -notin @('Paid', 'PAYG')) { $rowErrors.Add('LicenseType must be empty, Paid, or PAYG for Enable.') }
+            if ($licenseChange -eq $true) { $rowErrors.Add('AcceptLicenseTypeChange is not supported: this script never changes LicenseType. Leave it empty or FALSE.') }
             if ($effectiveEnvironment -notin @('Production', 'NonProduction')) { $rowErrors.Add('Environment must be Production or NonProduction for Enable.') }
             if ($backBilling -ne $true) { $rowErrors.Add('AcceptBackBilling must be TRUE for Enable.') }
             if ($externalPrerequisites -ne $true) { $rowErrors.Add('ConfirmExternalPrerequisites must be TRUE for Enable.') }
@@ -675,15 +681,16 @@ function Get-PreflightRecord {
     if ($instances | Where-Object { $null -ne $_.PassiveStatus }) { $warnings.Add('Passive/DR state is extension-reported and does not independently prove free coverage.') }
 
     $currentLicense = ConvertTo-CanonicalLicenseType -Value $extension.properties.settings.LicenseType
-    $effectiveLicense = if ($Item.Action -eq 'Enable' -and $Item.LicenseType) { $Item.LicenseType } else { $currentLicense }
+    # LicenseType is never written; the requested value is only an assertion of the current value.
+    $effectiveLicense = $currentLicense
     $currentState = ConvertTo-StrictBoolean -Value $extension.properties.settings.enableExtendedSecurityUpdates -AllowEmpty
     if ($null -eq $currentState) { $currentState = $false }
     $desiredState = $Item.Action -eq 'Enable'
-    $licenseChangeRequested = $Item.Action -eq 'Enable' -and $Item.LicenseType -and $Item.LicenseType -cne $currentLicense
+    $licenseChangeRequested = $false
 
     if ($Item.Action -eq 'Enable') {
-        if ($effectiveLicense -notin @('Paid', 'PAYG')) { throw "Effective LicenseType '$effectiveLicense' is not eligible for Arc-enabled SQL Server ESUs." }
-        if ($licenseChangeRequested -and -not $Item.AcceptLicenseTypeChange) { throw "AcceptLicenseTypeChange must be TRUE because LicenseType would change from '$currentLicense' to '$effectiveLicense'." }
+        if ($Item.LicenseType -and $Item.LicenseType -cne $currentLicense) { throw "LicenseType on the host is '$currentLicense', not the expected '$($Item.LicenseType)'. This script never changes LicenseType; no change was made." }
+        if ($effectiveLicense -notin @('Paid', 'PAYG')) { throw "Current LicenseType '$effectiveLicense' is not eligible for Arc-enabled SQL Server ESUs. This script never changes LicenseType; change it separately only after a licensing decision." }
         if ($instances.Count -eq 0) { throw 'No SQL Server inventory was discovered for the Arc machine.' }
         $unsupportedVersions = @($instances | Where-Object { -not $_.EligibleVersion })
         if ($unsupportedVersions.Count -gt 0) { throw "Unsupported SQL Server version detected: $(@($unsupportedVersions | ForEach-Object Version | Select-Object -Unique) -join ', ')." }
@@ -739,8 +746,10 @@ function ConvertTo-ExtensionRequestBody {
     $settings = Copy-JsonObject -InputObject $extension.properties.settings
     Add-OrReplaceObjectProperty -InputObject $settings -Name 'enableExtendedSecurityUpdates' -Value ([bool]$Preflight.DesiredState)
     Add-OrReplaceObjectProperty -InputObject $settings -Name 'esuLastUpdatedTimestamp' -Value $Timestamp
-    if (-not [string]::IsNullOrWhiteSpace([string]$Preflight.DesiredLicenseType)) {
-        Add-OrReplaceObjectProperty -InputObject $settings -Name 'LicenseType' -Value (ConvertTo-CanonicalLicenseType -Value $Preflight.DesiredLicenseType)
+    $originalHasLicense = $null -ne $extension.properties.settings.PSObject.Properties['LicenseType']
+    $requestHasLicense = $null -ne $settings.PSObject.Properties['LicenseType']
+    if ($originalHasLicense -ne $requestHasLicense -or [string]$settings.LicenseType -cne [string]$extension.properties.settings.LicenseType) {
+        throw 'Refusing to send a request that would change LicenseType; this script never changes the SQL payment model.'
     }
 
     $properties = [ordered]@{
@@ -762,7 +771,8 @@ function Get-ComparableSettings {
     param([object]$Settings)
 
     $copy = Copy-JsonObject -InputObject $Settings
-    foreach ($name in @('enableExtendedSecurityUpdates', 'esuLastUpdatedTimestamp', 'LicenseType')) {
+    # LicenseType stays in the comparison so any post-update change to it fails verification.
+    foreach ($name in @('enableExtendedSecurityUpdates', 'esuLastUpdatedTimestamp')) {
         if ($null -ne $copy.PSObject.Properties[$name]) { $copy.PSObject.Properties.Remove($name) }
     }
     return $copy
@@ -879,7 +889,7 @@ function Get-BillingPreview {
 
     $item = $Preflight.Item
     $minimumStatement = if ($null -ne $Preflight.DetectedCores -and [int]$Preflight.DetectedCores -lt 4) { 'Azure applies a four-core minimum.' } else { 'The per-host meter has a four-core minimum.' }
-    return "Machine=$($item.MachineResourceId); ESU=$($Preflight.CurrentState)->$($Preflight.DesiredState); LicenseType=$($Preflight.CurrentLicenseType)->$($Preflight.DesiredLicenseType); Environment=$($item.Environment); HostType=$($Preflight.HostType); DetectedCores=$($Preflight.DetectedCores); Instances=$($Preflight.InstanceNames -join ','); ServiceTypes=$($Preflight.ServiceTypes -join ','); Versions=$($Preflight.EligibleVersions -join ','); Editions=$($Preflight.Editions -join ','); $minimumStatement Current-year back-billing and re-enable/reconnection bill-back can apply. Cancellation stops future charges but removes future patch access. This operation does not enable automatic patching. This is per-host metering and does not establish pooled physical-core unlimited virtualization."
+    return "Machine=$($item.MachineResourceId); ESU=$($Preflight.CurrentState)->$($Preflight.DesiredState); LicenseType=$($Preflight.CurrentLicenseType) (unchanged; this script never changes the SQL payment model); Environment=$($item.Environment); HostType=$($Preflight.HostType); DetectedCores=$($Preflight.DetectedCores); Instances=$($Preflight.InstanceNames -join ','); ServiceTypes=$($Preflight.ServiceTypes -join ','); Versions=$($Preflight.EligibleVersions -join ','); Editions=$($Preflight.Editions -join ','); $minimumStatement Current-year back-billing and re-enable/reconnection bill-back can apply. Cancellation stops future charges but removes future patch access. This operation does not enable automatic patching. This is per-host metering and does not establish pooled physical-core unlimited virtualization."
 }
 
 function Format-Result {

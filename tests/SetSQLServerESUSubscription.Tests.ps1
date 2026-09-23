@@ -304,22 +304,25 @@ Describe 'SetSQLServerESUSubscription exact mutation behavior' {
         @($result.Calls | Where-Object Method -eq 'PUT').Count | Should Be 0
     }
 
-    It 'changes LicenseType only after the required acknowledgement' {
-        $rejected = Invoke-SetScenario -AdditionalArguments '-LicenseType PAYG'
-        $accepted = Invoke-SetScenario -AdditionalArguments '-LicenseType PAYG -AcceptLicenseTypeChange'
-        $rejected.ExitCode | Should Be 1
-        $rejected.Output | Should Match 'AcceptLicenseTypeChange must be TRUE'
-        @($rejected.Calls | Where-Object Method -eq 'PUT').Count | Should Be 0
-        $accepted.ExitCode | Should Be 0
-        ((($accepted.Calls | Where-Object Method -eq 'PUT' | Select-Object -First 1).Body | ConvertFrom-Json).properties.settings.LicenseType) | Should Be 'PAYG'
+    It 'never changes LicenseType, even with the legacy acknowledgement' {
+        $mismatch = Invoke-SetScenario -AdditionalArguments '-LicenseType PAYG'
+        $mismatch.ExitCode | Should Be 1
+        $mismatch.Output | Should Match 'never changes'
+        @($mismatch.Calls | Where-Object Method -eq 'PUT').Count | Should Be 0
+        $legacy = Invoke-SetScenario -AdditionalArguments '-LicenseType PAYG -AcceptLicenseTypeChange'
+        $legacy.ExitCode | Should Be 1
+        $legacy.Output | Should Match 'AcceptLicenseTypeChange is not supported'
+        $legacy.Calls.Count | Should Be 0
+        $default = Invoke-SetScenario
+        ((($default.Calls | Where-Object Method -eq 'PUT' | Select-Object -First 1).Body | ConvertFrom-Json).properties.settings.LicenseType) | Should Be 'Paid'
     }
 
     It 'normalizes case-insensitive LicenseType values before comparison and PUT' {
         $result = Invoke-SetScenario -Scenario LowercaseLicense -AdditionalArguments '-LicenseType payg'
         $body = (($result.Calls | Where-Object Method -eq 'PUT' | Select-Object -First 1).Body | ConvertFrom-Json)
         $result.ExitCode | Should Be 0
-        $body.properties.settings.LicenseType | Should Be 'PAYG'
-        $result.Output | Should Not Match 'AcceptLicenseTypeChange must be TRUE'
+        $body.properties.settings.LicenseType | Should Be 'payg'
+        $result.Output | Should Not Match 'never changes LicenseType'
     }
 
     It 'allows cancellation with unavailable eligibility and extension health evidence' {

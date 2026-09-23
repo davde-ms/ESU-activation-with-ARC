@@ -36,7 +36,7 @@ Supplying both paths or an incomplete path fails authentication. Never store cre
 | --- | --- | --- |
 | `subscriptionId` | Single mode; optional fallback in CSV mode | Subscription containing the Arc machine. |
 | `serverResourceGroupName`, `ARCServerName` | Single mode | Existing machine target. |
-| `LicenseType` | Single mode | Exact value `Paid`, `PAYG`, or `LicenseOnly`. |
+| `LicenseType` | Single mode | Exact value `Paid` or `LicenseOnly`. `PAYG` is rejected; this script never selects pay-as-you-go SQL billing. |
 | `ConfirmExternalPrerequisites` | Single mode | Must be present; records customer confirmation of checks ARM cannot perform. |
 | `csvFilePath` | CSV mode | Existing CSV using the exact schema below. |
 | `tenantId`, `appID`, `clientSecret` | Authentication dependent | Complete service-principal path. |
