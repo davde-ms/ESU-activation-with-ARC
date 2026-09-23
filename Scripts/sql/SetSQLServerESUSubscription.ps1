@@ -18,6 +18,15 @@ The target must already be connected to Azure Arc through global Azure endpoints
 healthy, supported Azure Extension for SQL Server. The script does not install or repair
 agents, accept core counts, manage physical-core pools, or configure patching.
 
+.PARAMETER LicenseType
+Optional check only; this script never sets or changes LicenseType. When supplied (Paid or
+PAYG), the host's current LicenseType must already match or the target fails preflight with
+no change. Leave it empty to accept the current value. The host must already be Paid or PAYG.
+
+.PARAMETER AcceptLicenseTypeChange
+Retained only for compatibility. License type changes are not supported, so this switch
+(or a CSV value of TRUE) is rejected before authentication.
+
 .EXAMPLE
 $token = Get-AzAccessToken -ResourceUrl 'https://management.azure.com/'
 ./Scripts/sql/SetSQLServerESUSubscription.ps1 -subscriptionId '00000000-0000-0000-0000-000000000001' `

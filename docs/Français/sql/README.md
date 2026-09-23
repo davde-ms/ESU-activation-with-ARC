@@ -41,7 +41,7 @@ LicenseType                       Mode de licence du logiciel SQL Server sous-ja
 enableExtendedSecurityUpdates    Activation ou non de l'abonnement ESU SQL distinct
 ```
 
-La modification de `LicenseType` peut modifier la facturation du logiciel SQL Server et les droits d'utilisation. La modification de `enableExtendedSecurityUpdates` contrôle l'abonnement ESU. Examinez et approuvez chaque modification indépendamment; n'interprétez jamais `Paid` comme « ESU payées ».
+La modification de `LicenseType` peut modifier la facturation du logiciel SQL Server et les droits d'utilisation. La modification de `enableExtendedSecurityUpdates` contrôle l'abonnement ESU. Examinez et approuvez chaque modification indépendamment; n'interprétez jamais `Paid` comme « ESU payées ». Dans ce dépôt, [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md) ne définit ni ne modifie jamais `LicenseType`; il modifie uniquement `enableExtendedSecurityUpdates` et exige que l'hôte soit déjà `Paid` ou `PAYG`. [InstallSQLServerArcExtension.ps1](InstallSQLServerArcExtension.md) définit `LicenseType` uniquement lorsqu'il installe une extension absente, et seulement à `Paid` ou `LicenseOnly`. Aucun script de ce dépôt ne sélectionne `PAYG`; effectuez tout changement de type de licence séparément, après une décision de licence.
 
 ## Comparaison avec les ESU Windows Server
 
@@ -82,7 +82,7 @@ Cette ressource ne remplace pas la configuration des machines virtuelles : les m
 2. Exécutez [TestSQLServerArcESUPrerequisites.ps1](TestSQLServerArcESUPrerequisites.md).
 3. Si nécessaire, exécutez [InstallSQLServerArcExtension.ps1](InstallSQLServerArcExtension.md).
 4. Exécutez [CheckSQLServerESUStatus.ps1](CheckSQLServerESUStatus.md).
-5. Prévisualisez puis exécutez [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md).
+5. Prévisualisez puis exécutez [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md). Il conserve le `LicenseType` actuel sans modification.
 6. Exécutez de nouveau la vérification d'état.
 
 Utilisez `Enable` et `Disable` pour le cycle de vie de l'abonnement SQL. Réservez les termes créer, attribuer, dissocier et supprimer aux ressources de licence Windows Server ou à la ressource SQL mutualisée par cœurs physiques distincte.
