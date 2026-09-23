@@ -2,7 +2,7 @@
 
 ## Objectif et périmètre
 
-`InstallSQLServerArcExtension.ps1` installe `Microsoft.AzureData/WindowsAgent.SqlServer` sur une machine Windows Arc existante uniquement lorsque l'extension est absente. Il active la gestion SQL et les mises à niveau automatiques de l'extension, et définit `LicenseType` à `Paid`, `PAYG` ou `LicenseOnly`. Il ne met pas à jour, ne met pas à niveau, ne répare ni ne remplace une extension existante, n'active pas les ESU et ne déploie aucun correctif.
+`InstallSQLServerArcExtension.ps1` installe `Microsoft.AzureData/WindowsAgent.SqlServer` sur une machine Windows Arc existante uniquement lorsque l'extension est absente. Il active la gestion SQL et les mises à niveau automatiques de l'extension, et définit `LicenseType` à `Paid` ou `LicenseOnly`. Il ne sélectionne jamais `PAYG` (facturation à l'utilisation de la licence du logiciel SQL Server par Azure). Il ne met pas à jour, ne met pas à niveau, ne répare ni ne remplace une extension existante, n'active pas les ESU et ne déploie aucun correctif.
 
 Consultez la [présentation du modèle d'objets ESU SQL Server](README.md) avant l'installation. `ServerResourceGroupName` désigne le groupe de ressources contenant la machine Arc; cette procédure n'utilise aucun groupe de ressources de licence SQL distinct.
 
@@ -13,7 +13,7 @@ Cette procédure prend uniquement en charge les points de terminaison Azure glob
 - PowerShell 7.x sous Windows; une machine Arc existante indiquant `Connected`, le mode `Full`, Windows et une région SQL Arc prise en charge.
 - Les fournisseurs `Microsoft.HybridCompute` et `Microsoft.AzureArcData` inscrits. Le script ne les inscrit pas.
 - Confirmation client des prérequis externes au moyen de `-ConfirmExternalPrerequisites` ou de la valeur CSV `TRUE`.
-- Un `LicenseType` vérifié. Ce paramètre décrit la licence du logiciel SQL Server sous-jacent, pas le paiement des ESU : `Paid` désigne une licence éligible avec Software Assurance active/abonnement SQL, `PAYG` utilise la facturation horaire Azure pour la licence du logiciel SQL et `LicenseOnly` désigne une licence sans l'avantage d'abonnement requis. Seuls `Paid` et `PAYG` sont éligibles aux ESU SQL Server activées par Arc. L'inscription et la mesure ESU restent contrôlées séparément par `enableExtendedSecurityUpdates`. Consultez [LicenseType décrit la licence du logiciel SQL Server](README.md#sql-license-type).
+- Un `LicenseType` vérifié. Ce paramètre décrit la licence du logiciel SQL Server sous-jacent, pas le paiement des ESU : `Paid` désigne une licence éligible avec Software Assurance active/abonnement SQL, `PAYG` utilise la facturation horaire Azure pour la licence du logiciel SQL et `LicenseOnly` désigne une licence sans l'avantage d'abonnement requis. Ce script accepte uniquement `Paid` ou `LicenseOnly` et rejette `PAYG` afin de ne jamais démarrer la facturation Azure de la licence du logiciel SQL. Seul `Paid` (ou une configuration `PAYG` existante définie en dehors de ce script) est éligible aux ESU SQL Server activées par Arc. L'inscription et la mesure ESU restent contrôlées séparément par `enableExtendedSecurityUpdates`. Consultez [LicenseType décrit la licence du logiciel SQL Server](README.md#sql-license-type).
 
 L'extension est une ressource d'hôte; ses paramètres s'appliquent aux instances SQL découvertes sur cet hôte. L'installation crée seulement : si l'extension attendue existe, le script renvoie `AlreadyInstalled` sans modifier les paramètres. Les modifications ultérieures utilisent [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md), qui lit les paramètres, fusionne uniquement les modifications ESU approuvées et réécrit les paramètres préservés.
 
@@ -36,7 +36,7 @@ Deux méthodes simultanées ou une méthode incomplète entraînent un échec. N
 | --- | --- | --- |
 | `subscriptionId` | Mode unique; valeur de secours facultative en CSV | Abonnement de la machine Arc. |
 | `serverResourceGroupName`, `ARCServerName` | Mode unique | Cible existante. |
-| `LicenseType` | Mode unique | Valeur exacte `Paid`, `PAYG` ou `LicenseOnly`. |
+| `LicenseType` | Mode unique | Valeur exacte `Paid` ou `LicenseOnly`. `PAYG` est rejeté; ce script ne sélectionne jamais la facturation SQL à l'utilisation. |
 | `ConfirmExternalPrerequisites` | Mode unique | Doit être présent après confirmation des contrôles externes. |
 | `csvFilePath` | Mode CSV | CSV existant avec le schéma exact ci-dessous. |
 | `tenantId`, `appID`, `clientSecret` | Selon l'authentification | Méthode complète du principal de service. |
@@ -79,7 +79,7 @@ SubscriptionId,ServerResourceGroupName,ARCServerName,LicenseType,ConfirmExternal
     -DryRun
 ```
 
-Les colonnes exactes obligatoires sont `SubscriptionId`, `ServerResourceGroupName`, `ARCServerName`, `LicenseType` et `ConfirmExternalPrerequisites`. Un abonnement vide utilise `-subscriptionId`. Les noms doivent respecter les caractères Azure pris en charge; le nom de machine comporte 1 à 54 caractères. `LicenseType` doit être `Paid`, `PAYG` ou `LicenseOnly`; la confirmation doit être `TRUE`. Les doublons sans distinction de casse sont rejetés. Un fichier absent/non CSV/sans données, une colonne manquante ou une ligne non valide rejette tout le plan avant l'authentification. Les colonnes inconnues sont signalées puis ignorées.
+Les colonnes exactes obligatoires sont `SubscriptionId`, `ServerResourceGroupName`, `ARCServerName`, `LicenseType` et `ConfirmExternalPrerequisites`. Un abonnement vide utilise `-subscriptionId`. Les noms doivent respecter les caractères Azure pris en charge; le nom de machine comporte 1 à 54 caractères. `LicenseType` doit être `Paid` ou `LicenseOnly` (`PAYG` est rejeté); la confirmation doit être `TRUE`. Les doublons sans distinction de casse sont rejetés. Un fichier absent/non CSV/sans données, une colonne manquante ou une ligne non valide rejette tout le plan avant l'authentification. Les colonnes inconnues sont signalées puis ignorées.
 
 ## Prévisualisation et sécurité d'exécution
 
@@ -95,7 +95,7 @@ Les états sont `Succeeded`, `AlreadyInstalled`, `Previewed`, `Declined`, `Faile
 
 ## Facturation et sécurité
 
-L'installation de l'extension n'inscrit pas l'hôte aux ESU et ne déploie aucun correctif. Toutefois, `LicenseType` représente aussi la configuration de licence du logiciel SQL Server; faites vérifier `Paid`, `PAYG` ou `LicenseOnly` par le responsable des licences. L'inscription ESU est une opération distincte avec incidence sur la facturation. L'extension détecte le type d'hôte et les cœurs; ce script n'établit aucune couverture mutualisée ou de virtualisation illimitée.
+L'installation de l'extension n'inscrit pas l'hôte aux ESU et ne déploie aucun correctif. Toutefois, `LicenseType` représente aussi la configuration de licence du logiciel SQL Server; faites vérifier `Paid` ou `LicenseOnly` par le responsable des licences. Ce script ne sélectionne jamais `PAYG`. L'inscription ESU est une opération distincte avec incidence sur la facturation. L'extension détecte le type d'hôte et les cœurs; ce script n'établit aucune couverture mutualisée ou de virtualisation illimitée.
 
 ## Résolution des problèmes
 

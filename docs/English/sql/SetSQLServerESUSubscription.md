@@ -14,9 +14,9 @@ Only SQL Server 2014 and 2016 are supported. Enablement requires eligible invent
 - `SqlManagement.IsEnabled=true`, effective `LicenseType` `Paid` or `PAYG`, and discovered SQL Server 2014/2016 inventory. Standard/Enterprise are production editions; Developer requires confirmed qualifying nonproduction coverage.
 - External entitlement, prior-year coverage, local permissions, connectivity, and HA/DR compliance must be confirmed outside ARM.
 
-`LicenseType` describes the underlying SQL Server software license; it does not indicate that ESUs are paid. `Paid` means qualifying Software Assurance/SQL subscription rights, while `PAYG` means Azure bills the SQL software license hourly. The separate `enableExtendedSecurityUpdates` setting starts or stops the ESU subscription and its metering. See [LicenseType describes the SQL Server software license](README.md#sql-license-type).
+`LicenseType` describes the underlying SQL Server software license; it does not indicate that ESUs are paid. `Paid` means qualifying Software Assurance/SQL subscription rights, while `PAYG` means Azure bills the SQL software license hourly. The separate `enableExtendedSecurityUpdates` setting starts or stops the ESU subscription and its metering. This script never changes `LicenseType`, so it cannot switch a host to `PAYG` or change any other SQL payment model; hosts that are `LicenseOnly` or undefined are blocked, not converted. See [LicenseType describes the SQL Server software license](README.md#sql-license-type).
 
-The setting affects the entire host/OSE, not one named SQL instance. All eligible instances and associated services can be affected, and SQL Server 2014 and 2016 can meter separately. This script performs a settings-preserving GET-merge-PUT: it GETs the extension, deep-copies public settings, changes only `enableExtendedSecurityUpdates`, `esuLastUpdatedTimestamp`, and an explicitly approved enable-time `LicenseType`, then PUTs and verifies semantic preservation. Protected and response-only properties are never copied.
+The setting affects the entire host/OSE, not one named SQL instance. All eligible instances and associated services can be affected, and SQL Server 2014 and 2016 can meter separately. This script performs a settings-preserving GET-merge-PUT: it GETs the extension, deep-copies public settings, changes only `enableExtendedSecurityUpdates` and `esuLastUpdatedTimestamp`, refuses to send any request that would change `LicenseType`, then PUTs and verifies semantic preservation, including an unchanged `LicenseType`. Protected and response-only properties are never copied.
 
 For `Disable`, the script intentionally reads only the expected extension and bypasses machine, provider, and SQL inventory gates. This cancellation path remains available when inventory or health evidence is degraded because requiring healthy discovery could prevent a customer from stopping future ESU charges. Wrong extension identity or unreadable public settings still blocks mutation.
 
@@ -94,7 +94,7 @@ SubscriptionId,ServerResourceGroupName,ARCServerName,Action,LicenseType,Environm
     -DryRun
 ```
 
-All ten displayed columns are required. A blank subscription uses the command fallback. Boolean controls accept only `TRUE`, `FALSE`, or empty where optional. `Enable` requires a valid environment, `AcceptBackBilling=TRUE`, and `ConfirmExternalPrerequisites=TRUE`; a license change requires `AcceptLicenseTypeChange=TRUE`; nonproduction Developer requires `ConfirmNonProductionCoverage=TRUE`. `Disable` requires every enable-only field to be empty. Duplicate/contradictory hosts are rejected. Unknown columns resembling a billing/control field are rejected; unrelated unknown columns are warned and ignored. Any local error rejects the complete file before authentication.
+All ten displayed columns are required. A blank subscription uses the command fallback. Boolean controls accept only `TRUE`, `FALSE`, or empty where optional. `Enable` requires a valid environment, `AcceptBackBilling=TRUE`, and `ConfirmExternalPrerequisites=TRUE`; a non-empty `LicenseType` must match the current host value and `AcceptLicenseTypeChange` must be empty or `FALSE`; nonproduction Developer requires `ConfirmNonProductionCoverage=TRUE`. `Disable` requires every enable-only field to be empty. Duplicate/contradictory hosts are rejected. Unknown columns resembling a billing/control field are rejected; unrelated unknown columns are warned and ignored. Any local error rejects the complete file before authentication.
 
 ## Preview and execution safety
 
@@ -119,7 +119,7 @@ Cancellation stops future ESU charges under Microsoft's current guidance, but re
 | Symptom | Check |
 | --- | --- |
 | Enable acknowledgement error | Supply required `TRUE` values only after licensing and external review. |
-| License change rejected | Add `AcceptLicenseTypeChange=TRUE` only after approving the displayed old/new value. |
+| LicenseType mismatch or `AcceptLicenseTypeChange` rejected | This script never changes `LicenseType`. Clear the `LicenseType` value or set it to the current host value, and leave `AcceptLicenseTypeChange` empty or `FALSE`. Make any licensing change separately, only after a licensing decision. |
 | Developer rejected | Use `NonProduction` and confirm qualifying coverage, or stop and resolve entitlement. |
 | Stale inventory warning | Refresh inventory; staleness alone does not block enablement, but evidence is uncertain. |
 | Disable warns about degraded evidence | Expected behavior: cancellation proceeds from the verified extension settings so future charges can be stopped. |
