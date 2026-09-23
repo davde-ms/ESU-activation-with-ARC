@@ -14,11 +14,41 @@ Only SQL Server 2014 and 2016 are supported. Enablement requires eligible invent
 - `SqlManagement.IsEnabled=true`, effective `LicenseType` `Paid` or `PAYG`, and discovered SQL Server 2014/2016 inventory. Standard/Enterprise are production editions; Developer requires confirmed qualifying nonproduction coverage.
 - External entitlement, prior-year coverage, local permissions, connectivity, and HA/DR compliance must be confirmed outside ARM.
 
-`LicenseType` describes the underlying SQL Server software license; it does not indicate that ESUs are paid. `Paid` means qualifying Software Assurance/SQL subscription rights, while `PAYG` means Azure bills the SQL software license hourly. The separate `enableExtendedSecurityUpdates` setting starts or stops the ESU subscription and its metering. This script never changes `LicenseType`, so it cannot switch a host to `PAYG` or change any other SQL payment model; hosts that are `LicenseOnly` or undefined are blocked, not converted. See [LicenseType describes the SQL Server software license](README.md#sql-license-type).
+`LicenseType` describes the underlying SQL Server software license; it does not indicate that ESUs are paid. `Paid` means qualifying Software Assurance/SQL subscription rights, while `PAYG` means Azure bills the SQL software license hourly. The separate `enableExtendedSecurityUpdates` setting starts or stops the ESU subscription and its metering. This script never changes `LicenseType`, so it cannot switch a host to `PAYG` or change any other SQL payment model; hosts that are `LicenseOnly` or undefined are blocked, not converted. See [Why LicenseType is never changed](#why-licensetype-is-never-changed) and [LicenseType describes the SQL Server software license](README.md#sql-license-type).
 
 The setting affects the entire host/OSE, not one named SQL instance. All eligible instances and associated services can be affected, and SQL Server 2014 and 2016 can meter separately. This script performs a settings-preserving GET-merge-PUT: it GETs the extension, deep-copies public settings, changes only `enableExtendedSecurityUpdates` and `esuLastUpdatedTimestamp`, refuses to send any request that would change `LicenseType`, then PUTs and verifies semantic preservation, including an unchanged `LicenseType`. Protected and response-only properties are never copied.
 
 For `Disable`, the script intentionally reads only the expected extension and bypasses machine, provider, and SQL inventory gates. This cancellation path remains available when inventory or health evidence is degraded because requiring healthy discovery could prevent a customer from stopping future ESU charges. Wrong extension identity or unreadable public settings still blocks mutation.
+
+<a id="why-licensetype-is-never-changed"></a>
+
+## Why LicenseType is never changed
+
+This script only turns the ESU subscription on or off. It **never sets, changes, or clears `LicenseType`**. There is deliberately no switch, parameter, or CSV column that makes it do so, even as an opt-in. Adding a "set the license type before enabling ESU" option was evaluated and rejected for the following reasons.
+
+1. **It protects the customer's SQL payment model.** This repository exists to enable ESUs without changing how SQL Server software is paid for. Any code path that can write `LicenseType` can be triggered by mistake, even behind a switch: a copied CSV row, a Resource Graph export, or a pipeline default. At scale, that could move many hosts to `PAYG` and start Azure billing for SQL Server software that the customer already licensed.
+2. **`Paid` is a legal attestation that a script can't verify.** Microsoft states: "By selecting a license with Software Assurance, you attest that you have Enterprise or Standard licenses with active Software Assurance or an active SQL Server subscription license, and that the device is in compliance with the Product Terms outsourcing restrictions." Only the license owner can make that statement. An ESU operator or an automated job shouldn't make it on their behalf.
+3. **`PAYG` is an Azure billing decision for the SQL Server software license.** It bills the SQL software license hourly through Azure, in addition to the ESU charge. For subscriptions managed by a Cloud Solution Provider (CSP), enabling pay-as-you-go also requires consent to recurring billing.
+4. **Customers without Software Assurance can't legitimately become `Paid`.** Microsoft states: "To subscribe to ESUs, you must have active Software Assurance or enable a pay-as-you-go billing for SQL Server software." A license without Software Assurance isn't eligible. A host that is `LicenseOnly` because it has no Software Assurance therefore has only one Arc ESU route: `PAYG`. That is exactly the billing change this repository refuses to make on the customer's behalf.
+5. **Server+CAL hosts must stay `LicenseOnly`.** Microsoft states: "If your instance uses this license, you must set the license type to LicenseOnly, even if you have active Software Assurance for it." Microsoft also states that the Arc ESU subscription isn't available for the Server+CAL licensing model; its only Arc route is to switch to `PAYG`. An Enterprise (non-Core) installation indicates Server+CAL. Automatically switching such a host to `Paid` would create a licensing compliance violation.
+6. **`LicenseType` applies to the whole host, not only the out-of-support instance.** It is a setting of the single `WindowsAgent.SqlServer` extension on the Arc machine. It therefore applies to every SQL Server instance in that OSE, including supported SQL Server 2017 or later instances that don't need ESUs. Changing it to enable ESUs for SQL Server 2014/2016 would also re-attest or re-bill those other instances.
+7. **Separate changes keep billing auditable and reversible.**
+   - When ESU is enabled, Azure billing begins at the start of the current ESU year (bill-back). Combining a license type change and ESU enablement in one write mixes two billing events, which makes charge verification, auditing, and root-cause analysis harder.
+   - The two changes also can't always be undone independently. Microsoft's own license type script refuses to switch a host to `LicenseOnly` while ESU is enabled.
+
+### What to do when a host is LicenseOnly or undefined
+
+`Enable` fails preflight for that host and no change is made. Then:
+
+1. **The license owner decides** the correct `LicenseType` for the whole host based on entitlement:
+   - Active Software Assurance or SQL Server subscription for the host's core-based licenses: `Paid`.
+   - Server+CAL, or a perpetual license without Software Assurance: `LicenseOnly`. That host isn't eligible for ESU through this script.
+2. **Set it outside this script:** use the Azure portal, or Microsoft's official [modify-arc-sql-license-type.ps1](https://github.com/microsoft/sql-server-samples/tree/master/samples/manage/azure-arc-enabled-sql-server/modify-license-type) sample, which is referenced from [Configure SQL Server enabled by Azure Arc](https://learn.microsoft.com/sql/sql-server/azure-arc/manage-configuration?view=sql-server-ver17#modify-sql-server-configuration).
+   - To keep the two changes separate, run the sample with `-LicenseType` only, without `-EnableESU`.
+   - Scope the sample to the intended machines, for example with `-MachineName` and a CSV. Without `-MachineName`, it targets every Arc-enabled SQL Server in the given subscription or resource group, or in all subscriptions if none is given. Run it with `-ReportOnly` first to list what would change.
+   - Without `-Force`, the sample sets `-LicenseType` only on extensions where it is undefined. With `-Force`, it overwrites the existing value on every extension in scope, including hosts that are already `Paid` or `PAYG`.
+   - Don't use `-LicenseType PAYG` unless Azure billing for the SQL Server software license is the intended, approved decision.
+3. **Verify, then enable:** confirm the new value with [CheckSQLServerESUStatus.ps1](CheckSQLServerESUStatus.md) or [TestSQLServerArcESUPrerequisites.ps1](TestSQLServerArcESUPrerequisites.md). Then run this script with `-DryRun`, and finally run the live `Enable`.
 
 ## Least-privilege role
 
@@ -120,7 +150,7 @@ Cancellation stops future ESU charges under Microsoft's current guidance, but re
 | --- | --- |
 | Enable acknowledgement error | Supply required `TRUE` values only after licensing and external review. |
 | LicenseType mismatch or `AcceptLicenseTypeChange` rejected | This script never changes `LicenseType`. Clear the `LicenseType` value or set it to the current host value, and leave `AcceptLicenseTypeChange` empty or `FALSE`. Make any licensing change separately, only after a licensing decision. |
-| Developer rejected | Use `NonProduction` and confirm qualifying coverage, or stop and resolve entitlement. |
+| Current LicenseType is `LicenseOnly` or undefined | Expected block, no change made. Follow [What to do when a host is LicenseOnly or undefined](#what-to-do-when-a-host-is-licenseonly-or-undefined); see [Why LicenseType is never changed](#why-licensetype-is-never-changed). || Developer rejected | Use `NonProduction` and confirm qualifying coverage, or stop and resolve entitlement. |
 | Stale inventory warning | Refresh inventory; staleness alone does not block enablement, but evidence is uncertain. |
 | Disable warns about degraded evidence | Expected behavior: cancellation proceeds from the verified extension settings so future charges can be stopped. |
 | Verification timeout | Check extension health and whether another process changed ESU, license, or unrelated settings. |
@@ -130,6 +160,8 @@ Cancellation stops future ESU charges under Microsoft's current guidance, but re
 
 - [SQL Server Extended Security Updates enabled by Azure Arc](https://learn.microsoft.com/sql/sql-server/azure-arc/extended-security-updates?view=sql-server-ver17)
 - [Configure SQL Server enabled by Azure Arc](https://learn.microsoft.com/sql/sql-server/azure-arc/manage-configuration?view=sql-server-ver17)
+- [Manage licensing and billing of SQL Server enabled by Azure Arc](https://learn.microsoft.com/sql/sql-server/azure-arc/manage-license-billing?view=sql-server-ver17)
+- [Microsoft sample: modify-arc-sql-license-type.ps1](https://github.com/microsoft/sql-server-samples/tree/master/samples/manage/azure-arc-enabled-sql-server/modify-license-type)
 - [Hybrid Compute REST API](https://learn.microsoft.com/rest/api/hybridcompute/)
 - [Microsoft.AzureArcData/sqlServerInstances 2026-01-01](https://learn.microsoft.com/azure/templates/microsoft.azurearcdata/2026-01-01/sqlserverinstances)
 - [Azure custom roles](https://learn.microsoft.com/azure/role-based-access-control/custom-roles)
