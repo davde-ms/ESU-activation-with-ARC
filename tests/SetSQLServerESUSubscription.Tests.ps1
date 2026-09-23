@@ -381,6 +381,10 @@ Describe 'SetSQLServerESUSubscription eligibility and billing gates' {
             $result.ExitCode | Should Be 1
             @($result.Calls | Where-Object Method -eq 'PUT').Count | Should Be 0
         }
+        $licenseOnly = Invoke-SetScenario -Scenario LicenseOnly
+        $licenseOnly.Output | Should Match "is 'LicenseOnly'"
+        $licenseOnly.Output | Should Match 'never changes'
+        $licenseOnly.Output | Should Match 'modify-arc-sql'
     }
 
     It 'requires nonproduction coverage for Developer and rejects Developer production' {

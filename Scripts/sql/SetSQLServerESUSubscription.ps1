@@ -14,6 +14,13 @@ assertion of the current value: if it is supplied and differs from the value on 
 target fails preflight. AcceptLicenseTypeChange is retained only for compatibility and is
 rejected when TRUE. The host must already be Paid or PAYG to enable ESUs.
 
+LicenseType is deliberately out of scope because it is a host-wide licensing attestation
+(Paid) or an Azure billing decision for the SQL software license (PAYG), applies to every SQL
+instance on the host, and cannot be verified by this script. Hosts that are LicenseOnly or
+undefined fail preflight with no change; the license owner must set LicenseType separately
+(Azure portal or Microsoft's modify-arc-sql-license-type.ps1 sample) before re-running this
+script. See docs/English/sql/SetSQLServerESUSubscription.md for the full rationale.
+
 The target must already be connected to Azure Arc through global Azure endpoints in full mode and have a
 healthy, supported Azure Extension for SQL Server. The script does not install or repair
 agents, accept core counts, manage physical-core pools, or configure patching.
@@ -699,7 +706,10 @@ function Get-PreflightRecord {
 
     if ($Item.Action -eq 'Enable') {
         if ($Item.LicenseType -and $Item.LicenseType -cne $currentLicense) { throw "LicenseType on the host is '$currentLicense', not the expected '$($Item.LicenseType)'. This script never changes LicenseType; no change was made." }
-        if ($effectiveLicense -notin @('Paid', 'PAYG')) { throw "Current LicenseType '$effectiveLicense' is not eligible for Arc-enabled SQL Server ESUs. This script never changes LicenseType; change it separately only after a licensing decision." }
+        if ($effectiveLicense -notin @('Paid', 'PAYG')) {
+            $licenseLabel = if ([string]::IsNullOrWhiteSpace($effectiveLicense)) { 'undefined' } else { "'$effectiveLicense'" }
+            throw "Current LicenseType is $licenseLabel; Microsoft requires Paid or PAYG for Arc-enabled SQL Server ESUs. No change was made. This script never changes LicenseType because it is a host-wide licensing attestation or billing decision. The license owner must set it separately (Azure portal, or Microsoft's modify-arc-sql-license-type.ps1 sample), then re-run this script. Server+CAL hosts must remain LicenseOnly; see docs/English/sql/SetSQLServerESUSubscription.md#why-licensetype-is-never-changed."
+        }
         if ($instances.Count -eq 0) { throw 'No SQL Server inventory was discovered for the Arc machine.' }
         $unsupportedVersions = @($instances | Where-Object { -not $_.EligibleVersion })
         if ($unsupportedVersions.Count -gt 0) { throw "Unsupported SQL Server version detected: $(@($unsupportedVersions | ForEach-Object Version | Select-Object -Unique) -join ', ')." }
