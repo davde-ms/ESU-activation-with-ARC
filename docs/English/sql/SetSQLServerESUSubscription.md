@@ -6,17 +6,19 @@
 
 Review the [SQL Server ESU object-model overview](README.md) for VM vCore metering and the contrast with Windows Server license assignment. `ServerResourceGroupName` is the resource group containing the Arc machine; no separate SQL license object or license resource group is created.
 
-Only SQL Server 2014 and 2016 are supported. Enablement requires eligible inventory and explicit billing acknowledgements. Disable remains available with degraded inventory/provider/machine evidence so a customer is not blocked from canceling future charges; it still requires a readable extension with the exact expected identity and public settings.
+Only SQL Server 2014 and 2016 are supported. Enablement requires eligible inventory and explicit billing acknowledgements. `Enable` is refused for the whole host if any discovered instance on it is another SQL Server version (for example SQL Server 2017 or later), an edition other than Standard, Enterprise, or Developer (for example Express, Web, Evaluation, or Business Intelligence), or Developer with `Production`. This fail-closed check is a safeguard of this script, not a Microsoft eligibility rule; review such hosts manually. Disable remains available with degraded inventory/provider/machine evidence so a customer is not blocked from canceling future charges; it still requires a readable extension with the exact expected identity and public settings.
 
 ## Prerequisites and boundaries
 
-- PowerShell 7.x on Windows; registered providers; an existing connected Arc machine whose `agentConfiguration.configMode` is `full`, and a healthy `WindowsAgent.SqlServer` extension at version `1.1.3518.465` or newer (the running version from `instanceView` is used when reported) for enablement.
-- `SqlManagement.IsEnabled=true`, effective `LicenseType` `Paid` or `PAYG`, and discovered SQL Server 2014/2016 inventory. Standard/Enterprise are production editions; Developer requires confirmed qualifying nonproduction coverage.
+- PowerShell 7.x on Windows; registered providers; an existing connected Arc machine whose `agentConfiguration.configMode` is `full`, and a healthy `WindowsAgent.SqlServer` extension at version `1.1.3518.465` or newer (the running version from `instanceView` is used when reported) for enablement. This minimum is set by this repository: Microsoft's release notes list that version as the current automatic-upgrade target, but Microsoft doesn't state a minimum extension version for ESUs.
+- `SqlManagement.IsEnabled=true` (a repository check, not a documented Microsoft ESU prerequisite), effective `LicenseType` `Paid` or `PAYG`, and discovered SQL Server 2014/2016 inventory. Standard/Enterprise are production editions; Developer requires confirmed qualifying nonproduction coverage.
 - External entitlement, prior-year coverage, local permissions, connectivity, and HA/DR compliance must be confirmed outside ARM.
 
 `LicenseType` describes the underlying SQL Server software license; it does not indicate that ESUs are paid. `Paid` means qualifying Software Assurance/SQL subscription rights, while `PAYG` means Azure bills the SQL software license hourly. The separate `enableExtendedSecurityUpdates` setting starts or stops the ESU subscription and its metering. This script never changes `LicenseType`, so it cannot switch a host to `PAYG` or change any other SQL payment model; hosts that are `LicenseOnly` or undefined are blocked, not converted. To fill an undefined value after a licensing decision, use the separate [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md). See [Why LicenseType is never changed](#why-licensetype-is-never-changed) and [LicenseType describes the SQL Server software license](README.md#sql-license-type).
 
 The setting affects the entire host/OSE, not one named SQL instance. All eligible instances and associated services can be affected, and SQL Server 2014 and 2016 can meter separately. This script performs a settings-preserving GET-merge-PUT: it GETs the extension, deep-copies public settings, changes only `enableExtendedSecurityUpdates` and `esuLastUpdatedTimestamp`, refuses to send any request that would change `LicenseType`, then PUTs and verifies semantic preservation, including an unchanged `LicenseType`. Protected and response-only properties are never copied.
+
+The PUT is built from the extension read during preflight; the extension isn't re-read immediately before the write. In CSV mode, preflight for every host finishes before the first PUT. A change that another process makes to the same extension in that window could be reverted, so don't change these extensions by other means while the script runs.
 
 For `Disable`, the script intentionally reads only the expected extension and bypasses machine, provider, and SQL inventory gates. This cancellation path remains available when inventory or health evidence is degraded because requiring healthy discovery could prevent a customer from stopping future ESU charges. Wrong extension identity or unreadable public settings still blocks mutation.
 
@@ -55,7 +57,7 @@ This script only turns the ESU subscription on or off. It **never sets, changes,
 
 ## Least-privilege role
 
-Create both custom roles in each target subscription. Assign [SQL Server Arc ESU Reader](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Reader.json) at subscription scope for provider, inventory, machine, and extension reads. Assign [SQL Server Arc ESU Operator](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) only on each target machine resource group; it grants only extension write. This split avoids subscription-wide extension write access. Neither role grants machine write/delete, provider registration, or `sqlServerEsuLicenses` permissions.
+Create both custom roles in each target subscription. Assign [SQL Server Arc ESU Reader](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Reader.json) at subscription scope for provider, inventory, machine, and extension reads. Assign [SQL Server Arc ESU Operator](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) only on each target machine resource group; it grants only extension write plus the read-only `locations/operationstatus` and `locations/operationresults` actions used to poll asynchronous updates. `Disable` reads only the extension, so the Reader role's provider, machine, and inventory reads aren't used for it. This split avoids subscription-wide extension write access. Neither role grants machine write/delete, provider registration, or `sqlServerEsuLicenses` permissions.
 
 ## Authentication
 
@@ -78,6 +80,8 @@ Use exactly one path: `-userToken` with an unexpired `Get-AzAccessToken` object,
 | `tenantId`, `appID`, `clientSecret`; `userToken` | Authentication dependent | Choose one authentication path. |
 | `DryRun` | No | Full read-only preflight and billing preview; no PUT. `Preview` alias. |
 | `WhatIf`, `Confirm` | No | Standard high-impact `ShouldProcess` controls. |
+
+Aliases: `sub` (`subscriptionId`), `srg` (`serverResourceGroupName`), `server` (`ARCServerName`), `csv` (`csvFilePath`), `s`, `secret`, `sec` (`clientSecret`), `token` (`userToken`), and `Preview` (`DryRun`).
 
 ## Single-machine example
 
@@ -127,7 +131,7 @@ SubscriptionId,ServerResourceGroupName,ARCServerName,Action,LicenseType,Environm
     -DryRun
 ```
 
-All ten displayed columns are required. A blank subscription uses the command fallback. Boolean controls accept only `TRUE`, `FALSE`, or empty where optional. `Enable` requires a valid environment, `AcceptBackBilling=TRUE`, and `ConfirmExternalPrerequisites=TRUE`; a non-empty `LicenseType` must match the current host value and `AcceptLicenseTypeChange` must be empty or `FALSE`; nonproduction Developer requires `ConfirmNonProductionCoverage=TRUE`. `Disable` requires every enable-only field to be empty. Duplicate/contradictory hosts are rejected. Unknown columns resembling a billing/control field are rejected; unrelated unknown columns are warned and ignored. Any local error rejects the complete file before authentication.
+All ten displayed columns are required. A blank subscription uses the command fallback. Boolean controls accept only `TRUE`, `FALSE` (case-insensitive), or empty where optional. `Enable` requires a valid environment, `AcceptBackBilling=TRUE`, and `ConfirmExternalPrerequisites=TRUE`; a non-empty `LicenseType` must match the current host value and `AcceptLicenseTypeChange` must be empty or `FALSE`; nonproduction Developer requires `ConfirmNonProductionCoverage=TRUE`. `Disable` requires every enable-only field to be empty. Duplicate/contradictory hosts are rejected. Unknown columns resembling a billing/control field are rejected; unrelated unknown columns are warned and ignored. Any local error rejects the complete file before authentication.
 
 ## Preview and execution safety
 
@@ -155,6 +159,7 @@ Cancellation stops future ESU charges under Microsoft's current guidance, but re
 | LicenseType mismatch or `AcceptLicenseTypeChange` rejected | This script never changes `LicenseType`. Clear the `LicenseType` value or set it to the current host value, and leave `AcceptLicenseTypeChange` empty or `FALSE`. Make any licensing change separately, only after a licensing decision. |
 | Current LicenseType is `LicenseOnly` or undefined | Expected block, no change made. Follow [What to do when a host is LicenseOnly or undefined](#what-to-do-when-a-host-is-licenseonly-or-undefined); for an undefined value, use [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md) after a licensing decision. See [Why LicenseType is never changed](#why-licensetype-is-never-changed). |
 | Developer rejected | Use `NonProduction` and confirm qualifying coverage, or stop and resolve entitlement. |
+| "Unsupported SQL Server version detected" or "Unsupported SQL Server edition detected" | The host also runs another SQL Server version or an unsupported edition. `Enable` is refused for the whole host; review it manually. |
 | Stale inventory warning | Refresh inventory; staleness alone does not block enablement, but evidence is uncertain. |
 | Disable warns about degraded evidence | Expected behavior: cancellation proceeds from the verified extension settings so future charges can be stopped. |
 | Verification timeout | Check extension health and whether another process changed ESU, license, or unrelated settings. |
@@ -170,3 +175,5 @@ Cancellation stops future ESU charges under Microsoft's current guidance, but re
 - [Hybrid Compute REST API](https://learn.microsoft.com/rest/api/hybridcompute/)
 - [Microsoft.AzureArcData/sqlServerInstances 2026-01-01](https://learn.microsoft.com/azure/templates/microsoft.azurearcdata/2026-01-01/sqlserverinstances)
 - [Azure custom roles](https://learn.microsoft.com/azure/role-based-access-control/custom-roles)
+
+API versions used by this script: `Microsoft.HybridCompute` machines and extensions `2026-07-15`, `Microsoft.AzureArcData/sqlServerInstances` `2026-01-01`, and provider registration `2021-04-01`.

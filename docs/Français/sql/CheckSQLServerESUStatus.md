@@ -99,3 +99,5 @@ Le script ne modifie rien. Vérifiez `HostTypes`, les cœurs, la version, l'édi
 - [API REST Hybrid Compute](https://learn.microsoft.com/rest/api/hybridcompute/)
 - [Microsoft.AzureArcData/sqlServerInstances 2026-01-01](https://learn.microsoft.com/azure/templates/microsoft.azurearcdata/2026-01-01/sqlserverinstances)
 - [Rôles personnalisés Azure](https://learn.microsoft.com/azure/role-based-access-control/custom-roles)
+
+Versions d'API utilisées par ce script : machines et extensions `Microsoft.HybridCompute` `2026-07-15`, `Microsoft.AzureArcData/sqlServerInstances` `2026-01-01` et inscription des fournisseurs `2021-04-01`.

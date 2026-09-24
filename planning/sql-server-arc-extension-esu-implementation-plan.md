@@ -1,5 +1,8 @@
 # SQL Server Arc Extension and ESU Enablement Implementation Plan
 
+> [!NOTE]
+> Historical planning document. It records research and proposals made before implementation and may not match the current scripts. For current behavior, use [README.md](../README.md) and the guides under [docs/](../docs/); the scripts in `Scripts/` are the source of truth.
+
 Plan date: 2026-09-04
 
 Status: Planning only. This plan does not authorize any Azure mutation.

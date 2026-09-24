@@ -99,3 +99,5 @@ The script is non-mutating. Review `HostTypes`, core evidence, version, edition,
 - [Hybrid Compute REST API](https://learn.microsoft.com/rest/api/hybridcompute/)
 - [Microsoft.AzureArcData/sqlServerInstances 2026-01-01](https://learn.microsoft.com/azure/templates/microsoft.azurearcdata/2026-01-01/sqlserverinstances)
 - [Azure custom roles](https://learn.microsoft.com/azure/role-based-access-control/custom-roles)
+
+API versions used by this script: `Microsoft.HybridCompute` machines and extensions `2026-07-15`, `Microsoft.AzureArcData/sqlServerInstances` `2026-01-01`, and provider registration `2021-04-01`.

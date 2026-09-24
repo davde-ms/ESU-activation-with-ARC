@@ -8,8 +8,9 @@
 //                  Assurance or SQL subscription licenses and Product Terms
 //                  compliance; Server+CAL must be LicenseOnly).
 //   PAYG        -> AcceptPaygBilling = 'TRUE' (SQL Server software is billed
-//                  hourly through Azure). ConsentToRecurringPAYG is optional,
-//                  CSP-only, and can't be changed without reinstalling the
+//                  hourly through Azure). ConsentToRecurringPAYG is required by
+//                  Microsoft for CSP-managed subscriptions, isn't available for
+//                  other offers, and can't be changed without reinstalling the
 //                  extension.
 //   LicenseOnly -> every acknowledgement stays 'FALSE' (not eligible for Arc
 //                  ESUs).

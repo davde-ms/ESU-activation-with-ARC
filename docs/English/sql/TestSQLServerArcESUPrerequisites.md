@@ -13,7 +13,7 @@ This workflow is for Windows machines already connected to Azure Arc through glo
 - PowerShell 7.x on Windows and network access to global Azure endpoints.
 - An existing Arc machine that reports `Connected`, agent mode `Full`, Windows, a location supported for `Microsoft.AzureArcData/sqlServerInstances`, and a non-Azure cloud provider.
 - Registered `Microsoft.HybridCompute` and `Microsoft.AzureArcData` providers. The script reports missing registration but does not register providers.
-- For ESU enablement readiness: a healthy `WindowsAgent.SqlServer` extension at version `1.1.3518.465` or newer, `SqlManagement.IsEnabled=true`, `LicenseType` `Paid` or `PAYG`, and at least one SQL Server 2014/2016 Standard or Enterprise instance.
+- For ESU enablement readiness: a healthy `WindowsAgent.SqlServer` extension at version `1.1.3518.465` or newer, `SqlManagement.IsEnabled=true`, `LicenseType` `Paid` or `PAYG`, and at least one SQL Server 2014/2016 Standard or Enterprise instance. The extension version minimum and the `SqlManagement` check are set by this repository; Microsoft doesn't state them as ESU prerequisites.
 - Independently confirm outbound connectivity, local Windows and SQL permissions, entitlement and prior-year coverage, Developer nonproduction eligibility, and HA/DR compliance. ARM inventory cannot prove these items.
 
 The ESU setting applies per Arc machine/OSE and affects eligible SQL instances and associated services in that operating system environment. Multiple eligible versions in one OSE can produce separate meters. Assessment does not enroll the machine and does not deploy patches.
@@ -109,3 +109,5 @@ This assessment creates no subscription and no charge. Results are evidence, not
 - [Hybrid Compute REST API](https://learn.microsoft.com/rest/api/hybridcompute/)
 - [Microsoft.AzureArcData/sqlServerInstances 2026-01-01](https://learn.microsoft.com/azure/templates/microsoft.azurearcdata/2026-01-01/sqlserverinstances)
 - [Azure custom roles](https://learn.microsoft.com/azure/role-based-access-control/custom-roles)
+
+API versions used by this script: `Microsoft.HybridCompute` machines and extensions `2026-07-15`, `Microsoft.AzureArcData/sqlServerInstances` `2026-01-01`, and provider registration `2021-04-01`.

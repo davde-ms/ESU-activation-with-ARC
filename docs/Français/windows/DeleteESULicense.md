@@ -1,6 +1,6 @@
 # DeleteESULicense.ps1
 
-Ce script supprime une licence ESU. La suppression rompt son association avec le serveur Azure Arc et arrête la facturation liée à cette licence.
+Ce script supprime une ressource de licence ESU (`Microsoft.HybridCompute/licenses`). Il envoie une seule requête `DELETE` pour la licence et ne modifie le profil de licence d'aucun serveur Azure Arc. Avant de supprimer une licence, dissociez-la de chaque serveur avec [AssignESULicense.ps1](AssignESULicense.md) `-u` ou [ManageESUAssignmentsFR.ps1](ManageESUAssignments.md). Microsoft facture une licence supprimée pendant un maximum de cinq jours calendaires après la modification (voir l'avertissement ci-dessous).
 
 > **La suppression ou la désactivation d'une licence peut rester facturée pendant un maximum de cinq jours calendaires. Si vous supprimez puis recréez une licence ESU, la rétrofacturation continue de s'appliquer à la période correspondante; la suppression ne vous exonère pas de ces frais. Vérifiez l'incidence actuelle dans les [informations officielles sur la facturation ESU](https://learn.microsoft.com/azure/azure-arc/servers/billing-extended-security-updates#billing-associated-with-modifications-to-an-azure-arc-esu-license) avant de continuer.**
 

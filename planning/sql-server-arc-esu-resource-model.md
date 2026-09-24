@@ -1,5 +1,8 @@
 # SQL Server ESU resource ownership in Azure Arc
 
+> [!NOTE]
+> Historical planning document. It records research and proposals made before implementation and may not match the current scripts. For current behavior, use [README.md](../README.md) and the guides under [docs/](../docs/); the scripts in `Scripts/` are the source of truth.
+
 Research validation date: 2026-09-04
 
 ## Purpose

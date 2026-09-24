@@ -37,6 +37,9 @@ resources
     | where type =~ 'microsoft.hybridcompute/machines'
     | where tostring(properties.status) =~ 'Connected'
     | where tostring(properties.osType) =~ 'Windows' or tostring(properties.osName) has 'Windows'
+    // Match the script's name validation so every returned row is accepted.
+    | where resourceGroup matches regex @'^[a-zA-Z0-9_().-]{1,90}$' and not(resourceGroup endswith '.')
+    | where name matches regex @'^[a-zA-Z0-9_.-]{1,54}$'
     | project
         MachineResourceId = tolower(id),
         SubscriptionId = subscriptionId,
@@ -48,21 +51,35 @@ resources
     | where type =~ 'microsoft.azurearcdata/sqlserverinstances'
     | extend
         MachineResourceId = tolower(tostring(properties.containerResourceId)),
-        SqlVersion = tostring(properties.version)
-    | where SqlVersion startswith '12.' or SqlVersion startswith '13.' or
-        SqlVersion contains 'SQL Server 2014' or SqlVersion contains 'SQL Server 2016'
-    | summarize EligibleInstanceCount = count() by MachineResourceId
+        SqlVersion = tostring(properties.version),
+        SqlEdition = tostring(properties.edition)
+    // Mirror the script: Enable is refused for the whole host if any instance is
+    // not SQL Server 2014/2016, or not Standard, Enterprise, or Developer edition.
+    | extend
+        IsEligibleVersion = SqlVersion matches regex @'(?i)SQL\s*Server\s*201[46]|^1[23](\.|$)',
+        IsProductionEdition = SqlEdition matches regex @'(?i)\b(Standard|Enterprise)\b',
+        IsDeveloperEdition = SqlEdition matches regex @'(?i)\bDeveloper\b'
+    | summarize
+        EligibleInstanceCount = countif(IsEligibleVersion),
+        IneligibleVersionCount = countif(not(IsEligibleVersion)),
+        UnsupportedEditionCount = countif(not(IsProductionEdition) and not(IsDeveloperEdition)),
+        DeveloperInstanceCount = countif(not(IsProductionEdition) and IsDeveloperEdition)
+        by MachineResourceId
 ) on MachineResourceId
 | extend EffectiveLicenseType = CurrentLicenseType
 | where RequestedAction in ('Enable', 'Disable')
 | where RequestedAction == 'Disable' or (
     EligibleInstanceCount > 0 and
+    IneligibleVersionCount == 0 and
+    UnsupportedEditionCount == 0 and
+    (DeveloperInstanceCount == 0 or
+        (RequestedEnvironment == 'NonProduction' and ConfirmNonProductionCoverage =~ 'TRUE')) and
     RequestedEnvironment in ('Production', 'NonProduction') and
     EffectiveLicenseType in ('Paid', 'PAYG') and
     (isempty(RequestedLicenseType) or RequestedLicenseType =~ CurrentLicenseType) and
-    AcceptLicenseTypeChange != 'TRUE' and
-    AcceptBackBilling == 'TRUE' and
-    ConfirmExternalPrerequisites == 'TRUE'
+    AcceptLicenseTypeChange !~ 'TRUE' and
+    AcceptBackBilling =~ 'TRUE' and
+    ConfirmExternalPrerequisites =~ 'TRUE'
 )
 | where (RequestedAction == 'Enable' and CurrentEsuEnabled != 'true') or
     (RequestedAction == 'Disable' and CurrentEsuEnabled == 'true')

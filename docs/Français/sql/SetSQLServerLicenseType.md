@@ -5,7 +5,7 @@
 
 ## Objectif et périmètre
 
-`SetSQLServerLicenseType.ps1` définit `LicenseType` sur l'extension `WindowsAgent.SqlServer` existante d'une machine Windows activée par Arc, **uniquement lorsque la valeur actuelle est vide** (affichée comme `Configuration needed` par la requête Resource Graph de Microsoft). Il permet aux hôtes laissés sans type de licence par l'intégration de passer à l'inscription aux ESU, une fois que le propriétaire des licences a pris sa décision.
+`SetSQLServerLicenseType.ps1` définit `LicenseType` sur l'extension `WindowsAgent.SqlServer` existante d'une machine Windows activée par Arc, **uniquement lorsque la valeur actuelle est vide ou absente** (la requête Resource Graph de Microsoft affiche une valeur vide comme `Configuration needed`; une valeur absente est répertoriée comme non définie). Il permet aux hôtes laissés sans type de licence par l'intégration de passer à l'inscription aux ESU, une fois que le propriétaire des licences a pris sa décision.
 
 Il est conçu pour :
 
@@ -15,7 +15,7 @@ Il est conçu pour :
 
 Il n'installe pas l'extension (consultez [InstallSQLServerArcExtension.ps1](InstallSQLServerArcExtension.md)), ne gère ni les machines virtuelles Azure natives ni Linux, ne modifie pas les étiquettes Azure et ne gère pas les licences mutualisées par cœurs physiques. Il prend en charge uniquement les points de terminaison Azure globaux.
 
-`SetSQLServerESUSubscription.ps1` ne modifie toujours jamais `LicenseType`. Les raisons figurent dans [Pourquoi LicenseType n'est jamais modifié](SetSQLServerESUSubscription.md#why-licensetype-is-never-changed); ce script distinct fait de la décision de licence une étape séparée et explicitement confirmée.
+`SetSQLServerESUSubscription.ps1` ne modifiera  jamais `LicenseType`. Les raisons figurent dans [Pourquoi LicenseType n'est jamais modifié](SetSQLServerESUSubscription.md#why-licensetype-is-never-changed); ce script distinct fait de la décision de licence une étape séparée et explicitement confirmée.
 
 <a id="when-licensetype-is-empty"></a>
 
@@ -23,7 +23,7 @@ Il n'installe pas l'extension (consultez [InstallSQLServerArcExtension.ps1](Inst
 
 Consultez [Comment LicenseType est renseigné](README.md#how-licensetype-gets-populated) pour l'explication complète. En résumé, Microsoft documente que :
 
-- L'intégration automatique lit l'étiquette `ArcSQLServerExtensionDeployment` (`Paid`, `PAYG`, `PAYG-Recurring` ou `LicenseOnly`) sur l'abonnement, le groupe de ressources ou le serveur Arc. L'étape d'installation « définir le type de licence » n'a lieu que si cette étiquette est définie.
+- L'intégration automatique lit l'étiquette `ArcSQLServerExtensionDeployment` (`Paid`, `PAYG`, `PAYG-Recurring` ou `LicenseOnly`) sur l'abonnement, le groupe de ressources ou le serveur Arc. Microsoft indique que le type de licence est défini si la valeur de l'étiquette `ArcSQLServerExtensionDeployment` est définie.
 - Si aucune étiquette n'est définie et que vous disposez de licences Software Assurance ou d'abonnement SQL Server disponibles, Microsoft définit automatiquement le type de licence à **Paid** pour les instances nouvellement intégrées.
 - Sinon, la valeur reste vide : `Configuration needed` signifie que le processus d'intégration n'avait pas assez d'informations pour configurer automatiquement le type de licence.
 
@@ -36,7 +36,7 @@ Une valeur vide bloque l'inscription aux ESU, car Microsoft exige `Paid` ou `PAY
 | Valeur | À utiliser uniquement lorsque | Incidence | Confirmation requise |
 | --- | --- | --- | --- |
 | `Paid` | Chaque instance SQL Server de l'hôte est couverte par des licences Standard ou Enterprise **par cœur** avec Software Assurance active, ou par un abonnement SQL Server actif. | Vous attestez disposer de licences Enterprise ou Standard avec Software Assurance active ou d'un abonnement SQL Server actif, et que l'appareil respecte les restrictions d'externalisation des Conditions des produits. Éligible aux ESU. | `AttestSoftwareAssurance`. Également `ConfirmCoreBasedEnterpriseLicense` lorsqu'une instance Enterprise est signalée ou qu'aucun inventaire n'est disponible. |
-| `PAYG` | Le propriétaire des licences a approuvé le paiement de la licence du logiciel SQL Server par l'intermédiaire d'Azure. | **Démarre une facturation Azure horaire** pour la licence du logiciel SQL Server de l'hôte, en plus des éventuels frais ESU. Une connectivité intermittente n'arrête pas la facturation PAYG. Éligible aux ESU. | `AcceptPaygBilling`. `ConsentToRecurringPAYG` facultatif pour les abonnements gérés par un CSP. |
+| `PAYG` | Le propriétaire des licences a approuvé le paiement de la licence du logiciel SQL Server par l'intermédiaire d'Azure. | **Démarre une facturation Azure horaire** pour la licence du logiciel SQL Server de l'hôte, en plus des éventuels frais ESU. Une connectivité intermittente n'arrête pas la facturation PAYG. Éligible aux ESU. | `AcceptPaygBilling`. Microsoft exige `ConsentToRecurringPAYG` pour les abonnements gérés par un CSP; il n'est pas disponible pour les autres offres. |
 | `LicenseOnly` | Server+CAL, licence perpétuelle sans Software Assurance, ou éditions gratuites Developer, Evaluation ou Express. | **Non éligible** à un abonnement ESU activé par Arc. | Aucune. |
 
 Règles Microsoft essentielles :
@@ -49,7 +49,7 @@ Règles Microsoft essentielles :
 
 `ConsentToRecurringPAYG` écrit `ConsentToRecurringPAYG` avec `Consented=true` et l'heure UTC actuelle dans `ConsentTimestamp`, au format documenté par Microsoft dans [Consentement à la facturation récurrente](https://learn.microsoft.com/sql/sql-server/azure-arc/manage-pay-as-you-go-transition?view=sql-server-ver17#recurring-billing-consent). Utilisez-le uniquement pour les abonnements gérés par un CSP :
 
-- Microsoft indique que la facturation récurrente à l'utilisation est activée et exigée dans les abonnements gérés par un CSP, et qu'elle n'est pas disponible avec les autres offres d'abonnement.
+- Microsoft indique que la facturation récurrente à l'utilisation est activée et exigée dans les abonnements gérés par un CSP, et qu'elle n'est pas disponible avec les autres offres d'abonnement ([FAQ](https://learn.microsoft.com/sql/sql-server/azure-arc/faq?view=sql-server-ver17)). La section sur le consentement à la facturation récurrente ajoute que les nouveaux abonnements à l'utilisation ne sont pas autorisés sans ce consentement.
 - Une fois enregistrée, la propriété de consentement ne peut pas être modifiée sans réinstaller l'extension.
 - Après l'heure du consentement, une déconnexion de plus de 30 jours active la facturation PAYG récurrente, y compris des frais rétroactifs.
 
@@ -91,12 +91,14 @@ Utilisez exactement une méthode : `-userToken` avec un objet `Get-AzAccessToken
 | `LicenseType` | Mode unique | `Paid`, `PAYG` ou `LicenseOnly`. Écrit uniquement lorsque la valeur actuelle est vide. |
 | `AttestSoftwareAssurance` | Obligatoire pour `Paid` | Attestation Software Assurance ou abonnement SQL pour tout l'hôte. |
 | `AcceptPaygBilling` | Obligatoire pour `PAYG` | Accepte la facturation Azure horaire de la licence du logiciel SQL Server. |
-| `ConsentToRecurringPAYG` | Facultatif, `PAYG` uniquement | Enregistre le consentement PAYG récurrent pour les abonnements gérés par un CSP. Irréversible sans réinstaller l'extension. |
+| `ConsentToRecurringPAYG` | `PAYG` uniquement; exigé pour les abonnements gérés par un CSP | Enregistre le consentement PAYG récurrent. Microsoft l'exige pour les abonnements gérés par un CSP; ne l'utilisez pas pour les autres offres. Irréversible sans réinstaller l'extension. |
 | `ConfirmCoreBasedEnterpriseLicense` | `Paid` uniquement, lorsque requis | Confirme que chaque instance Enterprise de l'hôte est sous licence par cœur, et non Server+CAL. |
 | `csvFilePath` | Mode CSV | Schéma exact ci-dessous. |
 | `tenantId`, `appID`, `clientSecret`; `userToken` | Selon l'authentification | Choisissez une seule méthode d'authentification. |
 | `DryRun` | Non | Validation préalable complète en lecture seule et avertissements; aucun PUT. Alias `Preview`. |
 | `WhatIf`, `Confirm` | Non | Contrôles `ShouldProcess` standard à impact élevé. |
+
+Alias : `sub` (`subscriptionId`), `srg` (`serverResourceGroupName`), `server` (`ARCServerName`), `csv` (`csvFilePath`), `s`, `secret`, `sec` (`clientSecret`), `token` (`userToken`) et `Preview` (`DryRun`).
 
 ## Exemples
 
@@ -148,7 +150,7 @@ SubscriptionId,ServerResourceGroupName,ARCServerName,LicenseType,AttestSoftwareA
     -DryRun
 ```
 
-Les huit colonnes sont obligatoires. Un abonnement vide utilise la valeur de secours de la commande. Les colonnes de confirmation acceptent uniquement `TRUE`, `FALSE` ou une valeur vide. Les hôtes en double sont rejetés. Les colonnes inconnues qui ressemblent à un champ de licence ou de facturation sont rejetées; les autres colonnes inconnues sont signalées puis ignorées.
+Les huit colonnes sont obligatoires. Un abonnement vide utilise la valeur de secours de la commande. Les colonnes de confirmation acceptent uniquement `TRUE`, `FALSE` (sans distinction de casse) ou une valeur vide. Les hôtes en double sont rejetés. Les colonnes inconnues qui ressemblent à un champ de licence ou de facturation sont rejetées; les autres colonnes inconnues sont signalées puis ignorées.
 
 ## Prévisualisation et sécurité d'exécution
 
@@ -166,7 +168,7 @@ Chaque résultat contient `RowNumber`, `SubscriptionId`, `ResourceGroupName`, `M
 | --- | --- |
 | Erreur de confirmation | Fournissez uniquement la confirmation correspondant à la valeur choisie, et seulement après la décision du propriétaire des licences. |
 | « never overwrites an existing value » | L'hôte a déjà un `LicenseType`. Modifiez-le uniquement dans le portail Azure ou avec l'exemple Microsoft après une décision de licence. |
-| Instance Enterprise ou inventaire manquant bloquant `Paid` | Confirmez que chaque instance Enterprise est sous licence par cœur, puis ajoutez `ConfirmCoreBasedEnterpriseLicense`. Sinon, l'hôte est Server+CAL et doit être `LicenseOnly`. |
+| Instance Enterprise ou inventaire manquant bloquant `Paid` | Si Enterprise est signalé, confirmez que chaque instance Enterprise de l'hôte est sous licence par cœur avant d'ajouter `ConfirmCoreBasedEnterpriseLicense`; un hôte Enterprise Server+CAL doit être `LicenseOnly`. Si l'inventaire est manquant, actualisez-le et réexécutez, ou ajoutez `ConfirmCoreBasedEnterpriseLicense` uniquement après avoir vérifié les licences de l'hôte de façon indépendante. |
 | `LicenseOnly` refusé lorsque les ESU sont activées | Annulez d'abord l'abonnement ESU avec [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md) `-Action Disable`. |
 | Avertissement d'abonnement CSP avec `PAYG` | Arrêtez, puis réexécutez avec `ConsentToRecurringPAYG` uniquement si l'abonnement est géré par un CSP. |
 
@@ -180,3 +182,5 @@ Chaque résultat contient `RowNumber`, `SubscriptionId`, `ResourceGroupName`, `M
 - [FAQ SQL Server activé par Azure Arc](https://learn.microsoft.com/sql/sql-server/azure-arc/faq?view=sql-server-ver17)
 - [Extended Security Updates SQL Server activées par Azure Arc](https://learn.microsoft.com/sql/sql-server/azure-arc/extended-security-updates?view=sql-server-ver17)
 - [Exemple Microsoft : modify-arc-sql-license-type.ps1](https://github.com/microsoft/sql-server-samples/tree/master/samples/manage/azure-arc-enabled-sql-server/modify-license-type)
+
+Versions d'API utilisées par ce script : machines et extensions `Microsoft.HybridCompute` `2026-07-15`, `Microsoft.AzureArcData/sqlServerInstances` `2026-01-01` et inscription des fournisseurs `2021-04-01`.

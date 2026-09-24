@@ -6,17 +6,19 @@
 
 Consultez la [présentation du modèle d'objets ESU SQL Server](README.md) pour la mesure des vCœurs des machines virtuelles et la comparaison avec l'attribution de licences Windows Server. `ServerResourceGroupName` désigne le groupe de ressources contenant la machine Arc; aucun objet ni groupe de ressources de licence SQL distinct n'est créé.
 
-Seuls SQL Server 2014 et 2016 sont pris en charge. L'activation exige un inventaire éligible et des confirmations explicites de facturation. La désactivation reste possible lorsque les éléments d'inventaire/fournisseur/machine sont dégradés afin que le client puisse annuler les frais futurs; elle exige toujours une extension lisible avec l'identité exacte et des paramètres publics.
+Seuls SQL Server 2014 et 2016 sont pris en charge. L'activation exige un inventaire éligible et des confirmations explicites de facturation. `Enable` est refusé pour tout l'hôte si l'une des instances découvertes est une autre version de SQL Server (par exemple SQL Server 2017 ou ultérieure), une édition autre que Standard, Enterprise ou Developer (par exemple Express, Web, Evaluation ou Business Intelligence), ou Developer avec `Production`. Ce contrôle restrictif est une protection de ce script, pas une règle d'éligibilité de Microsoft; examinez ces hôtes manuellement. La désactivation reste possible lorsque les éléments d'inventaire/fournisseur/machine sont dégradés afin que le client puisse annuler les frais futurs; elle exige toujours une extension lisible avec l'identité exacte et des paramètres publics.
 
 ## Prérequis et limites
 
-- PowerShell 7.x sous Windows; fournisseurs inscrits; machine Arc existante connectée dont `agentConfiguration.configMode` vaut `full`, et extension `WindowsAgent.SqlServer` saine en version `1.1.3518.465` ou ultérieure (la version en cours d'exécution de `instanceView` est utilisée lorsqu'elle est signalée) pour l'activation.
-- `SqlManagement.IsEnabled=true`, `LicenseType` effectif `Paid` ou `PAYG` et inventaire SQL Server 2014/2016. Standard/Enterprise sont des éditions de production; Developer exige une couverture hors production admissible confirmée.
+- PowerShell 7.x sous Windows; fournisseurs inscrits; machine Arc existante connectée dont `agentConfiguration.configMode` vaut `full`, et extension `WindowsAgent.SqlServer` saine en version `1.1.3518.465` ou ultérieure (la version en cours d'exécution de `instanceView` est utilisée lorsqu'elle est signalée) pour l'activation. Ce minimum est défini par ce dépôt : les notes de publication de Microsoft indiquent cette version comme cible actuelle de la mise à niveau automatique, mais Microsoft n'indique pas de version minimale de l'extension pour les ESU.
+- `SqlManagement.IsEnabled=true` (vérification de ce dépôt, pas un prérequis ESU documenté par Microsoft), `LicenseType` effectif `Paid` ou `PAYG` et inventaire SQL Server 2014/2016. Standard/Enterprise sont des éditions de production; Developer exige une couverture hors production admissible confirmée.
 - Les droits, la couverture antérieure, les autorisations locales, la connectivité et la conformité HA/DR doivent être confirmés hors ARM.
 
 `LicenseType` décrit la licence du logiciel SQL Server sous-jacent; il n'indique pas que les ESU sont payées. `Paid` désigne des droits éligibles avec Software Assurance/abonnement SQL, tandis que `PAYG` signifie qu'Azure facture la licence du logiciel SQL à l'heure. Le paramètre distinct `enableExtendedSecurityUpdates` démarre ou arrête l'abonnement ESU et sa mesure. Ce script ne modifie jamais `LicenseType` : il ne peut donc pas faire passer un hôte en `PAYG` ni changer un autre modèle de paiement SQL; les hôtes `LicenseOnly` ou sans valeur sont bloqués, jamais convertis. Pour renseigner une valeur vide après une décision de licence, utilisez le script distinct [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md). Consultez [Pourquoi LicenseType n'est jamais modifié](#why-licensetype-is-never-changed) et [LicenseType décrit la licence du logiciel SQL Server](README.md#sql-license-type).
 
 Le paramètre concerne tout l'hôte/OSE, pas une instance nommée. Toutes les instances et tous les services associés éligibles peuvent être affectés, et 2014/2016 peuvent être mesurés séparément. Le script effectue un GET-fusion-PUT préservant les paramètres : il lit l'extension, copie profondément les paramètres publics, modifie uniquement `enableExtendedSecurityUpdates` et `esuLastUpdatedTimestamp`, refuse d'envoyer toute requête qui modifierait `LicenseType`, puis écrit et vérifie la préservation sémantique, y compris un `LicenseType` inchangé. Les propriétés protégées ou de réponse ne sont jamais copiées.
+
+Le PUT est construit à partir de l'extension lue lors de la validation préalable; l'extension n'est pas relue juste avant l'écriture. En mode CSV, la validation préalable de tous les hôtes se termine avant le premier PUT. Une modification apportée à la même extension par un autre processus pendant cet intervalle pourrait être annulée; ne modifiez donc pas ces extensions par d'autres moyens pendant l'exécution du script.
 
 Pour `Disable`, le script lit volontairement uniquement l'extension attendue et ignore les contrôles de machine, fournisseur et inventaire SQL. Cette voie d'annulation reste disponible lorsque la découverte ou l'état de santé sont dégradés, car exiger une découverte saine pourrait empêcher l'arrêt des frais ESU futurs. Une mauvaise identité d'extension ou des paramètres publics illisibles bloque toujours la modification.
 
@@ -57,7 +59,7 @@ L'action `Enable` échoue à la validation préalable pour cet hôte et aucune m
 
 ## Rôle de moindre privilège
 
-Créez les deux rôles personnalisés dans chaque abonnement cible. Attribuez [SQL Server Arc ESU Reader](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Reader.json) au niveau de l'abonnement pour lire les fournisseurs, l'inventaire, la machine et l'extension. Attribuez [SQL Server Arc ESU Operator](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) uniquement à chaque groupe de ressources de machines cible; il accorde seulement l'écriture d'extension. Cette séparation évite l'écriture des extensions dans tout l'abonnement. Aucun rôle n'accorde l'écriture/suppression de machine, l'inscription de fournisseur ni l'autorisation `sqlServerEsuLicenses`.
+Créez les deux rôles personnalisés dans chaque abonnement cible. Attribuez [SQL Server Arc ESU Reader](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Reader.json) au niveau de l'abonnement pour lire les fournisseurs, l'inventaire, la machine et l'extension. Attribuez [SQL Server Arc ESU Operator](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) uniquement à chaque groupe de ressources de machines cible; il accorde seulement l'écriture d'extension ainsi que les actions en lecture seule `locations/operationstatus` et `locations/operationresults` utilisées pour suivre les mises à jour asynchrones. `Disable` lit uniquement l'extension; les lectures de fournisseur, de machine et d'inventaire du rôle Reader ne sont donc pas utilisées dans ce cas. Cette séparation évite l'écriture des extensions dans tout l'abonnement. Aucun rôle n'accorde l'écriture/suppression de machine, l'inscription de fournisseur ni l'autorisation `sqlServerEsuLicenses`.
 
 ## Authentification
 
@@ -74,12 +76,14 @@ Utilisez exactement une méthode : `-userToken` avec un objet `Get-AzAccessToken
 | `Environment` | Activation uniquement | `Production` ou `NonProduction`. |
 | `AcceptBackBilling` | Activation uniquement | Confirmation obligatoire. |
 | `AcceptLicenseTypeChange` | Doit être vide ou FALSE | Conservé pour compatibilité; TRUE est rejeté, car les changements de type de licence ne sont pas pris en charge. |
-| `ConfirmNonProductionCoverage` | Lorsque nécessaire | Obligatoire pour Developer en `NonProduction`. |
+| `ConfirmNonProductionCoverage` | Activation uniquement lorsque nécessaire | Obligatoire pour Developer en `NonProduction`. |
 | `ConfirmExternalPrerequisites` | Activation uniquement | Confirmation des contrôles externes. |
 | `csvFilePath` | Mode CSV | Schéma exact ci-dessous. |
 | `tenantId`, `appID`, `clientSecret`; `userToken` | Selon l'authentification | Choisissez une méthode. |
 | `DryRun` | Non | Validation et aperçu de facturation en lecture seule; aucun PUT. Alias `Preview`. |
 | `WhatIf`, `Confirm` | Non | Contrôles `ShouldProcess` à impact élevé. |
+
+Alias : `sub` (`subscriptionId`), `srg` (`serverResourceGroupName`), `server` (`ARCServerName`), `csv` (`csvFilePath`), `s`, `secret`, `sec` (`clientSecret`), `token` (`userToken`) et `Preview` (`DryRun`).
 
 ## Exemple avec une machine
 
@@ -129,13 +133,13 @@ SubscriptionId,ServerResourceGroupName,ARCServerName,Action,LicenseType,Environm
     -DryRun
 ```
 
-Les dix colonnes affichées sont obligatoires. Un abonnement vide utilise celui de la commande. Les contrôles booléens acceptent uniquement `TRUE`, `FALSE` ou vide lorsque cela est permis. `Enable` exige un environnement valide, `AcceptBackBilling=TRUE` et `ConfirmExternalPrerequisites=TRUE`; un `LicenseType` non vide doit correspondre à la valeur actuelle de l'hôte et `AcceptLicenseTypeChange` doit être vide ou `FALSE`; Developer hors production exige `ConfirmNonProductionCoverage=TRUE`. `Disable` exige que tous les champs d'activation soient vides. Les hôtes en double/contradictoires sont rejetés. Une colonne inconnue ressemblant à un contrôle de facturation est rejetée; une colonne sans rapport est signalée puis ignorée. Toute erreur locale rejette tout le fichier avant l'authentification.
+Les dix colonnes affichées sont obligatoires. Un abonnement vide utilise celui de la commande. Les contrôles booléens acceptent uniquement `TRUE`, `FALSE` (sans distinction de casse) ou vide lorsque cela est permis. `Enable` exige un environnement valide, `AcceptBackBilling=TRUE` et `ConfirmExternalPrerequisites=TRUE`; un `LicenseType` non vide doit correspondre à la valeur actuelle de l'hôte et `AcceptLicenseTypeChange` doit être vide ou `FALSE`; Developer hors production exige `ConfirmNonProductionCoverage=TRUE`. `Disable` exige que tous les champs d'activation soient vides. Les hôtes en double/contradictoires sont rejetés. Une colonne inconnue ressemblant à un contrôle de facturation est rejetée; une colonne sans rapport est signalée puis ignorée. Toute erreur locale rejette tout le fichier avant l'authentification.
 
 ## Prévisualisation et sécurité d'exécution
 
-`-DryRun` effectue la validation préalable, affiche les éléments exacts d'hôte/licence/version/cœurs/facturation et n'envoie aucun PUT. `-WhatIf` ajoute la prévisualisation `ShouldProcess`; `-Confirm` demande une confirmation. Tous les contrôles Azure se terminent avant la première modification. Un échec rend les lignes valides `NotStarted`; après le début des modifications, les lignes indépendantes continuent malgré un échec actif.
+`-DryRun` effectue la validation préalable, affiche les éléments exacts d'hôte/type de licence/version/cœurs/facturation et n'envoie aucun PUT. `-WhatIf` ajoute la prévisualisation `ShouldProcess`; `-Confirm` demande une confirmation. Tous les contrôles Azure se terminent avant la première modification. Un échec rend les lignes valides `NotStarted`; après le début des modifications, les lignes indépendantes continuent malgré un échec actif.
 
-Un état déjà conforme renvoie `AlreadyCompliant` sans PUT ni modification d'horodatage. Les opérations actives réessaient les réponses transitoires, n'acceptent que les URL de suivi approuvées et relisent jusqu'à vérifier l'état, l'horodatage, la licence et les paramètres non liés.
+Un état déjà conforme renvoie `AlreadyCompliant` sans PUT ni modification d'horodatage. Les opérations actives réessaient les réponses transitoires, n'acceptent que les URL de suivi approuvées et relisent jusqu'à vérifier l'état, l'horodatage, le type de licence et les paramètres non liés.
 
 ## Sortie et codes de sortie
 
@@ -157,6 +161,7 @@ Selon les instructions Microsoft actuelles, l'annulation arrête les frais ESU f
 | `LicenseType` différent ou `AcceptLicenseTypeChange` rejeté | Ce script ne modifie jamais `LicenseType`. Videz `LicenseType` ou indiquez la valeur actuelle de l'hôte, et laissez `AcceptLicenseTypeChange` vide ou à `FALSE`. Effectuez tout changement de licence séparément, uniquement après une décision de licence. |
 | `LicenseType` actuel `LicenseOnly` ou sans valeur | Blocage prévu, aucune modification. Suivez [Que faire lorsqu'un hôte est LicenseOnly ou sans valeur](#what-to-do-when-a-host-is-licenseonly-or-undefined); pour une valeur vide, utilisez [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md) après une décision de licence. Consultez [Pourquoi LicenseType n'est jamais modifié](#why-licensetype-is-never-changed). |
 | Developer rejeté | Utilisez `NonProduction` avec une couverture admissible confirmée, ou arrêtez pour résoudre le droit. |
+| « Unsupported SQL Server version detected » ou « Unsupported SQL Server edition detected » | L'hôte exécute aussi une autre version de SQL Server ou une édition non prise en charge. `Enable` est refusé pour tout l'hôte; examinez-le manuellement. |
 | Avertissement d'inventaire ancien | Actualisez l'inventaire; l'ancienneté seule ne bloque pas, mais rend les éléments incertains. |
 | Avertissement de désactivation dégradée | Comportement prévu : l'annulation se fonde sur les paramètres vérifiés de l'extension pour arrêter les frais futurs. |
 | Délai de vérification dépassé | Vérifiez l'extension et les modifications concurrentes des paramètres ESU, de licence ou non liés. |
@@ -172,3 +177,5 @@ Selon les instructions Microsoft actuelles, l'annulation arrête les frais ESU f
 - [API REST Hybrid Compute](https://learn.microsoft.com/rest/api/hybridcompute/)
 - [Microsoft.AzureArcData/sqlServerInstances 2026-01-01](https://learn.microsoft.com/azure/templates/microsoft.azurearcdata/2026-01-01/sqlserverinstances)
 - [Rôles personnalisés Azure](https://learn.microsoft.com/azure/role-based-access-control/custom-roles)
+
+Versions d'API utilisées par ce script : machines et extensions `Microsoft.HybridCompute` `2026-07-15`, `Microsoft.AzureArcData/sqlServerInstances` `2026-01-01` et inscription des fournisseurs `2021-04-01`.

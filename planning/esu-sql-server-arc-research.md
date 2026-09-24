@@ -1,5 +1,8 @@
 # SQL Server ESUs through Azure Arc: research and implementation plan
 
+> [!NOTE]
+> Historical planning document. It records research and proposals made before implementation and may not match the current scripts. For current behavior, use [README.md](../README.md) and the guides under [docs/](../docs/); the scripts in `Scripts/` are the source of truth.
+
 Research date: 2026-09-03
 
 ## Executive conclusion
@@ -412,7 +415,7 @@ Keep SQL workflows separate from existing Windows scripts and CSV schemas.
    - Doesn't install the Connected Machine agent, change local SQL permissions, or mutate Azure.
 2. `Scripts/sql/SetSQLServerESUSubscription.ps1`
    - Single-host enable or disable.
-   - Supports an explicit license-type change only when requested.
+   - As implemented, never changes `LicenseType`; a supplied value is only an assertion of the current value, and a mismatch fails preflight.
    - Uses GET-merge-PUT and verifies the result.
 3. `Scripts/sql/CheckSQLServerESUStatus.ps1`
    - Correlates machine, extension, SQL instances, and optional physical-core licenses.
@@ -525,7 +528,7 @@ All customer-provided rows must validate before authentication or mutation.
 - Keep `DryRun` read-only and complete all feasible ARM GET/list checks.
 - Use standard `SupportsShouldProcess`, `WhatIf`, and `Confirm`.
 - Display a normalized plan including current state, requested state, detected cores, eligible versions, likely meter basis, back-billing warning, API version, and preview status.
-- Require explicit opt-in for license-type changes and billing activation.
+- Require explicit opt-in for billing activation. (As implemented, the ESU script never changes `LicenseType`; filling an empty value is a separate script, `SetSQLServerLicenseType.ps1`.)
 - Poll and verify asynchronous ARM operations.
 - Never use a live tenant as an automated test target.
 - Return nonzero when any requested operation fails or post-mutation verification disagrees.

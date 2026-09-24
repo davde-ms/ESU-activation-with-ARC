@@ -107,7 +107,7 @@ Use the `-exportCsvPath` parameter to export detailed results to a CSV file:
 
     ./Scripts/windows/CheckESUStatus.ps1 -subscriptionId "00000000-0000-0000-0000-000000000001" -tenantId "00000000-0000-0000-0000-000000000002" -appID "00000000-0000-0000-0000-000000000003" -clientSecret "your_application_secret_value" -csvFilePath "C:\servers.csv" -exportCsvPath "C:\Results\ESU-Status-Report.csv"
 
-The exported CSV contains all server details including license URIs, status, timestamps, and error messages.
+The exported CSV contains all server details including license URIs, status, timestamps, and error messages. An export failure produces a nonzero exit code.
 
 ## Logging
 
@@ -171,4 +171,5 @@ The script includes comprehensive error handling for common scenarios:
 - **Authentication Failures**: Invalid credentials or expired tokens
 - **CSV File Issues**: Missing files or invalid format
 - **Network Issues**: Connection problems with Azure APIs
+- **CSV Export Failures**: The export error is reported and the script exits with a nonzero code
 
