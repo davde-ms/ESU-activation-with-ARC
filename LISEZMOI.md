@@ -52,7 +52,7 @@ Les ESU Windows Server et SQL Server n'utilisent pas le même modèle d'objets A
 
 Dans cette documentation, **par machine Arc/OSE** désigne la machine virtuelle invitée lorsque SQL Server s'exécute dans une machine virtuelle, et non l'hyperviseur physique. Le client active séparément l'abonnement ESU SQL sur chaque machine virtuelle SQL connectée à Arc qu'il souhaite couvrir; Azure mesure les vCœurs de cette machine virtuelle plutôt que tous les cœurs de l'hôte de virtualisation.
 
-**Important :** les valeurs d'extension `Paid`, `PAYG` et `LicenseOnly` décrivent le mode de licence du logiciel SQL Server sous-jacent; elles ne représentent pas l'état de paiement des ESU. `Paid` désigne une licence apportée par le client avec Software Assurance active ou un abonnement SQL Server, `PAYG` signifie que la licence du logiciel SQL est facturée par Azure et `LicenseOnly` désigne une licence sans l'avantage d'abonnement requis. Seuls `Paid` et `PAYG` sont éligibles à l'abonnement ESU activé par Arc. Le paramètre distinct `enableExtendedSecurityUpdates` contrôle l'inscription et la mesure ESU. `SetSQLServerESUSubscription.ps1` ne définit ni ne modifie jamais `LicenseType` : l'hôte doit déjà être `Paid` ou `PAYG`, et les hôtes `LicenseOnly` ou sans valeur sont bloqués au lieu d'être convertis. `InstallSQLServerArcExtension.ps1` définit `LicenseType` uniquement lorsqu'il installe une extension absente, et seulement à `Paid` ou `LicenseOnly`; aucun script de ce dépôt ne sélectionne `PAYG`. Consultez l'[explication détaillée de LicenseType](docs/Français/sql/README.md#sql-license-type) et [pourquoi le script ESU ne modifie jamais LicenseType](docs/Français/sql/SetSQLServerESUSubscription.md#why-licensetype-is-never-changed).
+**Important :** les valeurs d'extension `Paid`, `PAYG` et `LicenseOnly` décrivent le mode de licence du logiciel SQL Server sous-jacent; elles ne représentent pas l'état de paiement des ESU. `Paid` désigne une licence apportée par le client avec Software Assurance active ou un abonnement SQL Server, `PAYG` signifie que la licence du logiciel SQL est facturée par Azure et `LicenseOnly` désigne une licence sans l'avantage d'abonnement requis. Seuls `Paid` et `PAYG` sont éligibles à l'abonnement ESU activé par Arc. Le paramètre distinct `enableExtendedSecurityUpdates` contrôle l'inscription et la mesure ESU. `SetSQLServerESUSubscription.ps1` ne définit ni ne modifie jamais `LicenseType` : l'hôte doit déjà être `Paid` ou `PAYG`, et les hôtes `LicenseOnly` ou sans valeur sont bloqués au lieu d'être convertis. `InstallSQLServerArcExtension.ps1` définit `LicenseType` uniquement lorsqu'il installe une extension absente, et seulement à `Paid` ou `LicenseOnly`. `SetSQLServerLicenseType.ps1` est le seul script qui peut sélectionner `PAYG` : il renseigne uniquement un `LicenseType` vide, n'écrase jamais une valeur existante et exige une confirmation explicite pour la valeur choisie. Consultez l'[explication détaillée de LicenseType](docs/Français/sql/README.md#sql-license-type), [comment LicenseType est renseigné](docs/Français/sql/README.md#how-licensetype-gets-populated) et [pourquoi le script ESU ne modifie jamais LicenseType](docs/Français/sql/SetSQLServerESUSubscription.md#why-licensetype-is-never-changed).
 
 SQL Server propose également un modèle distinct de virtualisation illimitée par cœurs physiques qui crée une ressource `Microsoft.AzureArcData/sqlServerEsuLicenses`. Cette ressource peut couvrir les machines virtuelles Arc éligibles au niveau d'un groupe de ressources, d'un abonnement ou d'un locataire. Ce dépôt ne crée, ne gère et n'applique pas ces licences mutualisées par cœurs physiques.
 
@@ -169,6 +169,9 @@ Exemple de prévisualisation en bloc :
 <a id="esu-sql-server"></a>
 ## ESU SQL Server
 
+> [!IMPORTANT]
+> **Vérifiez le `LicenseType` de l'extension SQL avant d'essayer d'activer les ESU.** L'intégration peut le laisser vide, ce que Microsoft signale comme `Configuration needed` : le processus d'intégration n'avait pas assez d'informations pour configurer automatiquement le type de licence. Une valeur vide bloque l'inscription aux ESU, et le script ESU ne la renseigne jamais. Lisez [Comment LicenseType est renseigné](docs/Français/sql/README.md#how-licensetype-gets-populated), laissez le titulaire des licences choisir la valeur, puis utilisez [SetSQLServerLicenseType.ps1](docs/Français/sql/SetSQLServerLicenseType.md). Ce script renseigne uniquement les valeurs vides et affiche l'incidence sur les licences et la facturation avant toute modification.
+
 ### Périmètre et exclusions
 
 Cette procédure prend en charge les instances SQL Server 2014 et SQL Server 2016 sur des machines Windows déjà connectées à Azure Arc, sous réserve de la limitation décrite dans la section [Prise en charge des environnements Azure](#prise-en-charge-des-environnements-azure). Elle utilise l'extension Azure pour SQL Server et les paramètres d'abonnement ESU par machine Arc/OSE. Lisez la [présentation du modèle d'objets ESU SQL Server](docs/Français/sql/README.md) avant d'utiliser les scripts SQL, en particulier si vous connaissez la procédure d'attribution des licences Windows Server.
@@ -192,15 +195,16 @@ Utilisez les rôles de moindre privilège fournis aux étendues suivantes :
 | [SQL Server Arc ESU Reader](Custom%20Roles/SQL%20Server%20Arc%20ESU%20Reader.json) | Abonnement | Lecture des fournisseurs, machines, extensions et inventaires SQL |
 | [SQL Server Arc ESU Operator](Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) | Chaque groupe de ressources contenant des machines Arc cibles | Installation de l'extension SQL et mise à jour de ses paramètres publics |
 
-Les opérations de prérequis et d'état en lecture seule exigent uniquement le rôle Reader. L'installation de l'extension et les modifications de l'abonnement ESU exigent le rôle Reader sur l'abonnement et le rôle Operator sur chaque groupe de ressources contenant les ressources `Microsoft.HybridCompute/machines` cibles. Aucun groupe de ressources de licence SQL distinct n'existe dans la procédure implémentée ici.
+Les opérations de prérequis et d'état en lecture seule exigent uniquement le rôle Reader. L'installation de l'extension et les modifications du type de licence et de l'abonnement ESU exigent le rôle Reader sur l'abonnement et le rôle Operator sur chaque groupe de ressources contenant les ressources `Microsoft.HybridCompute/machines` cibles. Aucun groupe de ressources de licence SQL distinct n'existe dans la procédure implémentée ici.
 
 ### Procédure recommandée
 
 1. Exécutez `TestSQLServerArcESUPrerequisites.ps1` pour évaluer la machine, l'extension, l'inventaire, la région et les éléments relatifs aux instances SQL.
 2. Exécutez `InstallSQLServerArcExtension.ps1` uniquement lorsque l'extension attendue est absente et que les prérequis externes sont confirmés.
-3. Exécutez `CheckSQLServerESUStatus.ps1` pour relever l'état actuel de l'hôte et des instances.
-4. Exécutez `SetSQLServerESUSubscription.ps1 -DryRun` et examinez l'activation ou l'annulation proposée.
-5. Exécutez la modification approuvée, puis vérifiez de nouveau l'état.
+3. Exécutez `CheckSQLServerESUStatus.ps1` pour relever l'état actuel de l'hôte et des instances, y compris `LicenseType`.
+4. Uniquement si `LicenseType` est vide, et après la décision du titulaire des licences, exécutez `SetSQLServerLicenseType.ps1 -DryRun`, examinez chaque avertissement, puis exécutez-le réellement.
+5. Exécutez `SetSQLServerESUSubscription.ps1 -DryRun` et examinez l'activation ou l'annulation proposée.
+6. Exécutez la modification approuvée, puis vérifiez de nouveau l'état.
 
 Le script de cycle de vie préserve les autres paramètres publics de l'extension au moyen d'une mise à jour GET-fusion-PUT. Sa voie `Disable` reste disponible lorsque les éléments d'inventaire sont dégradés afin de permettre l'annulation des frais futurs, tout en exigeant l'identité attendue de l'extension et des paramètres lisibles.
 
@@ -212,6 +216,7 @@ Le script de cycle de vie préserve les autres paramètres publics de l'extensio
 | Évaluer les prérequis et les éléments d'éligibilité | [TestSQLServerArcESUPrerequisites.ps1](docs/Français/sql/TestSQLServerArcESUPrerequisites.md) | [Modèle d'état](samples/CheckSQLServerESUStatus.csv) | Reader |
 | Installer l'extension Azure pour SQL Server lorsqu'elle est absente | [InstallSQLServerArcExtension.ps1](docs/Français/sql/InstallSQLServerArcExtension.md) | [Modèle d'installation](samples/InstallSQLServerArcExtension.csv) | Reader + Operator |
 | Vérifier sans modification les ESU, l'inventaire et les éléments de mesure | [CheckSQLServerESUStatus.ps1](docs/Français/sql/CheckSQLServerESUStatus.md) | [Modèle d'état](samples/CheckSQLServerESUStatus.csv) | Reader |
+| Définir un `LicenseType` vide après une décision de licence (n'écrase jamais) | [SetSQLServerLicenseType.ps1](docs/Français/sql/SetSQLServerLicenseType.md) | [Modèle de type de licence](samples/SetSQLServerLicenseType.csv) | Reader + Operator |
 | Activer ou annuler un abonnement ESU par machine Arc/OSE | [SetSQLServerESUSubscription.ps1](docs/Français/sql/SetSQLServerESUSubscription.md) | [Modèle de cycle de vie](samples/SetSQLServerESUSubscription.csv) | Reader + Operator |
 
 ### Générer les fichiers CSV SQL avec Azure Resource Graph
@@ -222,9 +227,10 @@ Utilisez ces requêtes dans [Azure Resource Graph Explorer](https://portal.azure
 | --- | --- | --- |
 | Évaluation des prérequis et état | [CheckSQLServerESUStatus.kql](samples/CheckSQLServerESUStatus.kql) | Renvoie les machines Arc Windows connectées qui signalent la découverte de SQL Server. |
 | Installation de l'extension SQL | [InstallSQLServerArcExtension.kql](samples/InstallSQLServerArcExtension.kql) | Renvoie les hôtes SQL détectés sans `WindowsAgent.SqlServer`. Définissez le type de licence et la confirmation des prérequis au début de la requête. |
+| Type de licence vide | [SetSQLServerLicenseType.kql](samples/SetSQLServerLicenseType.kql) | Renvoie uniquement les hôtes dont le `LicenseType` est vide (`Configuration needed`). Définissez le type de licence et sa confirmation correspondante au début de la requête. |
 | Activation ou annulation des ESU | [SetSQLServerESUSubscription.kql](samples/SetSQLServerESUSubscription.kql) | Renvoie une ligne par hôte. Définissez l'action et toutes les valeurs applicables de facturation, environnement et prérequis au début de la requête. `RequestedLicenseType` sert uniquement à vérifier la valeur actuelle; le script ne la modifie jamais. |
 
-Sélectionnez tous les abonnements contenant les machines Arc cibles avant d'exécuter une requête. Les requêtes d'installation et de cycle de vie ne renvoient volontairement aucune ligne d'activation tant que leurs constantes obligatoires ne contiennent pas des valeurs valides et explicitement vérifiées. Exécutez le fichier CSV obtenu avec le mode `-DryRun` du script avant d'approuver une opération active. L'inventaire Resource Graph constitue uniquement un élément de découverte; il n'établit ni le droit de licence ni le respect des prérequis externes.
+Sélectionnez tous les abonnements contenant les machines Arc cibles avant d'exécuter une requête. Les requêtes d'installation, de type de licence et de cycle de vie ne renvoient volontairement aucune ligne de modification tant que leurs constantes obligatoires ne contiennent pas des valeurs valides et explicitement vérifiées. Exécutez le fichier CSV obtenu avec le mode `-DryRun` du script avant d'approuver une opération active. L'inventaire Resource Graph constitue uniquement un élément de découverte; il n'établit ni le droit de licence ni le respect des prérequis externes.
 
 Exemple d'évaluation des prérequis en lecture seule :
 

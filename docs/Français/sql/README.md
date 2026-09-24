@@ -1,5 +1,8 @@
 # ESU SQL Server activées par Azure Arc
 
+> [!IMPORTANT]
+> **Vérifiez `LicenseType` avant d'essayer d'activer les ESU.** L'intégration peut laisser le `LicenseType` de l'extension vide (`Configuration needed`), et une valeur vide bloque l'inscription aux ESU. Aucun script ESU de ce dépôt ne la renseigne à votre place. Consultez [Comment LicenseType est renseigné](#how-licensetype-gets-populated) puis, après une décision de licence, utilisez [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md).
+
 ## Commencer par le modèle d'objets
 
 Les ESU SQL Server n'utilisent normalement pas le modèle de création et d'attribution de licences ESU Windows Server. Les scripts de ce dépôt implémentent un abonnement par machine Arc/environnement de système d'exploitation (OSE). Ils mettent à jour l'extension `WindowsAgent.SqlServer` et ne créent aucune ressource de licence ESU SQL distincte.
@@ -41,7 +44,39 @@ LicenseType                       Mode de licence du logiciel SQL Server sous-ja
 enableExtendedSecurityUpdates    Activation ou non de l'abonnement ESU SQL distinct
 ```
 
-La modification de `LicenseType` peut modifier la facturation du logiciel SQL Server et les droits d'utilisation. La modification de `enableExtendedSecurityUpdates` contrôle l'abonnement ESU. Examinez et approuvez chaque modification indépendamment; n'interprétez jamais `Paid` comme « ESU payées ». Dans ce dépôt, [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md) ne définit ni ne modifie jamais `LicenseType`; il modifie uniquement `enableExtendedSecurityUpdates` et exige que l'hôte soit déjà `Paid` ou `PAYG`. [InstallSQLServerArcExtension.ps1](InstallSQLServerArcExtension.md) définit `LicenseType` uniquement lorsqu'il installe une extension absente, et seulement à `Paid` ou `LicenseOnly`. Aucun script de ce dépôt ne sélectionne `PAYG`; effectuez tout changement de type de licence séparément, après une décision de licence. Pour les raisons, consultez [Pourquoi LicenseType n'est jamais modifié](SetSQLServerESUSubscription.md#why-licensetype-is-never-changed).
+La modification de `LicenseType` peut modifier la facturation du logiciel SQL Server et les droits d'utilisation. La modification de `enableExtendedSecurityUpdates` contrôle l'abonnement ESU. Examinez et approuvez chaque modification indépendamment; n'interprétez jamais `Paid` comme « ESU payées ». Dans ce dépôt :
+
+- [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md) ne définit ni ne modifie jamais `LicenseType`. Il modifie uniquement `enableExtendedSecurityUpdates` et exige que l'hôte soit déjà `Paid` ou `PAYG`. Pour les raisons, consultez [Pourquoi LicenseType n'est jamais modifié](SetSQLServerESUSubscription.md#why-licensetype-is-never-changed).
+- [InstallSQLServerArcExtension.ps1](InstallSQLServerArcExtension.md) définit `LicenseType` uniquement lorsqu'il installe une extension absente, et seulement à `Paid` ou `LicenseOnly`. Il ne sélectionne jamais `PAYG`.
+- [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md) est le seul script qui peut sélectionner `PAYG`. Il définit `Paid`, `PAYG` ou `LicenseOnly` uniquement sur les hôtes dont le `LicenseType` est vide, n'écrase jamais une valeur existante et exige une confirmation explicite pour la valeur choisie.
+
+<a id="how-licensetype-gets-populated"></a>
+## Comment LicenseType est renseigné
+
+`LicenseType` n'est pas lu à partir de l'installation SQL Server. C'est un paramètre de l'extension `WindowsAgent.SqlServer`, choisi lors de l'installation ou de la configuration de l'extension. Microsoft indique que le type de licence est un paramètre obligatoire lors de l'installation de l'extension Azure pour SQL Server. Son mode de sélection dépend de la méthode d'intégration :
+
+| Méthode d'intégration | Définition de `LicenseType` |
+| --- | --- |
+| Portail Azure ou script d'intégration généré | La personne qui effectue l'intégration sélectionne le type de licence. |
+| Installation de SQL Server 2022 | Le type de licence peut être sélectionné pendant l'installation. |
+| Intégration automatique (Microsoft installe l'extension sur les serveurs Arc qui contiennent SQL Server) | Microsoft lit l'étiquette `ArcSQLServerExtensionDeployment` (`Paid`, `PAYG`, `PAYG-Recurring` ou `LicenseOnly`) en vérifiant d'abord l'abonnement, puis le groupe de ressources, puis la ressource. L'étape d'installation « définir le type de licence » n'a lieu que si cette étiquette est définie. |
+| Intégration automatique sans étiquette | Microsoft indique que si aucune étiquette n'est définie et que vous disposez de licences Software Assurance ou d'abonnement SQL Server disponibles, Microsoft définit automatiquement le type de licence à **Paid** pour les instances nouvellement intégrées. Sinon, la valeur reste vide. |
+
+La requête de vérification de Microsoft signale une valeur vide comme `Configuration needed`. Microsoft indique que cette valeur signifie que le processus d'intégration n'avait pas assez d'informations pour configurer automatiquement le type de licence.
+
+> [!WARNING]
+> Une étiquette `ArcSQLServerExtensionDeployment` de valeur `PAYG` ou `PAYG-Recurring` sur un abonnement ou un groupe de ressources fait passer en `PAYG` les hôtes nouvellement intégrés automatiquement dans cette étendue. Examinez ces étiquettes si vous ne souhaitez pas payer le logiciel SQL Server par l'intermédiaire d'Azure.
+
+**Ce que Microsoft ne documente pas :** la manière dont la détection automatique de `Paid` détermine que des licences Software Assurance ou d'abonnement SQL Server sont disponibles, ni les règles de priorité entre les étiquettes, la détection et les modifications manuelles (la rubrique « License type setting precedence » de la page de connexion automatique est actuellement vide). Ne supposez pas qu'un hôte sera configuré automatiquement; vérifiez-le.
+
+**Que faire lorsque la valeur est vide :**
+
+1. Recherchez les hôtes concernés avec [CheckSQLServerESUStatus.ps1](CheckSQLServerESUStatus.md) ou [SetSQLServerLicenseType.kql](../../../samples/SetSQLServerLicenseType.kql).
+2. Le propriétaire des licences choisit la valeur correcte pour chaque hôte entier. Consultez [Choisir la valeur](SetSQLServerLicenseType.md#choose-the-value-impact-of-each-licensetype).
+3. Définissez-la avec [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md) (d'abord avec `-DryRun`), le portail Azure ou l'exemple Microsoft [modify-arc-sql-license-type.ps1](https://github.com/microsoft/sql-server-samples/tree/master/samples/manage/azure-arc-enabled-sql-server/modify-license-type).
+4. Activez ensuite les ESU avec [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md).
+
+Sources : [Gérer la connexion automatique](https://learn.microsoft.com/sql/sql-server/azure-arc/manage-autodeploy?view=sql-server-ver17#specify-license-type), [Gérer les licences et la facturation](https://learn.microsoft.com/sql/sql-server/azure-arc/manage-license-billing?view=sql-server-ver17) et [Configurer SQL Server activé par Azure Arc](https://learn.microsoft.com/sql/sql-server/azure-arc/manage-configuration?view=sql-server-ver17).
 
 ## Comparaison avec les ESU Windows Server
 
@@ -81,9 +116,10 @@ Cette ressource ne remplace pas la configuration des machines virtuelles : les m
 1. Générez ou préparez le CSV cible avec [CheckSQLServerESUStatus.kql](../../../samples/CheckSQLServerESUStatus.kql) ou le modèle applicable.
 2. Exécutez [TestSQLServerArcESUPrerequisites.ps1](TestSQLServerArcESUPrerequisites.md).
 3. Si nécessaire, exécutez [InstallSQLServerArcExtension.ps1](InstallSQLServerArcExtension.md).
-4. Exécutez [CheckSQLServerESUStatus.ps1](CheckSQLServerESUStatus.md).
-5. Prévisualisez puis exécutez [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md). Il conserve le `LicenseType` actuel sans modification.
-6. Exécutez de nouveau la vérification d'état.
+4. Exécutez [CheckSQLServerESUStatus.ps1](CheckSQLServerESUStatus.md) et vérifiez `LicenseType`.
+5. Uniquement si `LicenseType` est vide, et après une décision de licence, prévisualisez puis exécutez [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md).
+6. Prévisualisez puis exécutez [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md). Il conserve le `LicenseType` actuel sans modification.
+7. Exécutez de nouveau la vérification d'état.
 
 Utilisez `Enable` et `Disable` pour le cycle de vie de l'abonnement SQL. Réservez les termes créer, attribuer, dissocier et supprimer aux ressources de licence Windows Server ou à la ressource SQL mutualisée par cœurs physiques distincte.
 

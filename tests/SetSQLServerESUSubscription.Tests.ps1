@@ -6,7 +6,7 @@ $appId = '00000000-0000-0000-0000-000000000003'
 
 function Invoke-SetScenario {
     param(
-        [ValidateSet('Normal', 'LegacyString', 'AlreadyEnabled', 'AlreadyDisabled', 'LicenseOnly', 'Developer', 'UnsupportedVersion', 'UnsupportedEdition', 'Stale', 'Mixed', 'Physical', 'Async', 'VerificationConverges', 'VerificationMismatch', 'UnrelatedMismatch', 'RuntimeFailure', 'TransientPut', 'TransientPutFallback', 'UnsafeAsync', 'EvidenceUnavailable', 'WrongIdentity', 'LowercaseLicense', 'MonitorMode', 'OlderExtension', 'NewerExtension', 'InstanceViewVersion', 'PassiveHADR')]
+        [ValidateSet('Normal', 'LegacyString', 'AlreadyEnabled', 'AlreadyDisabled', 'LicenseOnly', 'Developer', 'UnsupportedVersion', 'UnsupportedEdition', 'Stale', 'Mixed', 'Physical', 'Async', 'VerificationConverges', 'VerificationMismatch', 'UnrelatedMismatch', 'RuntimeFailure', 'TransientPut', 'TransientPutFallback', 'UnsafeAsync', 'EvidenceUnavailable', 'WrongIdentity', 'LowercaseLicense', 'MonitorMode', 'OlderExtension', 'NewerExtension', 'InstanceViewVersion', 'PassiveHADR', 'EmptyLicense')]
         [string]$Scenario = 'Normal',
         [string]$AdditionalArguments,
         [string]$CsvContent,
@@ -63,7 +63,7 @@ function global:New-MockSettings {
 function global:New-MockExtension {
     param([string]`$MachineName = 'server-01', [string]`$EffectiveSubscription = '$subscriptionId', [switch]`$Final)
     `$esu = if (`$global:mockScenario -in @('AlreadyEnabled', 'EvidenceUnavailable')) { `$true } elseif (`$global:mockScenario -eq 'LegacyString') { 'FALSE' } else { `$false }
-    `$license = if (`$global:mockScenario -eq 'LicenseOnly') { 'LicenseOnly' } elseif (`$global:mockScenario -eq 'LowercaseLicense') { 'payg' } else { 'Paid' }
+    `$license = if (`$global:mockScenario -eq 'LicenseOnly') { 'LicenseOnly' } elseif (`$global:mockScenario -eq 'EmptyLicense') { '' } elseif (`$global:mockScenario -eq 'LowercaseLicense') { 'payg' } else { 'Paid' }
     `$settings = New-MockSettings -EsuEnabled `$esu -LicenseType `$license
     if (`$Final -and `$global:updatedBodies.ContainsKey(`$MachineName)) {
         `$settings = `$global:updatedBodies[`$MachineName].properties.settings | ConvertTo-Json -Depth 100 -Compress | ConvertFrom-Json -Depth 100
@@ -385,6 +385,11 @@ Describe 'SetSQLServerESUSubscription eligibility and billing gates' {
         $licenseOnly.Output | Should Match "is 'LicenseOnly'"
         $licenseOnly.Output | Should Match 'never changes'
         $licenseOnly.Output | Should Match 'modify-arc-sql'
+        $emptyLicense = Invoke-SetScenario -Scenario EmptyLicense
+        $emptyLicense.ExitCode | Should Be 1
+        $emptyLicense.Output | Should Match 'is undefined'
+        $emptyLicense.Output | Should Match 'SetSQLServerLicenseType\.ps1'
+        @($emptyLicense.Calls | Where-Object Method -eq 'PUT').Count | Should Be 0
     }
 
     It 'requires nonproduction coverage for Developer and rejects Developer production' {
