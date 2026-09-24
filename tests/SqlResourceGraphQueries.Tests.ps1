@@ -65,6 +65,15 @@ Describe 'SQL Azure Resource Graph CSV queries' {
         $query | Should Match 'by MachineResourceId'
     }
 
+    It 'returns only enable rows the ESU script accepts for the whole host' {
+        $query = Get-Content -LiteralPath (Join-Path $repositoryRoot 'samples/SetSQLServerESUSubscription.kql') -Raw
+        $query | Should Match 'IneligibleVersionCount == 0'
+        $query | Should Match 'UnsupportedEditionCount == 0'
+        $query | Should Match "DeveloperInstanceCount == 0 or\s+\(RequestedEnvironment == 'NonProduction' and ConfirmNonProductionCoverage =~ 'TRUE'\)"
+        $query | Should Match "resourceGroup matches regex @'\^\[a-zA-Z0-9_\(\)\.-\]\{1,90\}\$' and not\(resourceGroup endswith '\.'\)"
+        $query | Should Match "name matches regex @'\^\[a-zA-Z0-9_\.-\]\{1,54\}\$'"
+    }
+
     It 'returns only empty LicenseType hosts and defaults license acknowledgements to false' {
         $query = Get-Content -LiteralPath (Join-Path $repositoryRoot 'samples/SetSQLServerLicenseType.kql') -Raw
         $query | Should Match "SelectedLicenseType = 'REPLACE_WITH_Paid_OR_PAYG_OR_LicenseOnly'"

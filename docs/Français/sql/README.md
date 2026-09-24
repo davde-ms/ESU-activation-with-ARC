@@ -1,7 +1,7 @@
 # ESU SQL Server activées par Azure Arc
 
 > [!IMPORTANT]
-> **Vérifiez `LicenseType` avant d'essayer d'activer les ESU.** L'intégration peut laisser le `LicenseType` de l'extension vide (`Configuration needed`), et une valeur vide bloque l'inscription aux ESU. Aucun script ESU de ce dépôt ne la renseigne à votre place. Consultez [Comment LicenseType est renseigné](#how-licensetype-gets-populated) puis, après une décision de licence, utilisez [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md).
+> **Vérifiez `LicenseType` avant d'essayer d'activer les ESU.** L'intégration peut laisser le `LicenseType` de l'extension vide (`Configuration needed`), et une valeur vide bloque l'inscription aux ESU. Le script d'abonnement ESU ne la renseigne jamais; il s'agit d'une étape distincte, avec confirmation explicite. Consultez [Comment LicenseType est renseigné](#how-licensetype-gets-populated) puis, après une décision de licence, utilisez [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md).
 
 ## Commencer par le modèle d'objets
 
@@ -46,7 +46,7 @@ enableExtendedSecurityUpdates    Activation ou non de l'abonnement ESU SQL disti
 
 La modification de `LicenseType` peut modifier la facturation du logiciel SQL Server et les droits d'utilisation. La modification de `enableExtendedSecurityUpdates` contrôle l'abonnement ESU. Examinez et approuvez chaque modification indépendamment; n'interprétez jamais `Paid` comme « ESU payées ». Dans ce dépôt :
 
-- [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md) ne définit ni ne modifie jamais `LicenseType`. Il modifie uniquement `enableExtendedSecurityUpdates` et exige que l'hôte soit déjà `Paid` ou `PAYG`. Pour les raisons, consultez [Pourquoi LicenseType n'est jamais modifié](SetSQLServerESUSubscription.md#why-licensetype-is-never-changed).
+- [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md) ne définit ni ne modifie jamais `LicenseType`. Il modifie uniquement `enableExtendedSecurityUpdates`. `Enable` exige que l'hôte soit déjà `Paid` ou `PAYG`; `Disable` ne vérifie pas `LicenseType`, afin qu'un client puisse toujours arrêter les frais ESU. Pour les raisons, consultez [Pourquoi LicenseType n'est jamais modifié](SetSQLServerESUSubscription.md#why-licensetype-is-never-changed).
 - [InstallSQLServerArcExtension.ps1](InstallSQLServerArcExtension.md) définit `LicenseType` uniquement lorsqu'il installe une extension absente, et seulement à `Paid` ou `LicenseOnly`. Il ne sélectionne jamais `PAYG`.
 - [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md) est le seul script qui peut sélectionner `PAYG`. Il définit `Paid`, `PAYG` ou `LicenseOnly` uniquement sur les hôtes dont le `LicenseType` est vide, n'écrase jamais une valeur existante et exige une confirmation explicite pour la valeur choisie.
 
@@ -59,10 +59,10 @@ La modification de `LicenseType` peut modifier la facturation du logiciel SQL Se
 | --- | --- |
 | Portail Azure ou script d'intégration généré | La personne qui effectue l'intégration sélectionne le type de licence. |
 | Installation de SQL Server 2022 | Le type de licence peut être sélectionné pendant l'installation. |
-| Intégration automatique (Microsoft installe l'extension sur les serveurs Arc qui contiennent SQL Server) | Microsoft lit l'étiquette `ArcSQLServerExtensionDeployment` (`Paid`, `PAYG`, `PAYG-Recurring` ou `LicenseOnly`) en vérifiant d'abord l'abonnement, puis le groupe de ressources, puis la ressource. L'étape d'installation « définir le type de licence » n'a lieu que si cette étiquette est définie. |
+| Intégration automatique (Microsoft installe l'extension sur les serveurs Arc qui contiennent SQL Server) | Microsoft lit l'étiquette `ArcSQLServerExtensionDeployment` (`Paid`, `PAYG`, `PAYG-Recurring` ou `LicenseOnly`) en vérifiant d'abord l'abonnement, puis le groupe de ressources, puis la ressource. Microsoft indique que le type de licence est défini si la valeur de l'étiquette `ArcSQLServerExtensionDeployment` est définie. |
 | Intégration automatique sans étiquette | Microsoft indique que si aucune étiquette n'est définie et que vous disposez de licences Software Assurance ou d'abonnement SQL Server disponibles, Microsoft définit automatiquement le type de licence à **Paid** pour les instances nouvellement intégrées. Sinon, la valeur reste vide. |
 
-La requête de vérification de Microsoft signale une valeur vide comme `Configuration needed`. Microsoft indique que cette valeur signifie que le processus d'intégration n'avait pas assez d'informations pour configurer automatiquement le type de licence.
+La requête de vérification de Microsoft signale une valeur vide comme `Configuration needed`. Microsoft indique que cette valeur signifie que le processus d'intégration n'avait pas assez d'informations pour configurer automatiquement le type de licence. La page de configuration de Microsoft répertorie séparément une valeur absente (`null`) comme non définie. Les scripts de ce dépôt traitent de la même façon une valeur vide et une valeur absente : les deux bloquent l'inscription aux ESU et les deux peuvent être renseignées par [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md).
 
 > [!WARNING]
 > Une étiquette `ArcSQLServerExtensionDeployment` de valeur `PAYG` ou `PAYG-Recurring` sur un abonnement ou un groupe de ressources fait passer en `PAYG` les hôtes nouvellement intégrés automatiquement dans cette étendue. Examinez ces étiquettes si vous ne souhaitez pas payer le logiciel SQL Server par l'intermédiaire d'Azure.
@@ -99,7 +99,7 @@ La procédure SQL implémentée n'a aucune relation d'attribution ni aucun group
 `ServerResourceGroupName` désigne toujours le groupe de ressources contenant la ressource `Microsoft.HybridCompute/machines` cible.
 
 - Attribuez **SQL Server Arc ESU Reader** au niveau de l'abonnement, car l'état des fournisseurs et l'inventaire SQL sont des lectures au niveau de l'abonnement.
-- Attribuez **SQL Server Arc ESU Operator** à chaque groupe de ressources contenant des machines Arc que l'identité modifiera. Le rôle écrit uniquement dans `Microsoft.HybridCompute/machines/extensions`.
+- Attribuez **SQL Server Arc ESU Operator** à chaque groupe de ressources contenant des machines Arc que l'identité modifiera. Le rôle écrit uniquement dans `Microsoft.HybridCompute/machines/extensions` et lit l'état des opérations des mises à jour asynchrones de l'extension. Microsoft indique que le suivi de l'état asynchrone exige une autorisation suffisante au niveau du groupe de ressources, ce que fournit cette attribution ([Suivre les opérations Azure asynchrones](https://learn.microsoft.com/azure/azure-resource-manager/management/async-operations#permission-for-tracking-async-status)).
 - N'attribuez pas ces rôles à un groupe de ressources de licence SQL distinct pour cette procédure; aucun groupe de ce type n'est utilisé.
 - Si les machines Arc cibles sont réparties dans plusieurs groupes de ressources, attribuez Operator à chaque groupe de machines ou choisissez délibérément une étendue commune plus large après avoir examiné l'augmentation des autorisations.
 

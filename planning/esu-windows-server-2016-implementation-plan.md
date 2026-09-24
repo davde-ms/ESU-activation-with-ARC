@@ -1,5 +1,8 @@
 # Windows Server 2016 ESU Support Implementation Plan
 
+> [!NOTE]
+> Historical planning document. It records research and proposals made before implementation and may not match the current scripts. For current behavior, use [README.md](../README.md) and the guides under [docs/](../docs/); the scripts in `Scripts/` are the source of truth.
+
 Plan date: 2026-09-03
 
 Status: Planning only. Do not execute this plan as part of the planning phase.

@@ -100,5 +100,5 @@ Use `-WhatIf` for PowerShell-native previews. It performs the same read-only res
 | Authentication token is missing or expired | Supply all three service principal parameters, or obtain a new `Get-AzAccessToken` token object. |
 | Resource access validation fails | Verify the identity can read the Arc license profile and, for assignment, the ESU license in the resolved subscription. |
 | `401` or `403` response | Check permissions in both the server and license subscriptions. |
-![Manage ESU assignments CSV example](../../../media/ManageESUAssignments_CSV_example.jpg)
+| `404` response | Check the resource groups, names, and optional `LicenseSubscriptionId` value on each row. |
 | Summary reports failures | Correct every failed row, then rerun the complete CSV with `-DryRun` or `-WhatIf` before a live run. |

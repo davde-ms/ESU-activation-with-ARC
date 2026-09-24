@@ -1,6 +1,6 @@
 # DeleteESULicense.ps1
 
-This script will delete an ESU license. When you delete a license, it will be removed from the Azure ARC server it was assigned to and stop the billing tied to that license.
+This script deletes an ESU license resource (`Microsoft.HybridCompute/licenses`). It sends a single `DELETE` for the license and doesn't change the license profile of any Azure Arc server. Before you delete a license, unlink it from every server with [AssignESULicense.ps1](AssignESULicense.md) `-u` or [ManageESUAssignments.ps1](ManageESUAssignments.md). Microsoft bills a deleted license for up to five calendar days after the change (see the warning below).
 
 > **Deleting or deactivating a license can remain billable for up to five calendar days. If you delete and then recreate an ESU license, back-billing still applies for the corresponding period; deletion does not exempt you from those charges. Confirm the current impact in the [official ESU billing guidance](https://learn.microsoft.com/azure/azure-arc/servers/billing-extended-security-updates#billing-associated-with-modifications-to-an-azure-arc-esu-license) before proceeding.**
 

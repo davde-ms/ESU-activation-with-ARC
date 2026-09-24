@@ -1,5 +1,8 @@
 # Dev Branch Recovery Plan
 
+> [!NOTE]
+> Historical planning document. It records research and proposals made before implementation and may not match the current scripts. For current behavior, use [README.md](../README.md) and the guides under [docs/](../docs/); the scripts in `Scripts/` are the source of truth.
+
 ## Objective
 
 Bring `dev` to a merge-ready state relative to `main` by correcting the identified runtime defects, restoring reliable automation behavior, synchronizing English and French documentation, and adding focused non-Azure validation.

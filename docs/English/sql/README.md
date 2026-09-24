@@ -1,7 +1,7 @@
 # SQL Server ESUs enabled by Azure Arc
 
 > [!IMPORTANT]
-> **Check `LicenseType` before you try to enable ESUs.** Onboarding can leave the extension's `LicenseType` empty (`Configuration needed`), and an empty value blocks ESU enrollment. No ESU script in this repository fills it in for you. See [How LicenseType gets populated](#how-licensetype-gets-populated) and, after a licensing decision, use [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md).
+> **Check `LicenseType` before you try to enable ESUs.** Onboarding can leave the extension's `LicenseType` empty (`Configuration needed`), and an empty value blocks ESU enrollment. The ESU subscription script never fills it in; that is a separate, explicitly acknowledged step. See [How LicenseType gets populated](#how-licensetype-gets-populated) and, after a licensing decision, use [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md).
 
 ## Start with the object model
 
@@ -46,7 +46,7 @@ enableExtendedSecurityUpdates    Whether the separate SQL ESU subscription is en
 
 Changing `LicenseType` can change SQL Server software billing and use rights. Changing `enableExtendedSecurityUpdates` controls the ESU subscription. Review and approve each change independently; never interpret `Paid` as "ESUs paid." In this repository:
 
-- [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md) never sets or changes `LicenseType`. It only toggles `enableExtendedSecurityUpdates` and requires the host to already be `Paid` or `PAYG`. For the reasons, see [Why LicenseType is never changed](SetSQLServerESUSubscription.md#why-licensetype-is-never-changed).
+- [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md) never sets or changes `LicenseType`. It only toggles `enableExtendedSecurityUpdates`. `Enable` requires the host to already be `Paid` or `PAYG`; `Disable` doesn't check `LicenseType`, so a customer can always stop ESU charges. For the reasons, see [Why LicenseType is never changed](SetSQLServerESUSubscription.md#why-licensetype-is-never-changed).
 - [InstallSQLServerArcExtension.ps1](InstallSQLServerArcExtension.md) sets `LicenseType` only when it installs a missing extension, and only to `Paid` or `LicenseOnly`. It never selects `PAYG`.
 - [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md) is the only script that can select `PAYG`. It sets `Paid`, `PAYG`, or `LicenseOnly` only on hosts whose `LicenseType` is empty, never overwrites an existing value, and requires an explicit acknowledgement for the chosen value.
 
@@ -59,10 +59,10 @@ Changing `LicenseType` can change SQL Server software billing and use rights. Ch
 | --- | --- |
 | Azure portal or a generated onboarding script | The person onboarding selects the license type. |
 | SQL Server 2022 setup | The license type can be selected during setup. |
-| Automatic onboarding (Microsoft installs the extension on Arc servers with SQL Server) | Microsoft reads the `ArcSQLServerExtensionDeployment` tag (`Paid`, `PAYG`, `PAYG-Recurring`, or `LicenseOnly`), checking "the subscription level first, then resource group level, then resource level." The installation step "Set the license type" happens only if that tag is set. |
+| Automatic onboarding (Microsoft installs the extension on Arc servers with SQL Server) | Microsoft reads the `ArcSQLServerExtensionDeployment` tag (`Paid`, `PAYG`, `PAYG-Recurring`, or `LicenseOnly`), checking "the subscription level first, then resource group level, then resource level." Microsoft states: "The license type is set if the `ArcSQLServerExtensionDeployment` tag value is set." |
 | Automatic onboarding without a tag | "If no tag is set and you have Software Assurance or SQL Server subscription with available licenses, Microsoft automatically sets the license type to **Paid** for newly onboarded instances." Otherwise the value stays empty. |
 
-Microsoft's own verification query reports an empty value as `Configuration needed`: "The value `Configuration needed` indicates that the onboarding process didn't have enough information to configure the license type automatically."
+Microsoft's own verification query reports an empty value as `Configuration needed`: "The value `Configuration needed` indicates that the onboarding process didn't have enough information to configure the license type automatically." Microsoft's configuration page lists a missing (`null`) value separately as undefined. The scripts in this repository treat an empty and a missing value the same way: both block ESU enrollment and both can be filled by [SetSQLServerLicenseType.ps1](SetSQLServerLicenseType.md).
 
 > [!WARNING]
 > An `ArcSQLServerExtensionDeployment` tag with the value `PAYG` or `PAYG-Recurring` on a subscription or resource group makes automatic onboarding set newly onboarded hosts in that scope to `PAYG`. Review these tags if you don't intend to pay for SQL Server software through Azure.
@@ -99,7 +99,7 @@ The implemented SQL workflow has no assignment relationship and no license resou
 `ServerResourceGroupName` always means the resource group containing the target `Microsoft.HybridCompute/machines` resource.
 
 - Assign **SQL Server Arc ESU Reader** at subscription scope because provider state and SQL inventory are subscription-level reads.
-- Assign **SQL Server Arc ESU Operator** to every resource group containing Arc machines that the identity will modify. The role writes only `Microsoft.HybridCompute/machines/extensions`.
+- Assign **SQL Server Arc ESU Operator** to every resource group containing Arc machines that the identity will modify. The role writes only `Microsoft.HybridCompute/machines/extensions` and reads the operation status of asynchronous extension updates. Microsoft states that tracking asynchronous status requires "sufficient permission at the resource group level," which this assignment provides ([Track asynchronous Azure operations](https://learn.microsoft.com/azure/azure-resource-manager/management/async-operations#permission-for-tracking-async-status)).
 - Do not assign these roles to a separate SQL license resource group for this workflow; no such resource group is used.
 - If target Arc machines span several resource groups, assign Operator to each machine resource group or deliberately choose a broader common scope after reviewing the increased permissions.
 

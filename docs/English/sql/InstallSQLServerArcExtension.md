@@ -19,7 +19,7 @@ The extension is a host resource and its settings apply across SQL instances dis
 
 ## Least-privilege role
 
-Create both custom roles in each target subscription. Assign [SQL Server Arc ESU Reader](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Reader.json) at subscription scope for provider, inventory, machine, and extension reads. Assign [SQL Server Arc ESU Operator](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) only on each target machine resource group; it grants only `Microsoft.HybridCompute/machines/extensions/write` plus the read-only `Microsoft.HybridCompute/locations/operationstatus/read` and `Microsoft.HybridCompute/locations/operationresults/read` actions needed to poll asynchronous extension updates. This split avoids subscription-wide extension write access. Neither role grants machine write/delete, provider registration, or `sqlServerEsuLicenses` permission. Replace the fictitious assignable subscription before creating each role.
+Create both custom roles in each target subscription. Assign [SQL Server Arc ESU Reader](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Reader.json) at subscription scope for provider, machine, and extension reads (its SQL inventory read is used by the other SQL scripts, not by this one). Assign [SQL Server Arc ESU Operator](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) only on each target machine resource group; it grants only `Microsoft.HybridCompute/machines/extensions/write` plus the read-only `Microsoft.HybridCompute/locations/operationstatus/read` and `Microsoft.HybridCompute/locations/operationresults/read` actions needed to poll asynchronous extension updates. This split avoids subscription-wide extension write access. Neither role grants machine write/delete, provider registration, or `sqlServerEsuLicenses` permission. Replace the fictitious assignable subscription before creating each role.
 
 ## Authentication
 
@@ -113,5 +113,6 @@ Installing this extension does not enroll the host in ESUs and does not deploy p
 - [SQL Server Extended Security Updates enabled by Azure Arc](https://learn.microsoft.com/sql/sql-server/azure-arc/extended-security-updates?view=sql-server-ver17)
 - [Configure SQL Server enabled by Azure Arc](https://learn.microsoft.com/sql/sql-server/azure-arc/manage-configuration?view=sql-server-ver17)
 - [Hybrid Compute REST API](https://learn.microsoft.com/rest/api/hybridcompute/)
-- [Microsoft.AzureArcData/sqlServerInstances 2026-01-01](https://learn.microsoft.com/azure/templates/microsoft.azurearcdata/2026-01-01/sqlserverinstances)
 - [Azure custom roles](https://learn.microsoft.com/azure/role-based-access-control/custom-roles)
+
+API versions used by this script: `Microsoft.HybridCompute` machines and extensions `2026-07-15`, and provider registration `2021-04-01`. The script reads the `Microsoft.AzureArcData` provider metadata to confirm that `sqlServerInstances` is available in the machine's region; it doesn't read SQL Server instance inventory.

@@ -112,10 +112,25 @@ Utilisez `-logFileName` pour créer un journal de transcription :
 Starting ESU License Status Check
 ==============================================
 
+[INFO] Getting authentication token from Microsoft Entra ID
+[INFO] Checking ESU license status for server 'WIN-2K12R2-01' in resource group 'rg-arcservers'
+[SUCCESS] Server 'WIN-2K12R2-01' has ESU license assigned: ESU-WIN-2K12R2-01
+
+License URI: /subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-esulicenses/providers/Microsoft.HybridCompute/licenses/ESU-WIN-2K12R2-01
+
+==============================================
+ESU License Status Summary
+==============================================
+
 [INFO] Total servers checked: 1
 [SUCCESS] Servers with assigned ESU license resource IDs: 1
 [INFO] Servers without ESU licenses: 0
 [INFO] Servers with errors: 0
+
+Detailed Results:
+=================
+Server: WIN-2K12R2-01 | Resource Group: rg-arcservers | Status: Licensed
+  License: ESU-WIN-2K12R2-01 | License RG: rg-esulicenses
 ```
 
 ## Prérequis

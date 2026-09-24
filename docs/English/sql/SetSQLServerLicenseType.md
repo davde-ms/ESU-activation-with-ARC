@@ -5,7 +5,7 @@
 
 ## Purpose and scope
 
-`SetSQLServerLicenseType.ps1` sets `LicenseType` on the existing `WindowsAgent.SqlServer` extension of an Arc-enabled Windows machine **only when the current value is empty** (shown as `Configuration needed` by Microsoft's Resource Graph query). It exists so that hosts left without a license type by onboarding can proceed to ESU enrollment after the license owner has made a decision.
+`SetSQLServerLicenseType.ps1` sets `LicenseType` on the existing `WindowsAgent.SqlServer` extension of an Arc-enabled Windows machine **only when the current value is empty or missing** (Microsoft's Resource Graph query shows an empty value as `Configuration needed`; a missing value is listed as undefined). It exists so that hosts left without a license type by onboarding can proceed to ESU enrollment after the license owner has made a decision.
 
 It deliberately:
 
@@ -15,7 +15,7 @@ It deliberately:
 
 It doesn't install the extension (see [InstallSQLServerArcExtension.ps1](InstallSQLServerArcExtension.md)), manage native Azure VMs or Linux, change Azure tags, or manage physical-core pooled licenses. It supports global Azure endpoints only.
 
-`SetSQLServerESUSubscription.ps1` still never changes `LicenseType`. The reasons are in [Why LicenseType is never changed](SetSQLServerESUSubscription.md#why-licensetype-is-never-changed); this separate script keeps the licensing decision a distinct, explicitly acknowledged step.
+`SetSQLServerESUSubscription.ps1` will never changes `LicenseType`. The reasons are in [Why LicenseType is never changed](SetSQLServerESUSubscription.md#why-licensetype-is-never-changed); this separate script keeps the licensing decision a distinct, explicitly acknowledged step.
 
 <a id="when-licensetype-is-empty"></a>
 
@@ -23,7 +23,7 @@ It doesn't install the extension (see [InstallSQLServerArcExtension.ps1](Install
 
 See [How LicenseType gets populated](README.md#how-licensetype-gets-populated) for the full explanation. In short, Microsoft documents that:
 
-- Automatic onboarding reads the `ArcSQLServerExtensionDeployment` tag (`Paid`, `PAYG`, `PAYG-Recurring`, or `LicenseOnly`) on the subscription, resource group, or Arc server. The installation step "Set the license type" happens only if that tag is set.
+- Automatic onboarding reads the `ArcSQLServerExtensionDeployment` tag (`Paid`, `PAYG`, `PAYG-Recurring`, or `LicenseOnly`) on the subscription, resource group, or Arc server. Microsoft states: "The license type is set if the `ArcSQLServerExtensionDeployment` tag value is set."
 - "If no tag is set and you have Software Assurance or SQL Server subscription with available licenses, Microsoft automatically sets the license type to **Paid** for newly onboarded instances."
 - Otherwise the value stays empty: "The value `Configuration needed` indicates that the onboarding process didn't have enough information to configure the license type automatically."
 
@@ -34,7 +34,7 @@ An empty value blocks ESU enrollment because Microsoft requires `Paid` or `PAYG`
 | Value | Use only when | Impact | Required acknowledgement |
 | --- | --- | --- | --- |
 | `Paid` | Every SQL Server instance on the host is covered by Standard or Enterprise **core-based** licenses with active Software Assurance, or by an active SQL Server subscription. | You attest: "By selecting a license with Software Assurance, you attest that you have Enterprise or Standard licenses with active Software Assurance or an active SQL Server subscription license, and that the device is in compliance with the Product Terms outsourcing restrictions." Eligible for ESUs. | `AttestSoftwareAssurance`. Also `ConfirmCoreBasedEnterpriseLicense` when an Enterprise instance is reported or no inventory is available. |
-| `PAYG` | The license owner has approved paying for the SQL Server software license through Azure. | **Starts hourly Azure billing** for the SQL Server software license of the host, in addition to any ESU charges. Intermittent connectivity doesn't stop PAYG billing. Eligible for ESUs. | `AcceptPaygBilling`. Optional `ConsentToRecurringPAYG` for CSP-managed subscriptions. |
+| `PAYG` | The license owner has approved paying for the SQL Server software license through Azure. | **Starts hourly Azure billing** for the SQL Server software license of the host, in addition to any ESU charges. Intermittent connectivity doesn't stop PAYG billing. Eligible for ESUs. | `AcceptPaygBilling`. `ConsentToRecurringPAYG` is required by Microsoft for CSP-managed subscriptions and isn't available for other offers. |
 | `LicenseOnly` | Server+CAL, a perpetual license without Software Assurance, or free Developer, Evaluation, or Express editions. | **Not eligible** for an Arc-enabled ESU subscription. | None. |
 
 Key Microsoft rules:
@@ -47,7 +47,7 @@ Key Microsoft rules:
 
 `ConsentToRecurringPAYG` writes `ConsentToRecurringPAYG` with `Consented=true` and the current UTC `ConsentTimestamp`, the format Microsoft documents in [Recurring billing consent](https://learn.microsoft.com/sql/sql-server/azure-arc/manage-pay-as-you-go-transition?view=sql-server-ver17#recurring-billing-consent). Use it only for CSP-managed subscriptions:
 
-- Microsoft states that recurring pay-as-you-go billing "is enabled and required in the CSP-managed subscriptions. It's not available with other subscription offers."
+- Microsoft states that recurring pay-as-you-go billing "is enabled and required in the CSP-managed subscriptions. It's not available with other subscription offers." ([FAQ](https://learn.microsoft.com/sql/sql-server/azure-arc/faq?view=sql-server-ver17)). The recurring billing consent section adds: "New pay-as-you-go subscriptions aren't allowed without the consent."
 - "Once registered, the consent property can't be changed without reinstalling the extension."
 - After the consent time, a disconnection longer than 30 days activates recurring PAYG billing, including backfilled charges.
 
@@ -89,12 +89,14 @@ Use exactly one path: `-userToken` with an unexpired `Get-AzAccessToken` object,
 | `LicenseType` | Single mode | `Paid`, `PAYG`, or `LicenseOnly`. Written only when the current value is empty. |
 | `AttestSoftwareAssurance` | Required for `Paid` | Software Assurance or SQL subscription attestation for the whole host. |
 | `AcceptPaygBilling` | Required for `PAYG` | Accepts hourly Azure billing for the SQL Server software license. |
-| `ConsentToRecurringPAYG` | Optional, `PAYG` only | Records recurring PAYG consent for CSP-managed subscriptions. Irreversible without reinstalling the extension. |
+| `ConsentToRecurringPAYG` | `PAYG` only; required for CSP-managed subscriptions | Records recurring PAYG consent. Microsoft requires it for CSP-managed subscriptions; don't use it for other offers. Irreversible without reinstalling the extension. |
 | `ConfirmCoreBasedEnterpriseLicense` | `Paid` only, when required | Confirms that every Enterprise instance on the host is core-based, not Server+CAL. |
 | `csvFilePath` | CSV mode | Exact schema below. |
 | `tenantId`, `appID`, `clientSecret`; `userToken` | Authentication dependent | Choose one authentication path. |
 | `DryRun` | No | Full read-only preflight and warnings; no PUT. `Preview` alias. |
 | `WhatIf`, `Confirm` | No | Standard high-impact `ShouldProcess` controls. |
+
+Aliases: `sub` (`subscriptionId`), `srg` (`serverResourceGroupName`), `server` (`ARCServerName`), `csv` (`csvFilePath`), `s`, `secret`, `sec` (`clientSecret`), `token` (`userToken`), and `Preview` (`DryRun`).
 
 ## Examples
 
@@ -146,7 +148,7 @@ SubscriptionId,ServerResourceGroupName,ARCServerName,LicenseType,AttestSoftwareA
     -DryRun
 ```
 
-All eight columns are required. A blank subscription uses the command fallback. Acknowledgement columns accept only `TRUE`, `FALSE`, or empty. Duplicate hosts are rejected. Unknown columns that resemble a license or billing field are rejected; other unknown columns are warned about and ignored.
+All eight columns are required. A blank subscription uses the command fallback. Acknowledgement columns accept only `TRUE`, `FALSE` (case-insensitive), or empty. Duplicate hosts are rejected. Unknown columns that resemble a license or billing field are rejected; other unknown columns are warned about and ignored.
 
 ## Preview and execution safety
 
@@ -164,7 +166,7 @@ Each result contains `RowNumber`, `SubscriptionId`, `ResourceGroupName`, `Machin
 | --- | --- |
 | Acknowledgement error | Supply only the acknowledgement that matches the selected value, and only after the license owner's decision. |
 | "never overwrites an existing value" | The host already has a `LicenseType`. Change it only through the Azure portal or Microsoft's sample after a licensing decision. |
-| Enterprise or missing inventory blocks `Paid` | Confirm that every Enterprise instance is core-based, then add `ConfirmCoreBasedEnterpriseLicense`. Otherwise the host is Server+CAL and must be `LicenseOnly`. |
+| Enterprise or missing inventory blocks `Paid` | If Enterprise is reported, confirm that every Enterprise instance on the host is core-based before you add `ConfirmCoreBasedEnterpriseLicense`; an Enterprise Server+CAL host must be `LicenseOnly`. If inventory is missing, refresh it and rerun, or add `ConfirmCoreBasedEnterpriseLicense` only after you verify the host's licenses independently. |
 | `LicenseOnly` refused while ESU is enabled | Cancel the ESU subscription first with [SetSQLServerESUSubscription.ps1](SetSQLServerESUSubscription.md) `-Action Disable`. |
 | CSP subscription warning with `PAYG` | Stop, and rerun with `ConsentToRecurringPAYG` only if the subscription is CSP-managed. |
 
@@ -178,3 +180,5 @@ Each result contains `RowNumber`, `SubscriptionId`, `ResourceGroupName`, `Machin
 - [SQL Server enabled by Azure Arc FAQ](https://learn.microsoft.com/sql/sql-server/azure-arc/faq?view=sql-server-ver17)
 - [SQL Server Extended Security Updates enabled by Azure Arc](https://learn.microsoft.com/sql/sql-server/azure-arc/extended-security-updates?view=sql-server-ver17)
 - [Microsoft sample: modify-arc-sql-license-type.ps1](https://github.com/microsoft/sql-server-samples/tree/master/samples/manage/azure-arc-enabled-sql-server/modify-license-type)
+
+API versions used by this script: `Microsoft.HybridCompute` machines and extensions `2026-07-15`, `Microsoft.AzureArcData/sqlServerInstances` `2026-01-01`, and provider registration `2021-04-01`.

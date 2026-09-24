@@ -19,7 +19,7 @@ L'extension est une ressource d'hôte; ses paramètres s'appliquent aux instance
 
 ## Rôle de moindre privilège
 
-Créez les deux rôles personnalisés dans chaque abonnement cible. Attribuez [SQL Server Arc ESU Reader](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Reader.json) au niveau de l'abonnement pour lire les fournisseurs, l'inventaire, la machine et l'extension. Attribuez [SQL Server Arc ESU Operator](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) uniquement à chaque groupe de ressources de machines cible; il accorde seulement `Microsoft.HybridCompute/machines/extensions/write` ainsi que les actions en lecture seule `Microsoft.HybridCompute/locations/operationstatus/read` et `Microsoft.HybridCompute/locations/operationresults/read` nécessaires pour suivre les mises à jour asynchrones de l'extension. Cette séparation évite l'écriture des extensions dans tout l'abonnement. Aucun rôle n'accorde l'écriture/suppression de machine, l'inscription de fournisseur ni l'autorisation `sqlServerEsuLicenses`. Remplacez l'abonnement fictif avant de créer chaque rôle.
+Créez les deux rôles personnalisés dans chaque abonnement cible. Attribuez [SQL Server Arc ESU Reader](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Reader.json) au niveau de l'abonnement pour lire les fournisseurs, la machine et l'extension (sa lecture de l'inventaire SQL est utilisée par les autres scripts SQL, pas par celui-ci). Attribuez [SQL Server Arc ESU Operator](../../../Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) uniquement à chaque groupe de ressources de machines cible; il accorde seulement `Microsoft.HybridCompute/machines/extensions/write` ainsi que les actions en lecture seule `Microsoft.HybridCompute/locations/operationstatus/read` et `Microsoft.HybridCompute/locations/operationresults/read` nécessaires pour suivre les mises à jour asynchrones de l'extension. Cette séparation évite l'écriture des extensions dans tout l'abonnement. Aucun rôle n'accorde l'écriture/suppression de machine, l'inscription de fournisseur ni l'autorisation `sqlServerEsuLicenses`. Remplacez l'abonnement fictif avant de créer chaque rôle.
 
 ## Authentification
 
@@ -113,5 +113,6 @@ L'installation de l'extension n'inscrit pas l'hôte aux ESU et ne déploie aucun
 - [ESU SQL Server activées par Azure Arc](https://learn.microsoft.com/sql/sql-server/azure-arc/extended-security-updates?view=sql-server-ver17)
 - [Configurer SQL Server activé par Azure Arc](https://learn.microsoft.com/sql/sql-server/azure-arc/manage-configuration?view=sql-server-ver17)
 - [API REST Hybrid Compute](https://learn.microsoft.com/rest/api/hybridcompute/)
-- [Microsoft.AzureArcData/sqlServerInstances 2026-01-01](https://learn.microsoft.com/azure/templates/microsoft.azurearcdata/2026-01-01/sqlserverinstances)
 - [Rôles personnalisés Azure](https://learn.microsoft.com/azure/role-based-access-control/custom-roles)
+
+Versions d'API utilisées par ce script : machines et extensions `Microsoft.HybridCompute` `2026-07-15`, et inscription des fournisseurs `2021-04-01`. Le script lit les métadonnées du fournisseur `Microsoft.AzureArcData` pour confirmer que `sqlServerInstances` est disponible dans la région de la machine; il ne lit pas l'inventaire des instances SQL Server.
