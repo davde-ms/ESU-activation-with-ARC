@@ -1,0 +1,69 @@
+// Run in Azure Resource Graph Explorer, set the values below, then download the
+// result as CSV. Only hosts whose SQL extension has an EMPTY LicenseType
+// ("Configuration needed") are returned; hosts with any existing value are
+// never returned because SetSQLServerLicenseType.ps1 never overwrites them.
+// No rows are returned until SelectedLicenseType is valid and its matching
+// acknowledgement is TRUE:
+//   Paid        -> AttestSoftwareAssurance = 'TRUE' (you attest active Software
+//                  Assurance or SQL subscription licenses and Product Terms
+//                  compliance; Server+CAL must be LicenseOnly).
+//   PAYG        -> AcceptPaygBilling = 'TRUE' (SQL Server software is billed
+//                  hourly through Azure). ConsentToRecurringPAYG is optional,
+//                  CSP-only, and can't be changed without reinstalling the
+//                  extension.
+//   LicenseOnly -> every acknowledgement stays 'FALSE' (not eligible for Arc
+//                  ESUs).
+// LicenseType is host-wide: it applies to every SQL Server instance on the host.
+// ConfirmCoreBasedEnterpriseLicense stays 'FALSE' here; set it per row only after
+// you verify that every Enterprise instance on that host is core-based.
+resources
+| extend
+    SelectedLicenseType = 'REPLACE_WITH_Paid_OR_PAYG_OR_LicenseOnly',
+    AttestSoftwareAssurance = 'FALSE',
+    AcceptPaygBilling = 'FALSE',
+    ConsentToRecurringPAYG = 'FALSE',
+    ConfirmCoreBasedEnterpriseLicense = 'FALSE'
+| where type =~ 'microsoft.hybridcompute/machines/extensions'
+| where name =~ 'WindowsAgent.SqlServer' or tostring(properties.type) =~ 'WindowsAgent.SqlServer'
+| where isempty(tostring(properties.settings.LicenseType))
+| extend MachineResourceId = tolower(substring(id, 0, indexof(tolower(id), '/extensions/')))
+| project
+    MachineResourceId,
+    SelectedLicenseType,
+    AttestSoftwareAssurance = toupper(AttestSoftwareAssurance),
+    AcceptPaygBilling = toupper(AcceptPaygBilling),
+    ConsentToRecurringPAYG = toupper(ConsentToRecurringPAYG),
+    ConfirmCoreBasedEnterpriseLicense = toupper(ConfirmCoreBasedEnterpriseLicense)
+| where AttestSoftwareAssurance in ('TRUE', 'FALSE') and AcceptPaygBilling in ('TRUE', 'FALSE') and
+    ConsentToRecurringPAYG in ('TRUE', 'FALSE') and ConfirmCoreBasedEnterpriseLicense in ('TRUE', 'FALSE')
+| join kind=inner (
+    resources
+    | where type =~ 'microsoft.hybridcompute/machines'
+    | where tostring(properties.status) =~ 'Connected'
+    | where tostring(properties.osType) =~ 'Windows' or tostring(properties.osName) has 'Windows'
+    // Match the script's name validation so every returned row is accepted.
+    | where resourceGroup matches regex @'^[a-zA-Z0-9_().-]{1,90}$' and not(resourceGroup endswith '.')
+    | where name matches regex @'^[a-zA-Z0-9_.-]{1,54}$'
+    | project
+        MachineResourceId = tolower(id),
+        SubscriptionId = subscriptionId,
+        ServerResourceGroupName = resourceGroup,
+        ARCServerName = name
+) on MachineResourceId
+| where (SelectedLicenseType == 'Paid' and AttestSoftwareAssurance == 'TRUE' and
+        AcceptPaygBilling != 'TRUE' and ConsentToRecurringPAYG != 'TRUE') or
+    (SelectedLicenseType == 'PAYG' and AcceptPaygBilling == 'TRUE' and
+        AttestSoftwareAssurance != 'TRUE' and ConfirmCoreBasedEnterpriseLicense != 'TRUE') or
+    (SelectedLicenseType == 'LicenseOnly' and AttestSoftwareAssurance != 'TRUE' and
+        AcceptPaygBilling != 'TRUE' and ConsentToRecurringPAYG != 'TRUE' and
+        ConfirmCoreBasedEnterpriseLicense != 'TRUE')
+| project
+    SubscriptionId,
+    ServerResourceGroupName,
+    ARCServerName,
+    LicenseType = SelectedLicenseType,
+    AttestSoftwareAssurance,
+    AcceptPaygBilling,
+    ConsentToRecurringPAYG = iff(SelectedLicenseType == 'PAYG', ConsentToRecurringPAYG, 'FALSE'),
+    ConfirmCoreBasedEnterpriseLicense = iff(SelectedLicenseType == 'Paid', ConfirmCoreBasedEnterpriseLicense, 'FALSE')
+| order by SubscriptionId asc, ServerResourceGroupName asc, ARCServerName asc

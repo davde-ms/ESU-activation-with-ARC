@@ -31,6 +31,14 @@ Describe 'SQL Azure Resource Graph CSV queries' {
                 'Environment', 'AcceptBackBilling', 'AcceptLicenseTypeChange',
                 'ConfirmNonProductionCoverage', 'ConfirmExternalPrerequisites'
             )
+        },
+        @{
+            File = 'SetSQLServerLicenseType.kql'
+            Columns = @(
+                'SubscriptionId', 'ServerResourceGroupName', 'ARCServerName', 'LicenseType',
+                'AttestSoftwareAssurance', 'AcceptPaygBilling', 'ConsentToRecurringPAYG',
+                'ConfirmCoreBasedEnterpriseLicense'
+            )
         }
     )
 
@@ -55,5 +63,23 @@ Describe 'SQL Azure Resource Graph CSV queries' {
         $query | Should Match "ConfirmExternalPrerequisites = 'FALSE'"
         $query | Should Match 'summarize\s+EligibleInstanceCount'
         $query | Should Match 'by MachineResourceId'
+    }
+
+    It 'returns only empty LicenseType hosts and defaults license acknowledgements to false' {
+        $query = Get-Content -LiteralPath (Join-Path $repositoryRoot 'samples/SetSQLServerLicenseType.kql') -Raw
+        $query | Should Match "SelectedLicenseType = 'REPLACE_WITH_Paid_OR_PAYG_OR_LicenseOnly'"
+        $query | Should Match 'where isempty\(tostring\(properties\.settings\.LicenseType\)\)'
+        foreach ($field in @('AttestSoftwareAssurance', 'AcceptPaygBilling', 'ConsentToRecurringPAYG', 'ConfirmCoreBasedEnterpriseLicense')) {
+            $query | Should Match "$field = 'FALSE'"
+            $query | Should Match "$field = toupper\($field\)"
+            $query | Should Match "$field in \('TRUE', 'FALSE'\)"
+        }
+        $query | Should Match "resourceGroup matches regex @'\^\[a-zA-Z0-9_\(\)\.-\]\{1,90\}\$' and not\(resourceGroup endswith '\.'\)"
+        $query | Should Match "name matches regex @'\^\[a-zA-Z0-9_\.-\]\{1,54\}\$'"
+    }
+
+    It 'ships a license sample CSV with the exact script columns' {
+        $header = (Get-Content -LiteralPath (Join-Path $repositoryRoot 'samples/SetSQLServerLicenseType.csv') -TotalCount 1)
+        $header | Should Be 'SubscriptionId,ServerResourceGroupName,ARCServerName,LicenseType,AttestSoftwareAssurance,AcceptPaygBilling,ConsentToRecurringPAYG,ConfirmCoreBasedEnterpriseLicense'
     }
 }

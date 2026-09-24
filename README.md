@@ -52,7 +52,7 @@ Windows Server and SQL Server ESUs do not use the same Azure object model. Windo
 
 In this documentation, **per Arc machine/OSE** means the guest VM when SQL Server runs in a VM, not the physical hypervisor. Customers enable the SQL ESU subscription separately on each Arc-connected SQL VM they want covered; Azure meters that VM's vCores rather than all cores of the virtualization host.
 
-**Important:** SQL extension values `Paid`, `PAYG`, and `LicenseOnly` describe how the underlying SQL Server software is licensed; they are not ESU payment statuses. `Paid` means a qualifying bring-your-own license with active Software Assurance or SQL Server subscription, `PAYG` means the SQL software license is billed through Azure, and `LicenseOnly` means a license without the qualifying subscription benefit. Only `Paid` and `PAYG` qualify for the Arc-enabled ESU subscription. The separate `enableExtendedSecurityUpdates` setting controls ESU enrollment and ESU metering. `SetSQLServerESUSubscription.ps1` never sets or changes `LicenseType`: the host must already be `Paid` or `PAYG`, and hosts that are `LicenseOnly` or undefined are blocked rather than converted. `InstallSQLServerArcExtension.ps1` sets `LicenseType` only when it installs a missing extension, and only to `Paid` or `LicenseOnly`; no script in this repository selects `PAYG`. See the [detailed LicenseType explanation](docs/English/sql/README.md#sql-license-type) and [why the ESU script never changes LicenseType](docs/English/sql/SetSQLServerESUSubscription.md#why-licensetype-is-never-changed).
+**Important:** SQL extension values `Paid`, `PAYG`, and `LicenseOnly` describe how the underlying SQL Server software is licensed; they are not ESU payment statuses. `Paid` means a qualifying bring-your-own license with active Software Assurance or SQL Server subscription, `PAYG` means the SQL software license is billed through Azure, and `LicenseOnly` means a license without the qualifying subscription benefit. Only `Paid` and `PAYG` qualify for the Arc-enabled ESU subscription. The separate `enableExtendedSecurityUpdates` setting controls ESU enrollment and ESU metering. `SetSQLServerESUSubscription.ps1` never sets or changes `LicenseType`: the host must already be `Paid` or `PAYG`, and hosts that are `LicenseOnly` or undefined are blocked rather than converted. `InstallSQLServerArcExtension.ps1` sets `LicenseType` only when it installs a missing extension, and only to `Paid` or `LicenseOnly`. `SetSQLServerLicenseType.ps1` is the only script that can select `PAYG`: it fills an empty `LicenseType` only, never overwrites an existing value, and requires an explicit acknowledgement for the chosen value. See the [detailed LicenseType explanation](docs/English/sql/README.md#sql-license-type), [how LicenseType gets populated](docs/English/sql/README.md#how-licensetype-gets-populated), and [why the ESU script never changes LicenseType](docs/English/sql/SetSQLServerESUSubscription.md#why-licensetype-is-never-changed).
 
 SQL Server also offers a separate physical-core unlimited-virtualization model that creates a `Microsoft.AzureArcData/sqlServerEsuLicenses` resource. That resource can cover qualifying Arc-enabled VMs through a resource-group, subscription, or tenant scope. This repository does not create, manage, or apply those pooled physical-core licenses.
 
@@ -169,6 +169,9 @@ Example bulk preview:
 <a id="sql-server-esu"></a>
 ## SQL Server ESU
 
+> [!IMPORTANT]
+> **Check the SQL extension `LicenseType` before you try to enable ESUs.** Onboarding can leave it empty, which Microsoft reports as `Configuration needed`: "the onboarding process didn't have enough information to configure the license type automatically." An empty value blocks ESU enrollment, and the ESU script never fills it in. Read [How LicenseType gets populated](docs/English/sql/README.md#how-licensetype-gets-populated), let the license owner decide the value, and then use [SetSQLServerLicenseType.ps1](docs/English/sql/SetSQLServerLicenseType.md). That script fills empty values only and shows the licensing and billing impact before any change.
+
 ### Scope and exclusions
 
 This workflow supports SQL Server 2014 and SQL Server 2016 instances on Windows machines already connected to Azure Arc, subject to the [Azure cloud support](#azure-cloud-support) limitation above. It uses the Azure extension for SQL Server and per-Arc-machine/OSE ESU subscription settings. Read the [SQL Server ESU object-model overview](docs/English/sql/README.md) before using the SQL scripts, especially if you are familiar with the Windows Server license-assignment workflow.
@@ -192,15 +195,16 @@ Use the provided least-privilege roles at these scopes:
 | [SQL Server Arc ESU Reader](Custom%20Roles/SQL%20Server%20Arc%20ESU%20Reader.json) | Subscription | Provider, machine, extension, and SQL inventory reads |
 | [SQL Server Arc ESU Operator](Custom%20Roles/SQL%20Server%20Arc%20ESU%20Operator.json) | Each resource group containing target Arc machines | Install the SQL extension and update its public settings |
 
-Read-only prerequisite and status operations require only the Reader role. Extension installation and ESU subscription changes require Reader at subscription scope and Operator on each resource group containing target `Microsoft.HybridCompute/machines` resources. No separate SQL license resource group exists in this implemented workflow.
+Read-only prerequisite and status operations require only the Reader role. Extension installation, license type, and ESU subscription changes require Reader at subscription scope and Operator on each resource group containing target `Microsoft.HybridCompute/machines` resources. No separate SQL license resource group exists in this implemented workflow.
 
 ### Recommended workflow
 
 1. Run `TestSQLServerArcESUPrerequisites.ps1` to assess the machine, extension, inventory, region, and SQL instance evidence.
 2. Run `InstallSQLServerArcExtension.ps1` only when the expected extension is absent and the external prerequisites are confirmed.
-3. Run `CheckSQLServerESUStatus.ps1` to capture the current host and instance state.
-4. Run `SetSQLServerESUSubscription.ps1 -DryRun` and review the proposed enable or cancellation.
-5. Run the approved change, then check status again.
+3. Run `CheckSQLServerESUStatus.ps1` to capture the current host and instance state, including `LicenseType`.
+4. Only if `LicenseType` is empty, and after the license owner's decision, run `SetSQLServerLicenseType.ps1 -DryRun`, review every warning, then run it live.
+5. Run `SetSQLServerESUSubscription.ps1 -DryRun` and review the proposed enable or cancellation.
+6. Run the approved change, then check status again.
 
 The lifecycle script preserves unrelated public extension settings through a GET-merge-PUT update. Its `Disable` path remains available when inventory evidence is degraded so future charges can be cancelled, while still requiring the expected extension identity and readable settings.
 
@@ -212,6 +216,7 @@ The lifecycle script preserves unrelated public extension settings through a GET
 | Assess prerequisites and eligibility evidence | [TestSQLServerArcESUPrerequisites.ps1](docs/English/sql/TestSQLServerArcESUPrerequisites.md) | [Status template](samples/CheckSQLServerESUStatus.csv) | Reader |
 | Install the Azure extension for SQL Server when absent | [InstallSQLServerArcExtension.ps1](docs/English/sql/InstallSQLServerArcExtension.md) | [Installation template](samples/InstallSQLServerArcExtension.csv) | Reader + Operator |
 | Check host ESU, inventory, and metering evidence without changes | [CheckSQLServerESUStatus.ps1](docs/English/sql/CheckSQLServerESUStatus.md) | [Status template](samples/CheckSQLServerESUStatus.csv) | Reader |
+| Set an empty `LicenseType` after a licensing decision (never overwrites) | [SetSQLServerLicenseType.ps1](docs/English/sql/SetSQLServerLicenseType.md) | [License type template](samples/SetSQLServerLicenseType.csv) | Reader + Operator |
 | Enable or cancel a per-Arc-machine/OSE ESU subscription | [SetSQLServerESUSubscription.ps1](docs/English/sql/SetSQLServerESUSubscription.md) | [Lifecycle template](samples/SetSQLServerESUSubscription.csv) | Reader + Operator |
 
 ### Generate SQL CSV files with Azure Resource Graph
@@ -222,9 +227,10 @@ Use these queries in [Azure Resource Graph Explorer](https://portal.azure.com/#v
 | --- | --- | --- |
 | Prerequisite assessment and status | [CheckSQLServerESUStatus.kql](samples/CheckSQLServerESUStatus.kql) | Returns connected Windows Arc machines that report SQL Server discovery. |
 | SQL extension installation | [InstallSQLServerArcExtension.kql](samples/InstallSQLServerArcExtension.kql) | Returns discovered SQL hosts without `WindowsAgent.SqlServer`. Set the license type and prerequisite confirmation at the top of the query. |
+| Empty license type | [SetSQLServerLicenseType.kql](samples/SetSQLServerLicenseType.kql) | Returns only hosts whose `LicenseType` is empty (`Configuration needed`). Set the license type and its matching acknowledgement at the top of the query. |
 | ESU enable or cancellation | [SetSQLServerESUSubscription.kql](samples/SetSQLServerESUSubscription.kql) | Returns one row per host. Set the requested action and all applicable billing, environment, and prerequisite values at the top of the query. `RequestedLicenseType` is only an optional check of the current value; the script never changes it. |
 
-Select every subscription that contains target Arc machines before running a query. The installation and lifecycle queries deliberately return no enablement rows until their required constants contain valid, explicitly reviewed values. Run the resulting CSV through the script's `-DryRun` mode before approving a live operation. Resource Graph inventory is discovery evidence only; it does not establish licensing entitlement or external prerequisite compliance.
+Select every subscription that contains target Arc machines before running a query. The installation, license type, and lifecycle queries deliberately return no change rows until their required constants contain valid, explicitly reviewed values. Run the resulting CSV through the script's `-DryRun` mode before approving a live operation. Resource Graph inventory is discovery evidence only; it does not establish licensing entitlement or external prerequisite compliance.
 
 Example read-only prerequisite assessment:
 
