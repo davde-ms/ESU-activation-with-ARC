@@ -12,7 +12,8 @@
             "Microsoft.HybridCompute/licenses/delete",
             "Microsoft.HybridCompute/machines/licenseProfiles/read",
             "Microsoft.HybridCompute/machines/licenseProfiles/write",
-            "Microsoft.HybridCompute/machines/licenseProfiles/delete"
+            "Microsoft.HybridCompute/machines/licenseProfiles/delete",
+            "Microsoft.ResourceGraph/resources/read"
             ],
         "notActions": [],
         "dataActions": [],

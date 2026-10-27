@@ -18,9 +18,9 @@ Script will only accept either a single management group or subscription ID as s
 .NOTES
 File Name : CreateARCESULicenseAdministratorRole.ps1
 Author    : David De Backer
-Version   : 1.3
+Version   : 1.4
 Date      : 24-November-2023
-Update    : 26-November-2023
+Update    : 26-October-2026
 Tested on : PowerShell Version 7.3.8
 Module    : Azure Powershell version 9.6.0
 Requires  : Powershell Core version 7.x or later
@@ -29,6 +29,7 @@ Product   : Azure
 .CHANGELOG
 v1.0 - Initial release
 1.3 - Added support for management group scope
+1.4 - Added Microsoft.ResourceGraph/resources/read for the assignment discovery used by BulkDeleteESULicenses.ps1
 
 .LINK
 A list of the syntax of valid scope values can be found here:
@@ -105,6 +106,8 @@ $role.Actions.Add("Microsoft.HybridCompute/licenses/delete")
 $role.Actions.Add("Microsoft.HybridCompute/machines/licenseProfiles/read")
 $role.Actions.Add("Microsoft.HybridCompute/machines/licenseProfiles/write")
 $role.Actions.Add("Microsoft.HybridCompute/machines/licenseProfiles/delete")
+# Lets BulkDeleteESULicenses.ps1 query Azure Resource Graph; results are still limited to resources the identity can read.
+$role.Actions.Add("Microsoft.ResourceGraph/resources/read")
 
 # Setting the scope of the role
 if ($scope -match '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') {

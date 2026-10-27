@@ -132,6 +132,7 @@ Le rôle personnalisé [ARC ESU License Administrator](Custom%20Roles/ARC%20ESU%
 - `Microsoft.HybridCompute/licenses/delete`
 - `Microsoft.HybridCompute/machines/licenseProfiles/read`
 - `Microsoft.HybridCompute/machines/licenseProfiles/write`
+- `Microsoft.ResourceGraph/resources/read` (utilisée par `BulkDeleteESULicenses.ps1` pour trouver les serveurs attribués à chaque licence; les résultats se limitent aux ressources que l'identité peut lire)
 
 Attribuez le rôle à chaque étendue contenant des licences ESU Windows Server ou des machines Azure Arc cibles. Les attributions inter-abonnements exigent un accès aux abonnements des machines et des licences.
 
@@ -153,6 +154,7 @@ Attribuez le rôle à chaque étendue contenant des licences ESU Windows Server 
 | Créer ou mettre à jour des licences en bloc, avec attribution facultative | [ManageESULicenses.ps1](docs/Français/windows/ManageESULicenses.md) | [Modèle de licences](samples/ManageESULicenses.csv) |
 | Attribuer ou dissocier des licences existantes en bloc ou entre abonnements | [ManageESUAssignments.ps1](docs/Français/windows/ManageESUAssignments.md) | [Modèle d'attributions](samples/ManageESUAssignments.csv) |
 | Supprimer une licence | [DeleteESULicense.ps1](docs/Français/windows/DeleteESULicense.md) | Consultez l'avertissement relatif à la suppression et à la facturation dans le guide |
+| Dissocier et supprimer des licences en bloc, par exemple à la fin d'une période ESU | [BulkDeleteESULicenses.ps1](docs/Français/windows/BulkDeleteESULicenses.md) | [Modèle de suppression en bloc](samples/BulkDeleteESULicenses.csv) |
 
 Exemple de commande d'inventaire en lecture seule :
 

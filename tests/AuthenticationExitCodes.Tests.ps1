@@ -38,6 +38,10 @@ $scriptCases = @(
     @{
         Path = Join-Path $PSScriptRoot '..\Scripts\windows\ManageESULicenses.ps1'
         Arguments = "-subscriptionId '$subscriptionId' -licenseResourceGroupName 'license-rg' -location 'eastus' -state Deactivated -edition Standard -csvFilePath '$licenseCsvPath' -programYear 'Year 1'"
+    },
+    @{
+        Path = Join-Path $PSScriptRoot '..\Scripts\windows\BulkDeleteESULicenses.ps1'
+        Arguments = "-licenseSubscriptionId '$subscriptionId' -licenseResourceGroupName 'license-rg'"
     }
 )
 

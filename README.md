@@ -132,6 +132,7 @@ The [ARC ESU License Administrator](Custom%20Roles/ARC%20ESU%20License%20Adminis
 - `Microsoft.HybridCompute/licenses/delete`
 - `Microsoft.HybridCompute/machines/licenseProfiles/read`
 - `Microsoft.HybridCompute/machines/licenseProfiles/write`
+- `Microsoft.ResourceGraph/resources/read` (used by `BulkDeleteESULicenses.ps1` to find the servers assigned to each license; results are limited to resources the identity can read)
 
 Assign the role at every scope containing Windows Server ESU licenses or target Azure Arc machines. Cross-subscription assignments require access in both the machine and license subscriptions.
 
@@ -153,6 +154,7 @@ Assign the role at every scope containing Windows Server ESU licenses or target 
 | Create or update licenses in bulk, with optional assignment | [ManageESULicenses.ps1](docs/English/windows/ManageESULicenses.md) | [License template](samples/ManageESULicenses.csv) |
 | Assign or unlink existing licenses in bulk or across subscriptions | [ManageESUAssignments.ps1](docs/English/windows/ManageESUAssignments.md) | [Assignment template](samples/ManageESUAssignments.csv) |
 | Delete one license | [DeleteESULicense.ps1](docs/English/windows/DeleteESULicense.md) | Review the deletion and billing warning in the guide |
+| Unlink and delete licenses in bulk, for example after an ESU period ends | [BulkDeleteESULicenses.ps1](docs/English/windows/BulkDeleteESULicenses.md) | [Bulk deletion template](samples/BulkDeleteESULicenses.csv) |
 
 Example read-only inventory command:
 
