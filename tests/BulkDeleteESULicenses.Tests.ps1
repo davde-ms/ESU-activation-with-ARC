@@ -141,12 +141,40 @@ Describe 'BulkDeleteESULicenses helpers' {
         Test-LicenseTargetIncluded -licenseTarget '' -target $selected | Should Be $false
     }
 
-    It 'flags Software Assurance and product profile settings as blocking' {
-        $softwareAssuranceProfile = Get-TestProfile -SoftwareAssurance ([pscustomobject]@{ softwareAssuranceCustomer = $false })
+    It 'flags active Software Assurance and product profile settings as blocking' {
+        $softwareAssuranceProfile = Get-TestProfile -SoftwareAssurance ([pscustomobject]@{ softwareAssuranceCustomer = $true })
+        $unexpectedSoftwareAssuranceProfile = Get-TestProfile -SoftwareAssurance ([pscustomobject]@{ softwareAssuranceCustomer = 'Yes' })
         $productProfile = Get-TestProfile -ProductProfile ([pscustomobject]@{ productType = 'WindowsServer'; subscriptionStatus = 'Enabled'; productFeatures = @() })
+        $typeWithoutStatusProfile = Get-TestProfile -ProductProfile ([pscustomobject]@{ productType = 'WindowsServer' })
+        $hotpatchProfile = Get-TestProfile -ProductProfile ([pscustomobject]@{
+            productType = 'WindowsServer'
+            subscriptionStatus = 'Disabled'
+            productFeatures = @([pscustomobject]@{ name = 'Hotpatch'; subscriptionStatus = 'Enabled' })
+        })
+        $featureWithoutStatusProfile = Get-TestProfile -ProductProfile ([pscustomobject]@{ productFeatures = @([pscustomobject]@{ name = 'Hotpatch' }) })
+        $undocumentedFieldProfile = Get-TestProfile -ProductProfile ([pscustomobject]@{ subscriptionStatus = 'Disabled'; futureSetting = 'On' })
+        $undocumentedFeatureFieldProfile = Get-TestProfile -ProductProfile ([pscustomobject]@{
+            productFeatures = @([pscustomobject]@{ name = 'Hotpatch'; subscriptionStatus = 'Disabled'; futureSetting = 'On' })
+        })
 
-        (@(Get-LicenseProfileBlockingSetting -licenseProfile $softwareAssuranceProfile) -join '|') | Should Be 'softwareAssurance.softwareAssuranceCustomer=False'
-        (@(Get-LicenseProfileBlockingSetting -licenseProfile $productProfile) -join '|') | Should Be 'productProfile.productType|productProfile.subscriptionStatus'
+        (@(Get-LicenseProfileBlockingSetting -licenseProfile $softwareAssuranceProfile) -join '|') | Should Be 'softwareAssurance.softwareAssuranceCustomer=True'
+        (@(Get-LicenseProfileBlockingSetting -licenseProfile $unexpectedSoftwareAssuranceProfile) -join '|') | Should Be 'softwareAssurance.softwareAssuranceCustomer=Yes'
+        (@(Get-LicenseProfileBlockingSetting -licenseProfile $productProfile) -join '|') | Should Be 'productProfile.subscriptionStatus=Enabled'
+        (@(Get-LicenseProfileBlockingSetting -licenseProfile $typeWithoutStatusProfile) -join '|') | Should Be 'productProfile.productType=WindowsServer (no subscriptionStatus)'
+        (@(Get-LicenseProfileBlockingSetting -licenseProfile $hotpatchProfile) -join '|') | Should Be 'productProfile.productFeatures[Hotpatch].subscriptionStatus=Enabled'
+        (@(Get-LicenseProfileBlockingSetting -licenseProfile $featureWithoutStatusProfile) -join '|') | Should Be 'productProfile.productFeatures[Hotpatch] (no subscriptionStatus)'
+        (@(Get-LicenseProfileBlockingSetting -licenseProfile $undocumentedFieldProfile) -join '|') | Should Be 'productProfile.futureSetting'
+        (@(Get-LicenseProfileBlockingSetting -licenseProfile $undocumentedFeatureFieldProfile) -join '|') | Should Be 'productProfile.productFeatures[Hotpatch].futureSetting'
+    }
+
+    It 'treats every product or feature status other than Disabled as active' {
+        foreach ($status in @('Enabled', 'Enabling', 'Disabling', 'Failed', 'Unknown', 'SomethingNew')) {
+            $statusProfile = Get-TestProfile -ProductProfile ([pscustomobject]@{ productType = 'WindowsServer'; subscriptionStatus = $status })
+            $featureProfile = Get-TestProfile -ProductProfile ([pscustomobject]@{ productFeatures = @([pscustomobject]@{ name = 'Hotpatch'; subscriptionStatus = $status }) })
+
+            @(Get-LicenseProfileBlockingSetting -licenseProfile $statusProfile).Count | Should Be 1
+            @(Get-LicenseProfileBlockingSetting -licenseProfile $featureProfile).Count | Should Be 1
+        }
     }
 
     It 'redacts subscription and other IDs from Azure error messages' {
@@ -167,12 +195,35 @@ Describe 'BulkDeleteESULicenses helpers' {
         $message | Should Not Match '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
     }
 
-    It 'does not flag an ESU-only or empty product profile' {
+    It 'does not flag an ESU-only, empty, or inactive license profile' {
         $esuOnlyProfile = Get-TestProfile
         $emptyProductProfile = Get-TestProfile -ProductProfile ([pscustomobject]@{})
+        $notAttestedProfile = Get-TestProfile -SoftwareAssurance ([pscustomobject]@{ softwareAssuranceCustomer = $false })
+        $stringFalseProfile = Get-TestProfile -SoftwareAssurance ([pscustomobject]@{ softwareAssuranceCustomer = 'false' })
+        $disenrolledProfile = Get-TestProfile -ProductProfile ([pscustomobject]@{
+            productType = 'WindowsServer'
+            subscriptionStatus = 'disabled'
+            enrollmentDate = '2026-01-01T00:00:00Z'
+            disenrollmentDate = '2026-03-01T00:00:00Z'
+            billingStartDate = '2026-01-08T00:00:00Z'
+            billingEndDate = '2026-03-01T00:00:00Z'
+            error = [pscustomobject]@{ code = 'PreviousFailure' }
+            productFeatures = @([pscustomobject]@{
+                name = 'Hotpatch'
+                subscriptionStatus = 'Disabled'
+                enrollmentDate = '2026-01-01T00:00:00Z'
+                disenrollmentDate = '2026-03-01T00:00:00Z'
+                billingStartDate = '2026-01-08T00:00:00Z'
+                billingEndDate = '2026-03-01T00:00:00Z'
+                error = [pscustomobject]@{ code = 'PreviousFailure' }
+            })
+        })
 
         @(Get-LicenseProfileBlockingSetting -licenseProfile $esuOnlyProfile).Count | Should Be 0
         @(Get-LicenseProfileBlockingSetting -licenseProfile $emptyProductProfile).Count | Should Be 0
+        @(Get-LicenseProfileBlockingSetting -licenseProfile $notAttestedProfile).Count | Should Be 0
+        @(Get-LicenseProfileBlockingSetting -licenseProfile $stringFalseProfile).Count | Should Be 0
+        @(Get-LicenseProfileBlockingSetting -licenseProfile $disenrolledProfile).Count | Should Be 0
     }
 
     It 'builds the documented unlink body and preserves profile tags' {
@@ -256,6 +307,28 @@ Describe 'BulkDeleteESULicenses helpers' {
         $result.Outcome | Should Be 'Blocked'
         $result.Message | Should Match 'softwareAssurance'
         Assert-MockCalled Invoke-RestMethod -Scope It -Exactly 0 -ParameterFilter { $Method -eq 'PUT' }
+    }
+
+    It 'unlinks a server whose profile has only inactive Software Assurance and product settings' {
+        Mock Invoke-RestMethod {
+            if ($global:BulkDeleteProfileUnlinked) { return Get-TestProfile -AssignedLicense '' }
+            return Get-TestProfile `
+                -SoftwareAssurance ([pscustomobject]@{ softwareAssuranceCustomer = $false }) `
+                -ProductProfile ([pscustomobject]@{ productType = 'WindowsServer'; subscriptionStatus = 'Disabled'; disenrollmentDate = '2026-03-01T00:00:00Z' })
+        } -ParameterFilter { $Method -eq 'GET' }
+        Mock Invoke-RestMethod {
+            $global:BulkDeleteRequestBodies += $Body
+            $global:BulkDeleteProfileUnlinked = $true
+        } -ParameterFilter { $Method -eq 'PUT' }
+
+        $result = Invoke-ESULicenseUnlink -server (Get-TestServer) -licenseId "$licenseIdPrefix/esu-01" -bearerToken 'placeholder-token'
+
+        $result.Outcome | Should Be 'Unlinked'
+        $request = $global:BulkDeleteRequestBodies[0] | ConvertFrom-Json
+        @($request.properties.esuProfile.PSObject.Properties).Count | Should Be 0
+        $request.properties.PSObject.Properties['softwareAssurance'] | Should BeNullOrEmpty
+        $request.properties.PSObject.Properties['productProfile'] | Should BeNullOrEmpty
+        Assert-MockCalled Invoke-RestMethod -Scope It -Exactly 1 -ParameterFilter { $Method -eq 'PUT' }
     }
 
     It 'leaves a server unchanged when it is no longer assigned to the license' {

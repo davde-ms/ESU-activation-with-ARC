@@ -102,7 +102,7 @@ L'édition ESU, le type et le nombre de cœurs, la cible, l'état d'activation, 
 - Confirmez le résultat avec le script d'état en lecture seule correspondant.
 - Ne supposez pas que l'activation de l'accès ESU installe les correctifs.
 
-Les licences ESU Windows Server activées sont facturées selon les cœurs provisionnés, même lorsqu'elles ne sont pas attribuées. Une inscription tardive et certaines modifications de licence peuvent entraîner une rétrofacturation. La réduction du nombre de cœurs, la désactivation ou la suppression d'une licence peuvent rester facturables pendant un maximum de cinq jours calendaires. Confirmez les conditions actuelles dans les [informations officielles sur la facturation ESU Windows Server](https://learn.microsoft.com/fr-fr/azure/azure-arc/servers/billing-extended-security-updates).
+Les licences ESU Windows Server activées sont facturées selon les cœurs provisionnés, même lorsqu'elles ne sont pas attribuées. Une inscription tardive et certaines modifications de licence peuvent entraîner une rétrofacturation. La réduction du nombre de cœurs, la désactivation ou la suppression d'une licence peuvent rester facturables pendant un maximum de cinq jours. Confirmez les conditions actuelles dans les [informations officielles sur la facturation ESU Windows Server](https://learn.microsoft.com/fr-fr/azure/azure-arc/servers/billing-extended-security-updates).
 
 Les informations et scripts de ce référentiel sont fournis tels quels et ne remplacent pas des conseils professionnels, juridiques ou relatifs aux licences.
 
@@ -166,6 +166,18 @@ Exemple de prévisualisation en bloc :
 
 ```powershell
 ./Scripts/windows/ManageESULicenses.ps1 -subscriptionId "00000000-0000-0000-0000-000000000001" -userToken $authenticationToken -licenseResourceGroupName "rg-exemple-esu" -location "EastUS" -state "Deactivated" -edition "Standard" -csvFilePath ".\samples\ManageESULicenses.csv" -DryRun
+```
+
+### Mise hors service des licences à la fin d'une période ESU
+
+La période ESU de Windows Server 2012 et Windows Server 2012 R2 a pris fin le 13 octobre 2026. À minuit UTC le 14 octobre 2026, Azure Arc a désactivé ces licences ESU. Les licences désactivées restent visibles dans Azure, mais elles ne permettent plus d'inscrire d'autres serveurs ni de recevoir les mises à jour de sécurité publiées après le 13 octobre 2026. Consultez [Déployer et gérer par programmation les licences Extended Security Updates activées par Azure Arc](https://learn.microsoft.com/fr-fr/azure/azure-arc/servers/api-extended-security-updates).
+
+Pour supprimer ces licences, utilisez [BulkDeleteESULicenses.ps1](docs/Français/windows/BulkDeleteESULicenses.md). Pour chaque licence sélectionnée, il exporte un inventaire avant modification, dissocie les serveurs attribués, confirme chaque dissociation et supprime la licence uniquement lorsque tous les serveurs découverts ont été dissociés. Par défaut, il traite uniquement les licences Windows Server 2012 et Windows Server 2012 R2; les licences Windows Server 2016 ne sont traitées que si `-target` les inclut explicitement. Avant de l'exécuter, examinez les limites décrites dans le guide : la découverte des attributions porte uniquement sur l'abonnement qui contient chaque licence, et les serveurs dont le profil de licence contient une attestation Software Assurance, un paiement à l'utilisation ou un Hotpatch actif sont ignorés. La suppression d'une licence peut rester facturée pendant un maximum de cinq jours.
+
+Exemple de prévisualisation de la mise hors service :
+
+```powershell
+./Scripts/windows/BulkDeleteESULicenses.ps1 -licenseSubscriptionId "00000000-0000-0000-0000-000000000001" -userToken $authenticationToken -licenseResourceGroupName "rg-exemple-esu" -DryRun
 ```
 
 <a id="esu-sql-server"></a>

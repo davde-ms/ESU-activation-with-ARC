@@ -27,14 +27,17 @@ For each selected license, the script:
    subscription that contains the license; servers in other subscriptions are not detected.
 2. Exports a before-change inventory CSV that lists every selected license, its properties, and its assigned servers.
 3. Unlinks each server with the documented license profile PUT that sends an empty esuProfile. The script first reads
-   the license profile and skips a server when the profile also contains Software Assurance or product profile
-   settings, because the documented PUT could change them. The request location comes from the license profile;
-   -location is used only when the profile does not return one.
+   the license profile and skips a server when the profile also has an active Software Assurance attestation
+   (softwareAssuranceCustomer = true), an active product subscription or feature (any status other than Disabled,
+   such as Windows Server pay-as-you-go or Hotpatch), or an undocumented product profile setting, because the
+   documented PUT could change them. Inactive values (softwareAssuranceCustomer = false, Disabled statuses, and
+   read-only enrollment, billing, and error fields) do not cause a skip. The request location comes from the license
+   profile; -location is used only when the profile does not return one.
 4. Reads each license profile again to confirm that the license is no longer assigned.
 5. Deletes the license only when every discovered server was unlinked and confirmed. Otherwise the license is kept,
    the error is logged, and the script continues with the next license.
 
-Microsoft bills a deleted or deactivated license for up to five calendar days after the change. Deletion does not
+Microsoft bills a deleted or deactivated license for up to five days after the change. Deletion does not
 exempt you from back-billing. Review the official ESU billing guidance before running this script.
 
 The script supports two authentication methods:
@@ -49,7 +52,7 @@ Exit codes:
 .NOTES
 File Name : BulkDeleteESULicenses.ps1
 Author    : David De Backer
-Version   : 1.0
+Version   : 1.1
 Date      : 26-October-2026
 Tested on : PowerShell Version 7.6.5
 Module    : Azure PowerShell Az.Accounts version 5.5.2
@@ -58,6 +61,8 @@ Product   : Azure ARC
 
 .CHANGELOG
 v1.0 - Initial release.
+v1.1 - Servers are skipped only for active license profile settings. softwareAssuranceCustomer = false, Disabled
+       product or feature statuses, and read-only history fields no longer block the unlink.
 
 .LINK
 https://learn.microsoft.com/azure/azure-arc/servers/api-extended-security-updates
@@ -636,6 +641,16 @@ function Test-ConfiguredValue {
     return $true
 }
 
+function Test-SubscriptionStatusActive {
+    param(
+        [object]$status
+    )
+
+    # Only an explicit Disabled status is treated as inactive; Microsoft documents that disabling stops billing.
+    # Enabled, Enabling, Disabling, Failed, Unknown, and unrecognized values are treated as active.
+    return -not ([string]$status).Trim().Equals('Disabled', [System.StringComparison]::OrdinalIgnoreCase)
+}
+
 function Get-LicenseProfileBlockingSetting {
     param(
         [object]$licenseProfile
@@ -648,18 +663,63 @@ function Get-LicenseProfileBlockingSetting {
     }
 
     # The documented unlink PUT omits these billing-relevant settings, and Microsoft does not document whether
-    # omitting them preserves or resets them. A server that has them is skipped instead of risking a change.
+    # omitting them preserves or resets them. A server with an active setting is skipped instead of risking a change.
+    # Inactive values (softwareAssuranceCustomer=false, Disabled statuses, read-only history fields) have no billing
+    # effect whether they are preserved or reset, so they do not block the unlink.
     $softwareAssurance = $properties.softwareAssurance
-    if ($null -ne $softwareAssurance -and $null -ne $softwareAssurance.softwareAssuranceCustomer) {
-        $reasons.Add("softwareAssurance.softwareAssuranceCustomer=$($softwareAssurance.softwareAssuranceCustomer)")
+    if ($null -ne $softwareAssurance) {
+        $softwareAssuranceCustomer = $softwareAssurance.softwareAssuranceCustomer
+        if ((Test-ConfiguredValue -value $softwareAssuranceCustomer) -and ([string]$softwareAssuranceCustomer).Trim() -ine 'False') {
+            $reasons.Add("softwareAssurance.softwareAssuranceCustomer=$softwareAssuranceCustomer")
+        }
     }
 
     $productProfile = $properties.productProfile
-    if ($null -ne $productProfile) {
-        foreach ($property in $productProfile.PSObject.Properties) {
-            if (Test-ConfiguredValue -value $property.Value) {
-                $reasons.Add("productProfile.$($property.Name)")
+    if ($null -eq $productProfile) {
+        return $reasons.ToArray()
+    }
+
+    $readOnlyFields = @('enrollmentDate', 'disenrollmentDate', 'billingStartDate', 'billingEndDate', 'error')
+    $productFields = @('productType', 'subscriptionStatus', 'productFeatures') + $readOnlyFields
+
+    $productType = $productProfile.productType
+    $productStatus = $productProfile.subscriptionStatus
+    if (Test-ConfiguredValue -value $productStatus) {
+        if (Test-SubscriptionStatusActive -status $productStatus) {
+            $reasons.Add("productProfile.subscriptionStatus=$productStatus")
+        }
+    } elseif (Test-ConfiguredValue -value $productType) {
+        $reasons.Add("productProfile.productType=$productType (no subscriptionStatus)")
+    }
+
+    foreach ($feature in @($productProfile.productFeatures)) {
+        if ($null -eq $feature) {
+            continue
+        }
+
+        $featureName = if (Test-ConfiguredValue -value $feature.name) { [string]$feature.name } else { '<unnamed>' }
+        $featureStatus = $feature.subscriptionStatus
+        if (Test-ConfiguredValue -value $featureStatus) {
+            if (Test-SubscriptionStatusActive -status $featureStatus) {
+                $reasons.Add("productProfile.productFeatures[$featureName].subscriptionStatus=$featureStatus")
             }
+        } elseif (Test-ConfiguredValue -value $feature.name) {
+            $reasons.Add("productProfile.productFeatures[$featureName] (no subscriptionStatus)")
+        }
+
+        # Undocumented feature fields could be settings the unlink request might change.
+        $featureFields = @('name', 'subscriptionStatus') + $readOnlyFields
+        foreach ($property in $feature.PSObject.Properties) {
+            if ($featureFields -notcontains $property.Name -and (Test-ConfiguredValue -value $property.Value)) {
+                $reasons.Add("productProfile.productFeatures[$featureName].$($property.Name)")
+            }
+        }
+    }
+
+    # Undocumented product profile fields could be settings the unlink request might change.
+    foreach ($property in $productProfile.PSObject.Properties) {
+        if ($productFields -notcontains $property.Name -and (Test-ConfiguredValue -value $property.Value)) {
+            $reasons.Add("productProfile.$($property.Name)")
         }
     }
 
@@ -734,7 +794,7 @@ function Invoke-ESULicenseUnlink {
     $blockingSettings = @(Get-LicenseProfileBlockingSetting -licenseProfile $licenseProfile)
     if ($blockingSettings.Count -gt 0) {
         $result.Outcome = 'Blocked'
-        $result.Message = "The license profile also contains $($blockingSettings -join ', '). The documented unlink request could change these settings, so the server was skipped. Unlink it manually after reviewing those settings."
+        $result.Message = "The license profile also has active settings: $($blockingSettings -join ', '). The documented unlink request could change these settings, so the server was skipped. Unlink it manually after reviewing those settings."
         return $result
     }
 

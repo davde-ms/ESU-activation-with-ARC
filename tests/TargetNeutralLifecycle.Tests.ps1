@@ -131,7 +131,7 @@ Describe 'Standalone target-neutral lifecycle contracts' {
             $result.ExitCode | Should Be 0
             $result.Trace | Should BeNullOrEmpty
             $result.Output | Should Match 'What if:.*Delete ESU license'
-            $scriptContent | Should Match 'Microsoft bills a deleted license for up to five calendar days after the change\.'
+            $scriptContent | Should Match 'Microsoft bills a deleted license for up to five days after the change\.'
             $scriptContent | Should Match 'does not change the license profile of any ARC server\.'
         } finally {
             Remove-Item -Path $tracePath -ErrorAction SilentlyContinue

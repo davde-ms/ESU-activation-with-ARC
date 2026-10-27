@@ -4,7 +4,7 @@ This script decommissions Windows Server ESU license resources (`Microsoft.Hybri
 
 Use it after an ESU period ends. For example, the Windows Server 2012 and Windows Server 2012 R2 ESU period ended on October 13, 2026, and Azure Arc deactivated those licenses at midnight UTC on October 14, 2026. Deactivated licenses remain available to query until you delete them. See [Programmatically deploy and manage Azure Arc Extended Security Updates licenses](https://learn.microsoft.com/azure/azure-arc/servers/api-extended-security-updates).
 
-> **Deleting or deactivating a license can remain billable for up to five calendar days. If you delete and then recreate an ESU license, back-billing still applies for the corresponding period; deletion does not exempt you from those charges. Confirm the current impact in the [official ESU billing guidance](https://learn.microsoft.com/azure/azure-arc/servers/billing-extended-security-updates#billing-associated-with-modifications-to-an-azure-arc-esu-license) before proceeding.**
+> **Deleting or deactivating a license can remain billable for up to five days. If you delete and then recreate an ESU license, back-billing still applies for the corresponding period; deletion does not exempt you from those charges. Confirm the current impact in the [official ESU billing guidance](https://learn.microsoft.com/azure/azure-arc/servers/billing-extended-security-updates#billing-associated-with-modifications-to-an-azure-arc-esu-license) before proceeding.**
 
 ## How it works
 
@@ -17,7 +17,28 @@ Use it after an ESU period ends. For example, the Windows Server 2012 and Window
 
 ### Servers that are skipped
 
-A license profile can also hold Software Assurance (`softwareAssurance`) and product profile (`productProfile`, such as Windows Server pay-as-you-go or Hotpatch) settings. The documented unlink request doesn't include those settings, and Microsoft doesn't document whether omitting them preserves or resets them. To avoid an unintended licensing or billing change, the script **skips any server whose license profile contains these settings**. The license assigned to that server is kept, and the license is reported as failed. Unlink those servers manually after reviewing their settings, then run the script again.
+Each Azure Arc server has one license profile (`licenseProfiles/default`). Besides the ESU assignment (`esuProfile`), it can hold two other settings that affect licensing and billing:
+
+| Setting | What it is | Why a Windows Server 2012/R2 ESU server might have it |
+| --- | --- | --- |
+| `softwareAssurance.softwareAssuranceCustomer` | Attestation that the server is covered by Software Assurance or a subscription license. It enrolls the server in [Windows Server Management enabled by Azure Arc](https://learn.microsoft.com/azure/azure-arc/servers/windows-server-management-overview), so services such as Azure Update Manager, Azure Change Tracking and Inventory, and Azure Machine Configuration are provided at no extra cost. | Servers enrolled in ESUs enabled by Azure Arc get some of these services at no extra cost while they're enrolled. A customer with Software Assurance can attest so those services stay free after the ESU period. Attestation can be applied at scale to many Arc servers, including Windows Server 2012 servers. |
+| `productProfile` | [Windows Server pay-as-you-go](https://learn.microsoft.com/windows-server/get-started/windows-server-pay-as-you-go) (`productType` = `WindowsServer`), which bills the OS license per core through Azure, and product features such as `Hotpatch`. The product and each feature have a `subscriptionStatus`. | Pay-as-you-go and Hotpatch require Windows Server 2025, so a server that still runs Windows Server 2012 shouldn't have them active. They can appear when a server was upgraded in place and kept the same Arc resource and ESU assignment, or as inactive leftovers (a `Disabled` status or past enrollment dates) from an earlier enrollment. |
+
+The documented unlink request doesn't include those settings, and Microsoft doesn't document whether omitting them preserves or resets them. If they were reset, the server could lose its no-cost management services or its pay-as-you-go OS licensing. To avoid an unintended change, the script skips a server when its license profile has an **active** setting:
+
+| Value in the license profile | Result |
+| --- | --- |
+| `softwareAssuranceCustomer` is `true`, or any value other than `false` | Skipped |
+| `productProfile.subscriptionStatus`, or the `subscriptionStatus` of a `productFeatures` item, is anything other than `Disabled`: `Enabled`, `Enabling`, `Disabling`, `Failed`, `Unknown`, or an unrecognized value | Skipped |
+| A `productType` or feature `name` without a `subscriptionStatus` | Skipped, because the state is unknown |
+| Any other non-empty `productProfile` or feature field that Microsoft doesn't document | Skipped |
+| `softwareAssuranceCustomer` is `false` or missing | Unlinked |
+| `subscriptionStatus` is `Disabled` | Unlinked. Microsoft documents that pay-as-you-go billing stops after it's disabled. |
+| Read-only history fields: `enrollmentDate`, `disenrollmentDate`, `billingStartDate`, `billingEndDate`, and `error` | Ignored |
+
+When a server is skipped, its ESU assignment is kept, the license isn't deleted, and the license is reported as failed. The message lists the active settings, for example `softwareAssurance.softwareAssuranceCustomer=True` or `productProfile.productFeatures[Hotpatch].subscriptionStatus=Enabled`. Run the script with `-DryRun` to see which servers would be skipped before you make any change.
+
+To handle a skipped server, review its settings in the Azure portal and unlink the ESU license manually. Then confirm that its Software Assurance attestation, pay-as-you-go, and Hotpatch settings are unchanged, and run the script again.
 
 A server that is already unlinked, or now assigned to a different license, is left unchanged and doesn't block deletion.
 
@@ -135,7 +156,7 @@ The [ARC ESU License Administrator](../../../Custom%20Roles/ARC%20ESU%20License%
 | Message or symptom | What to check |
 | --- | --- |
 | Authentication token is missing or expired | Supply all three service principal parameters, or obtain a new `Get-AzAccessToken` token object. |
-| `The license profile also contains softwareAssurance...` or `productProfile...` | The server was skipped on purpose. Review its Software Assurance and product profile settings, unlink the license manually, then run the script again. |
+| `The license profile also has active settings: ...` | The server was skipped on purpose. Review the listed Software Assurance and product profile settings, unlink the license manually, then run the script again. See [Servers that are skipped](#servers-that-are-skipped). |
 | `Target '...' is not selected by -target` | The license was excluded. Add its target to `-target` only if you intend to delete it. |
 | `The license was not found` | Check the CSV row's name, resource group, and subscription. |
 | `Assigned servers could not be discovered` | Check that the identity can submit Resource Graph queries and read license profiles in the license subscription. |

@@ -14,7 +14,7 @@ This script will delete an existing ARC based ESU license.
 License deletion should only be done when it is not required anymore and cannot be reused for another ARC server.
 The script sends a single DELETE for the license resource and does not change the license profile of any ARC server.
 Unlink the license from every ARC server first (AssignESULicense.ps1 -u or ManageESUAssignments.ps1).
-Microsoft bills a deleted license for up to five calendar days after the change.
+Microsoft bills a deleted license for up to five days after the change.
 
 The script supports two authentication methods:
 1. Service Principal authentication (requires tenantId, appID and clientSecret)

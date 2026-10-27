@@ -146,7 +146,7 @@ All IDs and names in this example are fictitious.
 
 The API provisions or modifies license resources and links or unlinks them through server license profiles. Microsoft documents these as Azure Resource Manager write operations. Do not run a live command until the preview is approved.
 
-Windows Server 2016 reaches end of support on January 12, 2027, and Azure Arc ESU billing begins January 13, 2027. An activated license is billed even when it is not assigned. Late enrollment and licenses or cores added after end of support are back-billed to the applicable end-of-support date. Reactivation, recreation, region changes, and tenant changes are also subject to back-billing. Decreasing cores, deactivating, or deleting can continue to incur charges for up to five calendar days.
+Windows Server 2016 reaches end of support on January 12, 2027, and Azure Arc ESU billing begins January 13, 2027. An activated license is billed even when it is not assigned. Late enrollment and licenses or cores added after end of support are back-billed to the applicable end-of-support date. Reactivation, recreation, region changes, and tenant changes are also subject to back-billing. Decreasing cores, deactivating, or deleting can continue to incur charges for up to five days.
 
 ## Plan and summary
 

@@ -146,7 +146,7 @@ Tous les ID et noms de cet exemple sont fictifs.
 
 L'API provisionne ou modifie les ressources de licence et les attribue ou les dissocie au moyen des profils de licence des serveurs. Microsoft documente ces actions comme des opérations d'écriture Azure Resource Manager. N'exécutez aucune commande en mode actif avant l'approbation de la prévisualisation.
 
-La fin du support de Windows Server 2016 intervient le 12 janvier 2027 et la facturation des ESU Azure Arc commence le 13 janvier 2027. Une licence activée est facturée même si elle n'est pas attribuée. L'inscription tardive ainsi que les licences ou les cœurs ajoutés après la fin du support sont rétrofacturés à partir de la date de fin du support applicable. La réactivation, la recréation, le changement de région et le changement de locataire sont également soumis à la rétrofacturation. La diminution du nombre de cœurs, la désactivation ou la suppression peuvent continuer à entraîner des frais pendant un maximum de cinq jours calendaires.
+La fin du support de Windows Server 2016 intervient le 12 janvier 2027 et la facturation des ESU Azure Arc commence le 13 janvier 2027. Une licence activée est facturée même si elle n'est pas attribuée. L'inscription tardive ainsi que les licences ou les cœurs ajoutés après la fin du support sont rétrofacturés à partir de la date de fin du support applicable. La réactivation, la recréation, le changement de région et le changement de locataire sont également soumis à la rétrofacturation. La diminution du nombre de cœurs, la désactivation ou la suppression peuvent continuer à entraîner des frais pendant un maximum de cinq jours.
 
 ## Plan et récapitulatif
 
