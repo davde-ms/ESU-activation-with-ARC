@@ -102,7 +102,7 @@ ESU edition, core type, core count, target, activation state, program year, invo
 - Confirm the result with the corresponding read-only status script.
 - Do not assume that enabling ESU access installs patches.
 
-Activated Windows Server ESU licenses are billed for provisioned cores even when they are not assigned. Late enrollment and some license changes can cause back-billing. Reducing cores, deactivating a license, or deleting it can remain billable for up to five calendar days. Confirm current terms in the [official Windows Server ESU billing guidance](https://learn.microsoft.com/azure/azure-arc/servers/billing-extended-security-updates).
+Activated Windows Server ESU licenses are billed for provisioned cores even when they are not assigned. Late enrollment and some license changes can cause back-billing. Reducing cores, deactivating a license, or deleting it can remain billable for up to five days. Confirm current terms in the [official Windows Server ESU billing guidance](https://learn.microsoft.com/azure/azure-arc/servers/billing-extended-security-updates).
 
 The information and scripts in this repository are provided as is and are not a substitute for professional, legal, or licensing advice.
 
@@ -132,6 +132,7 @@ The [ARC ESU License Administrator](Custom%20Roles/ARC%20ESU%20License%20Adminis
 - `Microsoft.HybridCompute/licenses/delete`
 - `Microsoft.HybridCompute/machines/licenseProfiles/read`
 - `Microsoft.HybridCompute/machines/licenseProfiles/write`
+- `Microsoft.ResourceGraph/resources/read` (used by `BulkDeleteESULicenses.ps1` to find the servers assigned to each license; results are limited to resources the identity can read)
 
 Assign the role at every scope containing Windows Server ESU licenses or target Azure Arc machines. Cross-subscription assignments require access in both the machine and license subscriptions.
 
@@ -153,6 +154,7 @@ Assign the role at every scope containing Windows Server ESU licenses or target 
 | Create or update licenses in bulk, with optional assignment | [ManageESULicenses.ps1](docs/English/windows/ManageESULicenses.md) | [License template](samples/ManageESULicenses.csv) |
 | Assign or unlink existing licenses in bulk or across subscriptions | [ManageESUAssignments.ps1](docs/English/windows/ManageESUAssignments.md) | [Assignment template](samples/ManageESUAssignments.csv) |
 | Delete one license | [DeleteESULicense.ps1](docs/English/windows/DeleteESULicense.md) | Review the deletion and billing warning in the guide |
+| Unlink and delete licenses in bulk, for example after an ESU period ends | [BulkDeleteESULicenses.ps1](docs/English/windows/BulkDeleteESULicenses.md) | [Bulk deletion template](samples/BulkDeleteESULicenses.csv) |
 
 Example read-only inventory command:
 
@@ -164,6 +166,18 @@ Example bulk preview:
 
 ```powershell
 ./Scripts/windows/ManageESULicenses.ps1 -subscriptionId "00000000-0000-0000-0000-000000000001" -userToken $authenticationToken -licenseResourceGroupName "rg-example-esu" -location "EastUS" -state "Deactivated" -edition "Standard" -csvFilePath ".\samples\ManageESULicenses.csv" -DryRun
+```
+
+### Decommission licenses after an ESU period ends
+
+The Windows Server 2012 and Windows Server 2012 R2 ESU period ended on October 13, 2026. At midnight UTC on October 14, 2026, Azure Arc deactivated those ESU licenses. Deactivated licenses remain visible in Azure, but they can't enroll more servers or provide eligibility for security updates released after October 13, 2026. See [Programmatically deploy and manage Azure Arc Extended Security Updates licenses](https://learn.microsoft.com/azure/azure-arc/servers/api-extended-security-updates).
+
+To remove those licenses, use [BulkDeleteESULicenses.ps1](docs/English/windows/BulkDeleteESULicenses.md). For each selected license, it exports a before-change inventory, unlinks the assigned servers, confirms each unlink, and deletes the license only when every discovered server was unlinked. By default, it processes only Windows Server 2012 and Windows Server 2012 R2 licenses; Windows Server 2016 licenses are processed only when `-target` explicitly includes them. Before running it, review the guide's limits: assignment discovery covers only the subscription that contains each license, and servers with an active Software Assurance attestation, pay-as-you-go, or Hotpatch setting in their license profile are skipped. Deleting a license can remain billable for up to five days.
+
+Example decommissioning preview:
+
+```powershell
+./Scripts/windows/BulkDeleteESULicenses.ps1 -licenseSubscriptionId "00000000-0000-0000-0000-000000000001" -userToken $authenticationToken -licenseResourceGroupName "rg-example-esu" -DryRun
 ```
 
 <a id="sql-server-esu"></a>

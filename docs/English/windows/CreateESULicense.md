@@ -58,7 +58,7 @@ The script rejects odd or out-of-range core counts; it does not calculate or nor
 
 ## Billing safeguards
 
-Windows Server 2016 reaches end of support on January 12, 2027, and Azure Arc ESU billing begins January 13, 2027. An activated license starts billing even when it is not assigned to a server. Late enrollment and licenses or cores added after end of support are back-billed to the applicable end-of-support date. Reactivation, recreation, region changes, and tenant changes are also subject to back-billing. Decreasing cores, deactivating, or deleting a license can continue to incur charges for up to five calendar days. Review Microsoft's current [billing guidance](https://learn.microsoft.com/azure/azure-arc/servers/billing-extended-security-updates) before activation or modification.
+Windows Server 2016 reaches end of support on January 12, 2027, and Azure Arc ESU billing begins January 13, 2027. An activated license starts billing even when it is not assigned to a server. Late enrollment and licenses or cores added after end of support are back-billed to the applicable end-of-support date. Reactivation, recreation, region changes, and tenant changes are also subject to back-billing. Decreasing cores, deactivating, or deleting a license can continue to incur charges for up to five days. Review Microsoft's current [billing guidance](https://learn.microsoft.com/azure/azure-arc/servers/billing-extended-security-updates) before activation or modification.
 
 ## Preview and confirmation
 
