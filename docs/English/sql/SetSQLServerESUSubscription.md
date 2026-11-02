@@ -114,6 +114,8 @@ Cancellation has no enable-only values:
 
 ## CSV input
 
+Comma (`,`) and semicolon (`;`) delimiters are detected automatically from the required headers; no delimiter option is needed. Use one delimiter consistently, keep the exact column names below, and quote fields containing that delimiter, quotes, or line breaks (double embedded quotes). Files without data rows, missing required headers, or ambiguous delimiter interpretations are rejected before authentication. The comma-separated sample remains valid.
+
 Start with [SetSQLServerESUSubscription.csv](../../../samples/SetSQLServerESUSubscription.csv).
 To build the file from current Azure inventory, review every constant at the top of [SetSQLServerESUSubscription.kql](../../../samples/SetSQLServerESUSubscription.kql), run it in Azure Resource Graph Explorer, and download the result as CSV. The query returns one row per host and deliberately returns no Enable rows until the required billing and prerequisite acknowledgements are `TRUE`.
 

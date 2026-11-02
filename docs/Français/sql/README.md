@@ -113,6 +113,8 @@ Cette ressource ne remplace pas la configuration des machines virtuelles : les m
 
 ## Procédure implémentée par ce dépôt
 
+Les cinq scripts SQL acceptent les fichiers CSV séparés par des virgules ou des points-virgules et détectent automatiquement le séparateur à partir de leurs en-têtes obligatoires. Les modèles existants séparés par des virgules restent valides ; aucun paramètre de séparateur n'est nécessaire. Conservez les noms de colonnes et les confirmations de facturation documentés, et entourez de guillemets les champs contenant le séparateur, des guillemets ou des sauts de ligne.
+
 1. Générez ou préparez le CSV cible avec [CheckSQLServerESUStatus.kql](../../../samples/CheckSQLServerESUStatus.kql) ou le modèle applicable.
 2. Exécutez [TestSQLServerArcESUPrerequisites.ps1](TestSQLServerArcESUPrerequisites.md).
 3. Si nécessaire, exécutez [InstallSQLServerArcExtension.ps1](InstallSQLServerArcExtension.md).

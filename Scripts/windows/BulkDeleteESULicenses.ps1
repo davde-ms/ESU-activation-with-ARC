@@ -10,6 +10,7 @@ YOU ARE FREE TO REUSE AND/OR MODIFY THE CODE TO FIT YOUR NEEDS
 Unlinks Windows Server ESU licenses from their Azure Arc servers and then deletes the license resources in bulk.
 
 .DESCRIPTION
+CSV input automatically detects comma or semicolon delimiters from the required headers; quoted fields are supported.
 This script decommissions Azure Arc ESU license resources (Microsoft.HybridCompute/licenses), for example after the
 Windows Server 2012 and Windows Server 2012 R2 ESU period ended on October 13, 2026.
 
@@ -195,6 +196,56 @@ $script:CONFIG = @{
 ################################
 # Function(s) definition block #
 ################################
+
+function Import-DelimitedCsv {
+    [CmdletBinding(DefaultParameterSetName = 'Path')]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'Path')][string]$Path,
+        [Parameter(Mandatory = $true, ParameterSetName = 'LiteralPath')][string]$LiteralPath,
+        [Parameter(Mandatory = $true)][string[]]$RequiredColumns
+    )
+
+    $importParameters = @{ ErrorAction = 'Stop' }
+    if ($PSCmdlet.ParameterSetName -eq 'LiteralPath') {
+        $importParameters.LiteralPath = $LiteralPath
+    } else {
+        $importParameters.Path = $Path
+    }
+
+    $candidates = [System.Collections.Generic.List[object]]::new()
+    $importErrors = [System.Collections.Generic.List[string]]::new()
+    foreach ($delimiter in @(',', ';')) {
+        try {
+            $rows = @(Import-Csv @importParameters -Delimiter $delimiter)
+            $columns = if ($rows.Count -gt 0) { @($rows[0].PSObject.Properties.Name) } else { @() }
+            $missing = @($RequiredColumns | Where-Object { $_ -notin $columns })
+            $candidates.Add([pscustomobject]@{
+                Rows = $rows
+                Missing = $missing
+            })
+        } catch {
+            # A failed interpretation must not hide a valid parse with the other delimiter.
+            $importErrors.Add("Delimiter '$delimiter': $($_.Exception.Message)")
+        }
+    }
+
+    $validCandidates = @($candidates | Where-Object { $_.Rows.Count -gt 0 -and $_.Missing.Count -eq 0 })
+    if ($validCandidates.Count -eq 1) {
+        return $validCandidates[0].Rows
+    }
+    if ($validCandidates.Count -gt 1) {
+        throw 'CSV validation failed: ambiguous delimiter; both comma and semicolon interpretations contain all required columns. Use one delimiter consistently.'
+    }
+    if ($candidates.Count -eq 0) {
+        throw "CSV import failed: $($importErrors -join ' ')"
+    }
+    $nonemptyCandidates = @($candidates | Where-Object { $_.Rows.Count -gt 0 } | Sort-Object { $_.Missing.Count })
+    if ($nonemptyCandidates.Count -eq 0) {
+        throw 'CSV validation failed: the file contains no data rows.'
+    }
+    $details = if ($importErrors.Count -gt 0) { " Import errors: $($importErrors -join ' ')" } else { '' }
+    throw "CSV validation failed: missing required column(s): $($nonemptyCandidates[0].Missing -join ', '). Expected comma- or semicolon-delimited CSV.$details"
+}
 
 function Write-Logfile {
     param(
@@ -1003,7 +1054,7 @@ $planItems = [System.Collections.Generic.List[object]]::new()
 
 if ($PSCmdlet.ParameterSetName -eq 'Csv') {
     try {
-        $data = @(Import-Csv -Path $csvFilePath)
+        $data = @(Import-DelimitedCsv -Path $csvFilePath -RequiredColumns $script:CONFIG.RequiredCSVColumns)
     } catch {
         Write-Logfile "Failed to import CSV file: $($_.Exception.Message)" "ERROR"
         if (-not [string]::IsNullOrWhiteSpace($logFileName)) { Stop-Transcript | Out-Null }

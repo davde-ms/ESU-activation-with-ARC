@@ -3,6 +3,7 @@ $subscriptionId = '00000000-0000-0000-0000-000000000001'
 $overrideSubscriptionId = '00000000-0000-0000-0000-000000000002'
 $tenantId = '00000000-0000-0000-0000-000000000003'
 $appId = '00000000-0000-0000-0000-000000000004'
+$script:CsvColumns = @('SubscriptionId', 'ServerResourceGroupName', 'ARCServerName')
 
 function Import-PrerequisiteFunction {
     param([string]$Name)
@@ -27,7 +28,7 @@ function Invoke-PrerequisiteScenario {
     )
     $escapedScript = $scriptPath.Replace("'", "''")
     $escapedTrace = $TracePath.Replace("'", "''")
-    $exportPath = Join-Path ([System.IO.Path]::GetTempPath()) "sql-prereq-export-$PID-$([guid]::NewGuid()).csv"
+    $exportPath = Join-Path $PSScriptRoot "sql-prereq-export-$PID-$([guid]::NewGuid()).csv"
     $escapedExport = $exportPath.Replace("'", "''")
     $stale = [datetime]::UtcNow.AddHours(-25).ToString('o')
     $fresh = [datetime]::UtcNow.AddHours(-1).ToString('o')
@@ -69,6 +70,10 @@ return [pscustomobject]@{ properties = [pscustomobject]@{ publisher = 'Microsoft
 function global:New-Instance(`$name, `$version, `$edition, `$inventory, `$usage) {
     [pscustomobject]@{ id = "/subscriptions/$subscriptionId/resourceGroups/arc-rg/providers/Microsoft.AzureArcData/sqlServerInstances/`$name"; name = `$name; properties = [pscustomobject]@{ containerResourceId = "/subscriptions/$subscriptionId/resourceGroups/arc-rg/providers/Microsoft.HybridCompute/machines/sql-01/"; version = `$version; edition = `$edition; hostType = 'VirtualMachine'; vCore = 8; lastInventoryUploadTime = `$inventory; lastUsageUploadTime = `$usage; status = 'Connected'; serviceType = 'Engine' } }
 }
+function global:Invoke-WebRequest {
+    Add-Content -LiteralPath '$escapedTrace' -Value 'Unexpected authentication HTTP request'
+    throw 'Authentication HTTP was not expected.'
+}
 function global:Invoke-RestMethod {
     param(`$Uri, `$Method, `$Headers, `$ErrorAction)
     Add-Content -LiteralPath '$escapedTrace' -Value "`$Method|`$Uri"
@@ -92,6 +97,46 @@ exit `$LASTEXITCODE
 }
 
 Describe 'TestSQLServerArcESUPrerequisites parsing and input contracts' {
+    It 'imports quoted comma and semicolon batches with subscription fallback and overrides' {
+        foreach ($delimiter in @(',', ';')) {
+            $csvPath = Join-Path $PSScriptRoot "sql-prereq-delimiter-$PID-$([guid]::NewGuid()).csv"
+            $trace = Join-Path $PSScriptRoot "sql-prereq-delimiter-$PID-$([guid]::NewGuid()).txt"
+            try {
+                @(
+                    [pscustomobject]@{ SubscriptionId = ''; ServerResourceGroupName = 'arc-rg'; ARCServerName = 'sql-01'; Note = "change, tracked; `"quoted`"`nsecond line" },
+                    [pscustomobject]@{ SubscriptionId = $overrideSubscriptionId; ServerResourceGroupName = 'arc-rg'; ARCServerName = 'sql-01'; Note = 'second row' }
+                ) | Export-Csv -LiteralPath $csvPath -Delimiter $delimiter -NoTypeInformation
+                $result = Invoke-PrerequisiteScenario -Arguments "-subscriptionId '$subscriptionId' -csvFilePath '$($csvPath.Replace("'", "''"))'" -TracePath $trace
+                $result.ExitCode | Should Be 0
+                $result.Exported.Count | Should Be 2
+                $result.Exported[0].SubscriptionId | Should Be $subscriptionId
+                $result.Exported[1].SubscriptionId | Should Be $overrideSubscriptionId
+                $requests = @(Get-Content -LiteralPath $trace)
+                ($requests -join "`n") | Should Match "/subscriptions/$overrideSubscriptionId/.*/machines/sql-01\?"
+                @($requests | Where-Object { $_ -notmatch '^GET\|' }).Count | Should Be 0
+            } finally {
+                Remove-Item -LiteralPath $csvPath, $trace -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'rejects incomplete comma and semicolon schemas before authentication' {
+        foreach ($delimiter in @(',', ';')) {
+            $csvPath = Join-Path $PSScriptRoot "sql-prereq-delimiter-$PID-$([guid]::NewGuid()).csv"
+            $trace = Join-Path $PSScriptRoot "sql-prereq-delimiter-$PID-$([guid]::NewGuid()).txt"
+            try {
+                [pscustomobject]@{ SubscriptionId = $subscriptionId; ServerResourceGroupName = 'arc-rg' } |
+                    Export-Csv -LiteralPath $csvPath -Delimiter $delimiter -NoTypeInformation
+                $result = Invoke-PrerequisiteScenario -Arguments "-subscriptionId '$subscriptionId' -csvFilePath '$($csvPath.Replace("'", "''"))'" -TracePath $trace
+                $result.ExitCode | Should Be 1
+                ($result.Output | Out-String) | Should Match 'missing required column.*ARCServerName'
+                Test-Path -LiteralPath $trace | Should Be $false
+            } finally {
+                Remove-Item -LiteralPath $csvPath, $trace -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
     It 'parses without errors and exposes mutually exclusive parameter sets' {
         $tokens = $null
         $errors = $null
@@ -154,7 +199,7 @@ Describe 'TestSQLServerArcESUPrerequisites pure classification' {
 }
 
 Describe 'TestSQLServerArcESUPrerequisites read-only ARM behavior' {
-    BeforeEach { $script:tracePath = Join-Path ([System.IO.Path]::GetTempPath()) "sql-prereq-trace-$PID-$([guid]::NewGuid()).txt" }
+    BeforeEach { $script:tracePath = Join-Path $PSScriptRoot "sql-prereq-trace-$PID-$([guid]::NewGuid()).txt" }
     AfterEach { Remove-Item -LiteralPath $script:tracePath -ErrorAction SilentlyContinue }
 
     It 'uses exact API versions, follows pagination, correlates by container resource ID, and returns stable fields' {
@@ -276,7 +321,7 @@ Describe 'TestSQLServerArcESUPrerequisites read-only ARM behavior' {
 
 Describe 'TestSQLServerArcESUPrerequisites authentication safety' {
     It 'validates all CSV rows before attempting authentication or HTTP calls' {
-        $csv = Join-Path ([System.IO.Path]::GetTempPath()) "sql-prereq-invalid-$PID.csv"
+        $csv = Join-Path $PSScriptRoot "sql-prereq-invalid-$PID.csv"
         @"
 SubscriptionId,ServerResourceGroupName,ARCServerName
 bad,arc-rg,sql-01
@@ -288,7 +333,7 @@ bad,arc-rg,sql-01
     }
 
     It 'never writes client secrets, secure token contents, or authorization headers' {
-        $trace = Join-Path ([System.IO.Path]::GetTempPath()) "sql-prereq-secret-$PID.txt"
+        $trace = Join-Path $PSScriptRoot "sql-prereq-secret-$PID.txt"
         $result = Invoke-PrerequisiteScenario -Arguments "-subscriptionId '$subscriptionId' -serverResourceGroupName 'arc-rg' -ARCServerName 'sql-01'" -TracePath $trace
         $text = $result.Output | Out-String
         $text | Should Not Match 'fictitious-token|Authorization|Bearer'

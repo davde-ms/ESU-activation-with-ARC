@@ -1,5 +1,7 @@
 # ManageESUAssignmentsFR.ps1
 
+Le délimiteur CSV d'entrée, virgule (`,`) ou point-virgule (`;`), est détecté automatiquement selon les en-têtes requis. Utilisez un seul délimiteur dans le fichier et placez entre guillemets les champs qui le contiennent. Les noms de colonnes, les alternatives `Name`/`ARCServerName`, la priorité des abonnements et la validation des lignes restent inchangés. Les fichiers vides, les en-têtes requis manquants et les interprétations ambiguës du délimiteur sont rejetés.
+
 Ce script attribue ou dissocie en bloc des licences ESU existantes à partir d'un fichier CSV. Il permet d'attribuer une même licence à plusieurs serveurs avec Azure Arc et prend en charge les licences stockées dans un abonnement différent de celui des serveurs.
 
 ## Compatibilité avec Windows Server 2016

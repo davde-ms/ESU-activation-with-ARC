@@ -1,5 +1,7 @@
 # BulkDeleteESULicenses.ps1
 
+Le délimiteur CSV d'entrée, virgule (`,`) ou point-virgule (`;`), est détecté automatiquement selon les en-têtes requis. Utilisez un seul délimiteur dans le fichier et placez entre guillemets les champs qui le contiennent. Les noms de colonnes et la validation des lignes restent inchangés. Les fichiers vides, les en-têtes requis manquants et les interprétations ambiguës du délimiteur sont rejetés ; les inventaires exportés restent séparés par des virgules.
+
 Ce script met hors service en bloc des ressources de licences ESU Windows Server (`Microsoft.HybridCompute/licenses`). Pour chaque licence sélectionnée, il dissocie chaque serveur avec Azure Arc auquel la licence est attribuée, confirme que chaque dissociation a pris effet, puis supprime la licence. Une licence est supprimée uniquement lorsque tous les serveurs découverts ont été dissociés avec succès.
 
 Utilisez-le à la fin d'une période ESU. Par exemple, la période ESU de Windows Server 2012 et Windows Server 2012 R2 a pris fin le 13 octobre 2026, et Azure Arc a désactivé ces licences à minuit UTC le 14 octobre 2026. Les licences désactivées restent consultables jusqu'à leur suppression. Consultez [Déployer et gérer par programmation les licences Extended Security Updates activées par Azure Arc](https://learn.microsoft.com/fr-fr/azure/azure-arc/servers/api-extended-security-updates).

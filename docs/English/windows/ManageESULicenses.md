@@ -15,6 +15,8 @@ License target, edition, core type, core count, activation state, program year, 
 
 ## CSV columns
 
+CSV input accepts commas (`,`) or semicolons (`;`). The script tries both delimiters and selects the interpretation containing all required headers. Use one delimiter consistently throughout each file; quote fields containing that delimiter. If neither interpretation contains all required headers, validation lists the missing columns from the closest match. If both match, validation rejects the ambiguous file. Excel `sep=` preamble lines are not supported.
+
 Column names and literal values are case-insensitive in PowerShell, but use the spellings below for consistency.
 
 | Column | Required | Description |

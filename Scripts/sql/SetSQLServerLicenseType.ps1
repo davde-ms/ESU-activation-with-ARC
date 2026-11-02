@@ -3,6 +3,8 @@
 Sets the SQL Server LicenseType on an Arc-enabled Windows machine whose LicenseType is still empty.
 
 .DESCRIPTION
+CSV input automatically detects comma or semicolon delimiters from the required headers.
+
 WARNING: LicenseType is a licensing attestation (Paid) or an Azure billing decision for the SQL
 Server software license (PAYG). It applies to every SQL Server instance on the host. Only the
 license owner should choose it.
@@ -135,6 +137,56 @@ $script:CsvColumns = @(
 )
 $script:AcknowledgementColumns = @('AttestSoftwareAssurance', 'AcceptPaygBilling', 'ConsentToRecurringPAYG', 'ConfirmCoreBasedEnterpriseLicense')
 
+function Import-DelimitedCsv {
+    [CmdletBinding(DefaultParameterSetName = 'Path')]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'Path')][string]$Path,
+        [Parameter(Mandatory = $true, ParameterSetName = 'LiteralPath')][string]$LiteralPath,
+        [Parameter(Mandatory = $true)][string[]]$RequiredColumns
+    )
+
+    $importParameters = @{ ErrorAction = 'Stop' }
+    if ($PSCmdlet.ParameterSetName -eq 'LiteralPath') {
+        $importParameters.LiteralPath = $LiteralPath
+    } else {
+        $importParameters.Path = $Path
+    }
+
+    $candidates = [System.Collections.Generic.List[object]]::new()
+    $importErrors = [System.Collections.Generic.List[string]]::new()
+    foreach ($delimiter in @(',', ';')) {
+        try {
+            $rows = @(Import-Csv @importParameters -Delimiter $delimiter)
+            $columns = if ($rows.Count -gt 0) { @($rows[0].PSObject.Properties.Name) } else { @() }
+            $missing = @($RequiredColumns | Where-Object { $_ -notin $columns })
+            $candidates.Add([pscustomobject]@{
+                Rows = $rows
+                Missing = $missing
+            })
+        } catch {
+            # A failed interpretation must not hide a valid parse with the other delimiter.
+            $importErrors.Add("Delimiter '$delimiter': $($_.Exception.Message)")
+        }
+    }
+
+    $validCandidates = @($candidates | Where-Object { $_.Rows.Count -gt 0 -and $_.Missing.Count -eq 0 })
+    if ($validCandidates.Count -eq 1) {
+        return $validCandidates[0].Rows
+    }
+    if ($validCandidates.Count -gt 1) {
+        throw 'CSV validation failed: ambiguous delimiter; both comma and semicolon interpretations contain all required columns. Use one delimiter consistently.'
+    }
+    if ($candidates.Count -eq 0) {
+        throw "CSV import failed: $($importErrors -join ' ')"
+    }
+    $nonemptyCandidates = @($candidates | Where-Object { $_.Rows.Count -gt 0 } | Sort-Object { $_.Missing.Count })
+    if ($nonemptyCandidates.Count -eq 0) {
+        throw 'CSV validation failed: the file contains no data rows.'
+    }
+    $details = if ($importErrors.Count -gt 0) { " Import errors: $($importErrors -join ' ')" } else { '' }
+    throw "CSV validation failed: missing required column(s): $($nonemptyCandidates[0].Missing -join ', '). Expected comma- or semicolon-delimited CSV.$details"
+}
+
 function Test-SubscriptionId {
     param([string]$Value)
 
@@ -249,7 +301,7 @@ function ConvertTo-PlanItem {
             return [pscustomobject]@{ Items = @(); Errors = $errors.ToArray() }
         }
         try {
-            $sourceRows = @(Import-Csv -LiteralPath $Path -ErrorAction Stop)
+            $sourceRows = @(Import-DelimitedCsv -LiteralPath $Path -RequiredColumns $script:CsvColumns -ErrorAction Stop)
         } catch {
             $errors.Add("Unable to import CSV file: $($_.Exception.Message)")
             return [pscustomobject]@{ Items = @(); Errors = $errors.ToArray() }

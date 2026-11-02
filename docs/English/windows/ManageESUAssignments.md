@@ -1,5 +1,7 @@
 # ManageESUAssignments.ps1
 
+CSV input automatically detects comma (`,`) or semicolon (`;`) delimiters using the required column headers. Keep one delimiter throughout the file and quote fields containing that delimiter. Existing column names, the `Name`/`ARCServerName` alternatives, subscription precedence, and row validation remain unchanged. Empty files, missing required headers, and ambiguous delimiter interpretations are rejected.
+
 This script assigns or unassigns existing ESU licenses in bulk from a CSV file. It supports one license assigned to multiple Azure Arc-enabled servers and licenses stored in a different subscription from the servers.
 
 ## Windows Server 2016 compatibility

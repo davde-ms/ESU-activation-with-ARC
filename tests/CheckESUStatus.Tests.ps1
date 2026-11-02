@@ -1,9 +1,9 @@
 $scriptPath = Join-Path $PSScriptRoot '..\Scripts\windows\CheckESUStatus.ps1'
 $subscriptionId = '00000000-0000-0000-0000-000000000001'
 $overrideSubscriptionId = '00000000-0000-0000-0000-000000000002'
-$statusCsvPath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-status-$PID.csv"
-$invalidStatusCsvPath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-status-invalid-$PID.csv"
-$requestTracePath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-status-requests-$PID.txt"
+$statusCsvPath = Join-Path $PSScriptRoot "esu-status-$PID.csv"
+$invalidStatusCsvPath = Join-Path $PSScriptRoot "esu-status-invalid-$PID.csv"
+$requestTracePath = Join-Path $PSScriptRoot "esu-status-requests-$PID.txt"
 
 @"
 Name,ARCServerName,ServerResourceGroupName,SubscriptionId
@@ -235,6 +235,30 @@ Describe 'CheckESUStatus process behavior' {
         $result.Output | Should Match 'Servers without ESU licenses: 1'
     }
 
+    It 'imports comma and semicolon CSV inputs with quoted fields and multiple rows' {
+        $delimiterCsvPath = Join-Path $PSScriptRoot "esu-status-delimiter-$PID.csv"
+        try {
+            foreach ($delimiter in @(',', ';')) {
+                Remove-Item -LiteralPath $requestTracePath -ErrorAction SilentlyContinue
+                @(
+                    [pscustomobject]@{ Name = 'server-name'; ServerResourceGroupName = 'server-rg'; SubscriptionId = $overrideSubscriptionId; Notes = 'quoted, comma; semicolon' },
+                    [pscustomobject]@{ Name = 'server-arc'; ServerResourceGroupName = 'server-rg'; SubscriptionId = ''; Notes = 'second; row, note' }
+                ) | Export-Csv -LiteralPath $delimiterCsvPath -Delimiter $delimiter -NoTypeInformation
+                $escapedDelimiterCsvPath = $delimiterCsvPath.Replace("'", "''")
+                $result = Invoke-StatusScenario -Arguments "-subscriptionId '$subscriptionId' -csvFilePath '$escapedDelimiterCsvPath'" -Scenario MixedCsv
+
+                $result.ExitCode | Should Be 0
+                $result.Output | Should Match 'Total servers checked: 2'
+                $requests = @(Get-Content -LiteralPath $requestTracePath)
+                $requests.Count | Should Be 2
+                $requests[0] | Should Match "/subscriptions/$overrideSubscriptionId/.+/server-name/licenseProfiles/"
+                $requests[1] | Should Match "/subscriptions/$subscriptionId/.+/server-arc/licenseProfiles/"
+            }
+        } finally {
+            Remove-Item -LiteralPath $delimiterCsvPath -ErrorAction SilentlyContinue
+        }
+    }
+
     It 'returns exit code 1 when a status REST request fails' {
         $result = Invoke-StatusScenario `
             -Arguments "-subscriptionId '$subscriptionId' -serverResourceGroupName 'server-rg' -ARCServerName 'server-01'" `
@@ -255,7 +279,7 @@ Describe 'CheckESUStatus process behavior' {
     }
 
     It 'returns exit code 1 when CSV export fails' {
-        $missingDirectory = Join-Path ([System.IO.Path]::GetTempPath()) "missing-esu-export-$PID"
+        $missingDirectory = Join-Path $PSScriptRoot "missing-esu-export-$PID"
         Remove-Item -Path $missingDirectory -Recurse -Force -ErrorAction SilentlyContinue
         $exportPath = Join-Path $missingDirectory 'status.csv'
 

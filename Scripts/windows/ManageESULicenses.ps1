@@ -12,6 +12,8 @@ Creates and manages ESU licenses to be used with Azure ARC in bulk, using an exp
 .DESCRIPTION
 This script creates, modifies, assigns, and unlinks Azure Arc enabled ESU licenses from CSV input.
 
+CSV input accepts either commas or semicolons, detected from the required headers. Use one delimiter consistently throughout each file. Ambiguous headers are rejected.
+
 The exact target values are Windows Server 2012, Windows Server 2012 R2, and Windows Server 2016. For each row, a nonempty Target cell overrides -target; an empty or absent Target cell uses -target, whose default is Windows Server 2012. Target is resolved independently for every row, so one CSV can mix all three targets.
 
 Target, InvoiceId, and ProgramYear are optional CSV columns. Transition precedence is resolved separately for each field: a nonempty row InvoiceId overrides an explicitly supplied batch -invoiceId, and a nonempty row ProgramYear overrides an explicitly supplied batch -programYear. When an effective invoice exists and no row or batch program year was explicitly supplied, ProgramYear defaults to Year 1. An explicit ProgramYear requires an effective invoice. Year 2 expands to Years 1-2, and Year 3 expands to Years 1-3.
@@ -194,6 +196,56 @@ $programYearWasBound = $PSBoundParameters.ContainsKey('programYear')
 ################################
 # Function(s) definition block #
 ################################
+
+function Import-DelimitedCsv {
+    [CmdletBinding(DefaultParameterSetName = 'Path')]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'Path')][string]$Path,
+        [Parameter(Mandatory = $true, ParameterSetName = 'LiteralPath')][string]$LiteralPath,
+        [Parameter(Mandatory = $true)][string[]]$RequiredColumns
+    )
+
+    $importParameters = @{ ErrorAction = 'Stop' }
+    if ($PSCmdlet.ParameterSetName -eq 'LiteralPath') {
+        $importParameters.LiteralPath = $LiteralPath
+    } else {
+        $importParameters.Path = $Path
+    }
+
+    $candidates = [System.Collections.Generic.List[object]]::new()
+    $importErrors = [System.Collections.Generic.List[string]]::new()
+    foreach ($delimiter in @(',', ';')) {
+        try {
+            $rows = @(Import-Csv @importParameters -Delimiter $delimiter)
+            $columns = if ($rows.Count -gt 0) { @($rows[0].PSObject.Properties.Name) } else { @() }
+            $missing = @($RequiredColumns | Where-Object { $_ -notin $columns })
+            $candidates.Add([pscustomobject]@{
+                Rows = $rows
+                Missing = $missing
+            })
+        } catch {
+            # A failed interpretation must not hide a valid parse with the other delimiter.
+            $importErrors.Add("Delimiter '$delimiter': $($_.Exception.Message)")
+        }
+    }
+
+    $validCandidates = @($candidates | Where-Object { $_.Rows.Count -gt 0 -and $_.Missing.Count -eq 0 })
+    if ($validCandidates.Count -eq 1) {
+        return $validCandidates[0].Rows
+    }
+    if ($validCandidates.Count -gt 1) {
+        throw 'CSV validation failed: ambiguous delimiter; both comma and semicolon interpretations contain all required columns. Use one delimiter consistently.'
+    }
+    if ($candidates.Count -eq 0) {
+        throw "CSV import failed: $($importErrors -join ' ')"
+    }
+    $nonemptyCandidates = @($candidates | Where-Object { $_.Rows.Count -gt 0 } | Sort-Object { $_.Missing.Count })
+    if ($nonemptyCandidates.Count -eq 0) {
+        throw 'CSV validation failed: the file contains no data rows.'
+    }
+    $details = if ($importErrors.Count -gt 0) { " Import errors: $($importErrors -join ' ')" } else { '' }
+    throw "CSV validation failed: missing required column(s): $($nonemptyCandidates[0].Missing -join ', '). Expected comma- or semicolon-delimited CSV.$details"
+}
 
 function Get-ProgramYearArray {
     <#
@@ -654,7 +706,7 @@ function Write-Logfile  {
 Clear-Host
 
 try {
-    $data = @(Import-Csv -Path $csvFilePath -ErrorAction Stop)
+    $data = @(Import-DelimitedCsv -Path $csvFilePath -RequiredColumns @('Name', 'Cores', 'IsVirtual', 'AgentVersion'))
     $licensePlans = @(ConvertTo-ESULicensePlan -csvData $data -state $state -edition $edition -licenseNamePrefix $licenseNamePrefix -licenseNameSuffix $licenseNameSuffix -target $target -invoiceId $invoiceId -programYear $programYear -invoiceIdWasBound $invoiceIdWasBound -programYearWasBound $programYearWasBound)
 } catch {
     Write-Host $_.Exception.Message -ForegroundColor Red
@@ -805,8 +857,6 @@ exit 0
 ############################
 # End of Main script block #
 ############################
-
-
 
 
 

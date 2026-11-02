@@ -586,8 +586,8 @@ function Invoke-BulkDeleteScenario {
 }
 
 Describe 'BulkDeleteESULicenses end-to-end behavior with mocked REST calls' {
-    $inventoryPath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-bulk-delete-inventory-$PID.csv"
-    $csvPath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-bulk-delete-$PID.csv"
+    $inventoryPath = Join-Path $PSScriptRoot "esu-bulk-delete-inventory-$PID.csv"
+    $csvPath = Join-Path $PSScriptRoot "esu-bulk-delete-$PID.csv"
     $escapedInventoryPath = $inventoryPath.Replace("'", "''")
     $escapedCsvPath = $csvPath.Replace("'", "''")
 
@@ -632,6 +632,30 @@ esu-missing,rg-esu,
         $result.Output | Should Not Match 'MUTATION-ATTEMPTED'
         $result.Output | Should Match "esu-missing.*The license was not found"
         $result.Output | Should Match 'would be deleted'
+    }
+
+    It 'imports comma and semicolon CSV inputs with multiple quoted rows without mutations' {
+        $delimiterCsvPath = Join-Path $PSScriptRoot "esu-bulk-delimiter-$PID.csv"
+        try {
+            foreach ($delimiter in @(',', ';')) {
+                @(
+                    [pscustomobject]@{ LicenseName = 'esu-ws2012r2-01'; LicenseResourceGroupName = 'rg-esu'; Notes = 'quoted, comma; semicolon' },
+                    [pscustomobject]@{ LicenseName = 'esu-ws2012-02'; LicenseResourceGroupName = 'rg-esu'; Notes = 'second; row, note' }
+                ) | Export-Csv -LiteralPath $delimiterCsvPath -Delimiter $delimiter -NoTypeInformation
+                $escapedDelimiterCsvPath = $delimiterCsvPath.Replace("'", "''")
+                $result = Invoke-BulkDeleteScenario -Scenario dryrun -Arguments "-licenseSubscriptionId '$subscriptionId' -csvFilePath '$escapedDelimiterCsvPath' -inventoryFilePath '$escapedInventoryPath' -DryRun"
+
+                $result.ExitCode | Should Be 0
+                $result.Output | Should Match 'Imported 2 row'
+                $result.Output | Should Not Match 'MUTATION-ATTEMPTED'
+                $inventory = @(Import-Csv -LiteralPath $inventoryPath)
+                $inventory.Count | Should Be 2
+                ($inventory.LicenseName -join '|') | Should Match 'esu-ws2012r2-01'
+                ($inventory.LicenseName -join '|') | Should Match 'esu-ws2012-02'
+            }
+        } finally {
+            Remove-Item -LiteralPath $delimiterCsvPath -ErrorAction SilentlyContinue
+        }
     }
 
     It 'unlinks, verifies, and deletes each selected license in a confirmed live run' {

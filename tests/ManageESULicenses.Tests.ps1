@@ -13,7 +13,7 @@ function Import-ManageESULicensesFunctions {
         throw "Unable to parse '$scriptPath': $($parseErrors.Message -join '; ')"
     }
 
-    foreach ($functionName in @('Get-ProgramYearArray', 'ConvertTo-ESULicensePlan', 'CreateESULicense', 'CountResources')) {
+    foreach ($functionName in @('Import-DelimitedCsv', 'Get-ProgramYearArray', 'ConvertTo-ESULicensePlan', 'CreateESULicense', 'CountResources')) {
         $functionAst = $ast.Find({
             param($node)
             $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
@@ -72,6 +72,56 @@ Describe 'ManageESULicenses customer safety helpers' {
     BeforeEach {
         Import-ManageESULicensesFunctions
         $global:subscriptionId = '00000000-0000-0000-0000-000000000001'
+    }
+
+    It 'imports equivalent comma and semicolon license plans without changing quoted values' {
+        foreach ($delimiter in @(',', ';')) {
+            $path = Join-Path $TestDrive "licenses-$([int][char]$delimiter).csv"
+            $row = Get-ESULicenseRow
+            $row.ESUException = 'Fictitious, note; with "quotes"'
+            $row | Export-Csv -LiteralPath $path -Delimiter $delimiter -NoTypeInformation
+
+            $rows = @(Import-DelimitedCsv -LiteralPath $path -RequiredColumns @('Name', 'Cores', 'IsVirtual', 'AgentVersion'))
+            $plans = @(ConvertTo-PlannedESULicense -Rows $rows)
+
+            $rows.Count | Should Be 1
+            $rows[0].ESUException | Should Be $row.ESUException
+            $plans.Count | Should Be 1
+            $plans[0].LicenseName | Should Be 'ESU-server-01'
+            $plans[0].CoreCount | Should Be 8
+        }
+    }
+
+    It 'reports every missing required header for either delimiter' {
+        foreach ($delimiter in @(',', ';')) {
+            $path = Join-Path $TestDrive 'missing-headers.csv'
+            [pscustomobject]@{ Name = 'server-01'; Cores = '8' } |
+                Export-Csv -LiteralPath $path -Delimiter $delimiter -NoTypeInformation
+
+            { Import-DelimitedCsv -LiteralPath $path -RequiredColumns @('Name', 'Cores', 'IsVirtual', 'AgentVersion') } |
+                Should Throw 'missing required column(s): IsVirtual, AgentVersion.'
+        }
+    }
+
+    It 'rejects ambiguous comma and semicolon interpretations' {
+        $path = Join-Path $TestDrive 'ambiguous.csv'
+        @(
+            'Other,Name,Cores,IsVirtual,AgentVersion,Other;Name;Cores;IsVirtual;AgentVersion;Tail'
+            'x,server-01,8,Virtual,1.34,x;server-02;8;Virtual;1.34;x'
+        ) | Set-Content -LiteralPath $path
+
+        { Import-DelimitedCsv -LiteralPath $path -RequiredColumns @('Name', 'Cores', 'IsVirtual', 'AgentVersion') } |
+            Should Throw 'ambiguous delimiter'
+    }
+
+    It 'rejects empty and header-only files' {
+        $path = Join-Path $TestDrive 'empty.csv'
+        foreach ($content in @('', 'Name,Cores,IsVirtual,AgentVersion', 'Name;Cores;IsVirtual;AgentVersion')) {
+            Set-Content -LiteralPath $path -Value $content
+
+            { Import-DelimitedCsv -LiteralPath $path -RequiredColumns @('Name', 'Cores', 'IsVirtual', 'AgentVersion') } |
+                Should Throw 'no data rows'
+        }
     }
 
     It 'normalizes valid virtual and physical core counts in the preview plan' {
@@ -621,6 +671,14 @@ exit `$LASTEXITCODE
 
     It 'performs read-only validation without mutation during dry-run' {
         Invoke-ManageESULicensesScenario -CsvPath $validCsvPath -DryRun | Should Be 0
+    }
+
+    It 'accepts semicolon-delimited input through the actual dry-run entry point' {
+        $semicolonPath = Join-Path $TestDrive 'semicolon-licenses.csv'
+        Import-Csv -LiteralPath $validCsvPath |
+            Export-Csv -LiteralPath $semicolonPath -Delimiter ';' -NoTypeInformation
+
+        Invoke-ManageESULicensesScenario -CsvPath $semicolonPath -DryRun | Should Be 0
     }
 
     It '[Phase 3] rejects any below-minimum agent row instead of partially previewing a file' {

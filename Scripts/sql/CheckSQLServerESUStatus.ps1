@@ -8,6 +8,7 @@ WindowsAgent.SqlServer extension, provider registration, and correlated Azure Ar
 SQL Server instances. Supports one machine or a CSV containing SubscriptionId,
 ServerResourceGroupName, and ARCServerName. All input is validated before
 authentication. This script never creates, updates, registers, or deletes a resource.
+CSV input automatically detects comma or semicolon delimiters from the required headers.
 
 .EXAMPLE
 $token = Get-AzAccessToken -ResourceUrl 'https://management.azure.com/'
@@ -65,6 +66,56 @@ $script:Configuration = @{
     MaximumRetryDelaySeconds = 8
 }
 
+function Import-DelimitedCsv {
+    [CmdletBinding(DefaultParameterSetName = 'Path')]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'Path')][string]$Path,
+        [Parameter(Mandatory = $true, ParameterSetName = 'LiteralPath')][string]$LiteralPath,
+        [Parameter(Mandatory = $true)][string[]]$RequiredColumns
+    )
+
+    $importParameters = @{ ErrorAction = 'Stop' }
+    if ($PSCmdlet.ParameterSetName -eq 'LiteralPath') {
+        $importParameters.LiteralPath = $LiteralPath
+    } else {
+        $importParameters.Path = $Path
+    }
+
+    $candidates = [System.Collections.Generic.List[object]]::new()
+    $importErrors = [System.Collections.Generic.List[string]]::new()
+    foreach ($delimiter in @(',', ';')) {
+        try {
+            $rows = @(Import-Csv @importParameters -Delimiter $delimiter)
+            $columns = if ($rows.Count -gt 0) { @($rows[0].PSObject.Properties.Name) } else { @() }
+            $missing = @($RequiredColumns | Where-Object { $_ -notin $columns })
+            $candidates.Add([pscustomobject]@{
+                Rows = $rows
+                Missing = $missing
+            })
+        } catch {
+            # A failed interpretation must not hide a valid parse with the other delimiter.
+            $importErrors.Add("Delimiter '$delimiter': $($_.Exception.Message)")
+        }
+    }
+
+    $validCandidates = @($candidates | Where-Object { $_.Rows.Count -gt 0 -and $_.Missing.Count -eq 0 })
+    if ($validCandidates.Count -eq 1) {
+        return $validCandidates[0].Rows
+    }
+    if ($validCandidates.Count -gt 1) {
+        throw 'CSV validation failed: ambiguous delimiter; both comma and semicolon interpretations contain all required columns. Use one delimiter consistently.'
+    }
+    if ($candidates.Count -eq 0) {
+        throw "CSV import failed: $($importErrors -join ' ')"
+    }
+    $nonemptyCandidates = @($candidates | Where-Object { $_.Rows.Count -gt 0 } | Sort-Object { $_.Missing.Count })
+    if ($nonemptyCandidates.Count -eq 0) {
+        throw 'CSV validation failed: the file contains no data rows.'
+    }
+    $details = if ($importErrors.Count -gt 0) { " Import errors: $($importErrors -join ' ')" } else { '' }
+    throw "CSV validation failed: missing required column(s): $($nonemptyCandidates[0].Missing -join ', '). Expected comma- or semicolon-delimited CSV.$details"
+}
+
 function Test-SubscriptionId {
     param([AllowNull()][string]$Value)
 
@@ -112,8 +163,9 @@ function ConvertTo-StatusPlan {
         if ([System.IO.Path]::GetExtension($Path) -ine '.csv') {
             return [pscustomobject]@{ Items = @(); Errors = @("CSV file must have a .csv extension: '$Path'.") }
         }
+        $requiredColumns = @('SubscriptionId', 'ServerResourceGroupName', 'ARCServerName')
         try {
-            $sourceRows = @(Import-Csv -LiteralPath $Path -ErrorAction Stop)
+            $sourceRows = @(Import-DelimitedCsv -LiteralPath $Path -RequiredColumns $requiredColumns -ErrorAction Stop)
         }
         catch {
             return [pscustomobject]@{ Items = @(); Errors = @("Unable to import CSV file: $($_.Exception.Message)") }
@@ -122,7 +174,6 @@ function ConvertTo-StatusPlan {
             return [pscustomobject]@{ Items = @(); Errors = @('CSV file contains no data rows.') }
         }
 
-        $requiredColumns = @('SubscriptionId', 'ServerResourceGroupName', 'ARCServerName')
         $actualColumns = @($sourceRows[0].PSObject.Properties.Name)
         $missingColumns = @($requiredColumns | Where-Object { $_ -notin $actualColumns })
         if ($missingColumns.Count -gt 0) {

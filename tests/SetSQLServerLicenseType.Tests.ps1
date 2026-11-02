@@ -13,8 +13,8 @@ function Invoke-LicenseScenario {
         [switch]$ServicePrincipal
     )
 
-    $recordPath = Join-Path ([System.IO.Path]::GetTempPath()) "sql-license-record-$PID-$([guid]::NewGuid().ToString('N')).jsonl"
-    $csvPath = Join-Path ([System.IO.Path]::GetTempPath()) "sql-license-input-$PID-$([guid]::NewGuid().ToString('N')).csv"
+    $recordPath = Join-Path $PSScriptRoot "sql-license-record-$PID-$([guid]::NewGuid().ToString('N')).jsonl"
+    $csvPath = Join-Path $PSScriptRoot "sql-license-input-$PID-$([guid]::NewGuid().ToString('N')).csv"
     if (-not [string]::IsNullOrWhiteSpace($CsvContent)) { Set-Content -LiteralPath $csvPath -Value $CsvContent }
 
     $escapedScriptPath = $scriptPath.Replace("'", "''")
@@ -199,6 +199,31 @@ function Get-PutSetting {
 }
 
 Describe 'SetSQLServerLicenseType command and local validation' {
+    It 'imports quoted comma and semicolon batches with unchanged licence acknowledgements' {
+        foreach ($delimiter in @(',', ';')) {
+            $rows = @(
+                [pscustomobject]@{ SubscriptionId = ''; ServerResourceGroupName = 'server-rg'; ARCServerName = 'server-01'; LicenseType = 'Paid'; AttestSoftwareAssurance = 'TRUE'; AcceptPaygBilling = ''; ConsentToRecurringPAYG = ''; ConfirmCoreBasedEnterpriseLicense = ''; Note = "change, tracked; `"quoted`"`nsecond line" },
+                [pscustomobject]@{ SubscriptionId = $subscriptionId; ServerResourceGroupName = 'server-rg'; ARCServerName = 'server-02'; LicenseType = 'LicenseOnly'; AttestSoftwareAssurance = 'FALSE'; AcceptPaygBilling = 'FALSE'; ConsentToRecurringPAYG = 'FALSE'; ConfirmCoreBasedEnterpriseLicense = 'FALSE'; Note = 'second row' }
+            )
+            $csv = ($rows | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation) -join "`n"
+            $result = Invoke-LicenseScenario -CsvContent $csv -AdditionalArguments '-DryRun'
+            $result.ExitCode | Should Be 0
+            @($result.Calls | Where-Object { $_.Method -eq 'GET' -and $_.Uri -match "/subscriptions/$subscriptionId/.*/machines/server-0[12]\?" }).Count | Should Be 2
+            $result.Puts.Count | Should Be 0
+        }
+    }
+
+    It 'requires acknowledgement headers even when their row values are optional for either delimiter' {
+        foreach ($delimiter in @(',', ';')) {
+            $row = [pscustomobject]@{ SubscriptionId = $subscriptionId; ServerResourceGroupName = 'server-rg'; ARCServerName = 'server-01'; LicenseType = 'Paid'; AttestSoftwareAssurance = 'TRUE'; AcceptPaygBilling = ''; ConfirmCoreBasedEnterpriseLicense = '' }
+            $csv = ($row | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation) -join "`n"
+            $result = Invoke-LicenseScenario -CsvContent $csv -AdditionalArguments ''
+            $result.ExitCode | Should Be 1
+            $result.Output | Should Match 'missing required column.*ConsentToRecurringPAYG'
+            $result.Calls.Count | Should Be 0
+        }
+    }
+
     It 'exposes single and CSV parameter sets, the three license values, and confirmation controls' {
         $command = Get-Command $scriptPath
         (@($command.ParameterSets | Where-Object Name -eq 'Single').Count -eq 1) | Should Be $true
