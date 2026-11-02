@@ -59,6 +59,8 @@ Pour un principal de service, remplacez `-userToken` par des valeurs fictives ou
 
 ## Entrée CSV
 
+Les séparateurs virgule (`,`) et point-virgule (`;`) sont détectés automatiquement à partir des en-têtes obligatoires ; aucune option de séparateur n'est nécessaire. Utilisez un seul séparateur de façon cohérente, conservez exactement les noms de colonnes ci-dessous et entourez de guillemets les champs contenant ce séparateur, des guillemets ou des sauts de ligne (doublez les guillemets internes). Les fichiers sans lignes de données, avec des en-têtes obligatoires manquants ou dont le séparateur est ambigu sont rejetés avant l'authentification. Le modèle séparé par des virgules reste valide.
+
 Exécutez [CheckSQLServerESUStatus.kql](../../../samples/CheckSQLServerESUStatus.kql) dans Azure Resource Graph Explorer, puis téléchargez le résultat au format CSV, ou utilisez la même structure que le modèle d'état.
 
 ```csv

@@ -113,6 +113,8 @@ That resource does not replace VM configuration: intended VMs must still be conn
 
 ## Workflow implemented by this repository
 
+All five SQL scripts accept comma- or semicolon-delimited CSV input and automatically detect the delimiter from each script's required headers. Existing comma-separated samples remain valid; no delimiter parameter is needed. Keep the documented column names and billing acknowledgements unchanged, and quote fields containing the delimiter, quotes, or line breaks.
+
 1. Generate or prepare the target CSV with [CheckSQLServerESUStatus.kql](../../../samples/CheckSQLServerESUStatus.kql) or the applicable sample.
 2. Run [TestSQLServerArcESUPrerequisites.ps1](TestSQLServerArcESUPrerequisites.md).
 3. If needed, run [InstallSQLServerArcExtension.ps1](InstallSQLServerArcExtension.md).

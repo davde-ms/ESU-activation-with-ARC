@@ -10,6 +10,7 @@ VOUS ÊTES LIBRE DE RÉUTILISER ET/OU MODIFIER LE CODE POUR RÉPONDRE À VOS BES
 Gère les affectations de licences ESU en masse, en prenant ses entrées à partir d'un fichier CSV.
 
 .DESCRIPTION
+Le délimiteur CSV (virgule ou point-virgule) est détecté automatiquement selon les en-têtes requis ; les champs entre guillemets sont pris en charge.
 Ce script gère l'affectation des licences ESU basées sur ARC pour les serveurs nécessitant une activation ESU.
 Il récupère les informations d'un fichier CSV et de la ligne de commande pour des tâches comme l'affectation et la désaffectation de licences.
 Son but est de vous permettre d'affecter une seule licence à plusieurs serveurs à la fois ou de supprimer le lien d'une licence de plusieurs serveurs à la fois.
@@ -224,6 +225,56 @@ $script:CONFIG = @{
 ################################
 # Bloc de définition des fonctions #
 ################################
+
+function Import-DelimitedCsv {
+    [CmdletBinding(DefaultParameterSetName = 'Path')]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'Path')][string]$Path,
+        [Parameter(Mandatory = $true, ParameterSetName = 'LiteralPath')][string]$LiteralPath,
+        [Parameter(Mandatory = $true)][string[]]$RequiredColumns
+    )
+
+    $importParameters = @{ ErrorAction = 'Stop' }
+    if ($PSCmdlet.ParameterSetName -eq 'LiteralPath') {
+        $importParameters.LiteralPath = $LiteralPath
+    } else {
+        $importParameters.Path = $Path
+    }
+
+    $candidates = [System.Collections.Generic.List[object]]::new()
+    $importErrors = [System.Collections.Generic.List[string]]::new()
+    foreach ($delimiter in @(',', ';')) {
+        try {
+            $rows = @(Import-Csv @importParameters -Delimiter $delimiter)
+            $columns = if ($rows.Count -gt 0) { @($rows[0].PSObject.Properties.Name) } else { @() }
+            $missing = @($RequiredColumns | Where-Object { $_ -notin $columns })
+            $candidates.Add([pscustomobject]@{
+                Rows = $rows
+                Missing = $missing
+            })
+        } catch {
+            # A failed interpretation must not hide a valid parse with the other delimiter.
+            $importErrors.Add("Delimiter '$delimiter': $($_.Exception.Message)")
+        }
+    }
+
+    $validCandidates = @($candidates | Where-Object { $_.Rows.Count -gt 0 -and $_.Missing.Count -eq 0 })
+    if ($validCandidates.Count -eq 1) {
+        return $validCandidates[0].Rows
+    }
+    if ($validCandidates.Count -gt 1) {
+        throw 'CSV validation failed: ambiguous delimiter; both comma and semicolon interpretations contain all required columns. Use one delimiter consistently.'
+    }
+    if ($candidates.Count -eq 0) {
+        throw "CSV import failed: $($importErrors -join ' ')"
+    }
+    $nonemptyCandidates = @($candidates | Where-Object { $_.Rows.Count -gt 0 } | Sort-Object { $_.Missing.Count })
+    if ($nonemptyCandidates.Count -eq 0) {
+        throw 'CSV validation failed: the file contains no data rows.'
+    }
+    $details = if ($importErrors.Count -gt 0) { " Import errors: $($importErrors -join ' ')" } else { '' }
+    throw "CSV validation failed: missing required column(s): $($nonemptyCandidates[0].Missing -join ', '). Expected comma- or semicolon-delimited CSV.$details"
+}
 
 function AssignESULicense {
 
@@ -628,7 +679,7 @@ If (![string]::IsNullOrWhiteSpace($logFileName)) {Start-Transcript -Path $logFil
 
 # Valide le fichier CSV et importe les données
 try {
-    $data = Import-Csv -Path $csvFilePath
+    $data = Import-DelimitedCsv -Path $csvFilePath -RequiredColumns $script:CONFIG.RequiredCSVColumns
     if ($data.Count -eq 0) {
         Write-Logfile "Le fichier CSV est vide ou n'a pas de lignes de données" "ERROR"
         exit 1

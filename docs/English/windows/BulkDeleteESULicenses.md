@@ -1,5 +1,7 @@
 # BulkDeleteESULicenses.ps1
 
+CSV input automatically detects comma (`,`) or semicolon (`;`) delimiters using the required column headers. Keep one delimiter throughout the file and quote fields containing that delimiter. Existing column names and row validation remain unchanged. Empty files, missing required headers, and ambiguous delimiter interpretations are rejected; exported inventories remain comma-delimited.
+
 This script decommissions Windows Server ESU license resources (`Microsoft.HybridCompute/licenses`) in bulk. For each selected license, it unlinks every Azure Arc-enabled server it finds assigned to the license, confirms that each unlink took effect, and then deletes the license. A license is deleted only when every discovered server was unlinked successfully.
 
 Use it after an ESU period ends. For example, the Windows Server 2012 and Windows Server 2012 R2 ESU period ended on October 13, 2026, and Azure Arc deactivated those licenses at midnight UTC on October 14, 2026. Deactivated licenses remain available to query until you delete them. See [Programmatically deploy and manage Azure Arc Extended Security Updates licenses](https://learn.microsoft.com/azure/azure-arc/servers/api-extended-security-updates).

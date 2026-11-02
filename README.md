@@ -69,6 +69,14 @@ SQL Server also offers a separate physical-core unlimited-virtualization model t
 
 The scripts do not require the Az PowerShell module when service-principal authentication is used. User-token authentication requires a token object such as one returned by `Get-AzAccessToken`.
 
+### CSV input format
+
+All scripts accepting CSV input support either commas (`,`) or semicolons (`;`), automatically detected using the script's required column headers. No delimiter parameter or shared helper file is needed; scripts remain self-contained.
+
+Use one delimiter consistently throughout each file. Quote fields containing that delimiter, embedded quotes, or newlines using standard CSV quoting. Existing column names, required values, and licensing validation remain unchanged; see the selected script's CSV template and guide. CSV exports remain comma-delimited.
+
+If neither delimiter produces all required headers, the error lists the missing columns from the closest header match. Files for which both interpretations contain all required headers are rejected as ambiguous. Empty and header-only files are rejected. Excel `sep=` preamble lines are not supported: start the file with the actual column headers.
+
 <a id="azure-cloud-support"></a>
 ### Azure cloud support
 

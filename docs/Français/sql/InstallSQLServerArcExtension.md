@@ -63,6 +63,8 @@ Après vérification, retirez `-DryRun` et utilisez `-Confirm` pour l'installati
 
 ## Entrée CSV
 
+Les séparateurs virgule (`,`) et point-virgule (`;`) sont détectés automatiquement à partir des en-têtes obligatoires ; aucune option de séparateur n'est nécessaire. Utilisez un seul séparateur de façon cohérente, conservez exactement les noms de colonnes ci-dessous et entourez de guillemets les champs contenant ce séparateur, des guillemets ou des sauts de ligne (doublez les guillemets internes). Les fichiers sans lignes de données, avec des en-têtes obligatoires manquants ou dont le séparateur est ambigu sont rejetés avant l'authentification. Le modèle séparé par des virgules reste valide.
+
 Commencez par [InstallSQLServerArcExtension.csv](../../../samples/InstallSQLServerArcExtension.csv).
 Pour générer le fichier à partir de l'inventaire Azure actuel, définissez les deux constantes vérifiées dans [InstallSQLServerArcExtension.kql](../../../samples/InstallSQLServerArcExtension.kql), exécutez la requête dans Azure Resource Graph Explorer, puis téléchargez le résultat au format CSV. La requête ne renvoie aucune ligne tant que `SelectedLicenseType` n'est pas valide et que `ConfirmExternalPrerequisites` ne vaut pas `TRUE`.
 

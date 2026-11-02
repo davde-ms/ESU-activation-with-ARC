@@ -15,6 +15,8 @@ La cible, l'édition, le type et le nombre de cœurs, l'état d'activation, l'an
 
 ## Colonnes CSV
 
+Les fichiers CSV acceptent les virgules (`,`) ou les points-virgules (`;`). Le script essaie les deux séparateurs et sélectionne l'interprétation contenant tous les en-têtes obligatoires. Utilisez un seul séparateur dans tout le fichier et placez entre guillemets les champs contenant ce séparateur. Si aucune interprétation ne contient tous les en-têtes obligatoires, la validation indique les colonnes manquantes de la correspondance la plus proche. Si les deux correspondent, le fichier ambigu est rejeté. Les lignes préliminaires Excel `sep=` ne sont pas prises en charge.
+
 PowerShell ne respecte pas la casse des noms de colonnes et des valeurs littérales, mais utilisez les orthographes ci-dessous par souci de cohérence.
 
 | Colonne | Obligatoire | Description |

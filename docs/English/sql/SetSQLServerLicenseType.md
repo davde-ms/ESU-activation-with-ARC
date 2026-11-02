@@ -132,6 +132,8 @@ Preview `PAYG` with a service principal:
 
 ## CSV input
 
+Comma (`,`) and semicolon (`;`) delimiters are detected automatically from the required headers; no delimiter option is needed. Use one delimiter consistently, keep the exact column names below, and quote fields containing that delimiter, quotes, or line breaks (double embedded quotes). Files without data rows, missing required headers, or ambiguous delimiter interpretations are rejected before authentication. The comma-separated sample remains valid.
+
 Start with [SetSQLServerLicenseType.csv](../../../samples/SetSQLServerLicenseType.csv). To build the file from Azure inventory, set the values at the top of [SetSQLServerLicenseType.kql](../../../samples/SetSQLServerLicenseType.kql), run it in Azure Resource Graph Explorer, and download the result as CSV. The query returns only hosts with an empty `LicenseType`, and no rows until the selected value and its matching acknowledgement are set.
 
 ```csv

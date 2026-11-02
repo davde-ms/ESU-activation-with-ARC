@@ -408,9 +408,9 @@ foreach ($scriptPath in $scriptPaths) {
 }
 
 $subscriptionId = '00000000-0000-0000-0000-000000000001'
-$validCsvPath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-assignments-valid-$PID.csv"
-$alternateNameCsvPath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-assignments-alternate-name-$PID.csv"
-$invalidCsvPath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-assignments-invalid-$PID.csv"
+$validCsvPath = Join-Path $PSScriptRoot "esu-assignments-valid-$PID.csv"
+$alternateNameCsvPath = Join-Path $PSScriptRoot "esu-assignments-alternate-name-$PID.csv"
+$invalidCsvPath = Join-Path $PSScriptRoot "esu-assignments-invalid-$PID.csv"
 
 @'
 LicenseName,licenseResourceGroupName,ServerResourceGroupName,Name,AssignESULicense
@@ -440,7 +440,7 @@ function Invoke-AssignmentScenario {
     $escapedCsvPath = $CsvPath.Replace("'", "''")
     $restBehavior = switch ($Scenario) {
         'DryRunValidationFailure' { "throw 'mocked resource validation failure'" }
-        'SuccessfulDryRun' { '$null' }
+        'SuccessfulDryRun' { "if (`$Method -in @('PUT', 'PATCH', 'DELETE', 'POST')) { [Environment]::Exit(9) }" }
         'SuccessfulWhatIf' { "if (`$Method -eq 'PUT') { [Environment]::Exit(9) }" }
         'SuccessfulAssignment' { '$null' }
         'AssignmentRestFailure' { "if (`$Method -eq 'PUT') { throw 'mocked assignment failure' }" }
@@ -505,6 +505,32 @@ foreach ($scriptPath in $scriptPaths) {
             $result.Output | Should Match 'server-01'
         }
 
+        It 'imports comma and semicolon CSV inputs with quoted fields and multiple rows' {
+            $delimiterCsvPath = Join-Path $PSScriptRoot "esu-assignment-delimiter-$PID.csv"
+            try {
+                foreach ($delimiter in @(',', ';')) {
+                    @(
+                        [pscustomobject]@{ LicenseName = 'license-01'; licenseResourceGroupName = 'license-rg'; ServerResourceGroupName = 'server-rg'; ARCServerName = 'server-01'; AssignESULicense = 'True'; Notes = 'quoted, comma; semicolon' },
+                        [pscustomobject]@{ LicenseName = 'license-02'; licenseResourceGroupName = 'license-rg'; ServerResourceGroupName = 'server-rg'; ARCServerName = 'server-02'; AssignESULicense = 'False'; Notes = 'second; row, note' }
+                    ) | Export-Csv -LiteralPath $delimiterCsvPath -Delimiter $delimiter -NoTypeInformation
+                    $result = Invoke-AssignmentScenario -Path $scriptPath -CsvPath $delimiterCsvPath -Scenario SuccessfulDryRun
+
+                    $result.ExitCode | Should Be 0
+                    $result.Output | Should Match 'server-01'
+                    $result.Output | Should Match 'server-02'
+                    if ((Split-Path $scriptPath -Leaf) -eq 'ManageESUAssignmentsFR.ps1') {
+                        $result.Output | Should Match 'Opérations réussies : 2'
+                        $result.Output | Should Match 'Opérations échouées : 0'
+                    } else {
+                        $result.Output | Should Match 'Successful operations: 2'
+                        $result.Output | Should Match 'Failed operations: 0'
+                    }
+                }
+            } finally {
+                Remove-Item -LiteralPath $delimiterCsvPath -ErrorAction SilentlyContinue
+            }
+        }
+
         It 'performs read-only validation without mutation during WhatIf' {
             $result = Invoke-AssignmentScenario -Path $scriptPath -CsvPath $validCsvPath -Scenario SuccessfulWhatIf
 
@@ -539,7 +565,7 @@ foreach ($scriptPath in $scriptPaths) {
         }
 
         It 'captures each summary message once when transcript logging is enabled' {
-            $logFilePath = Join-Path ([System.IO.Path]::GetTempPath()) "esu-assignment-transcript-$PID-$([System.IO.Path]::GetRandomFileName()).txt"
+            $logFilePath = Join-Path $PSScriptRoot "esu-assignment-transcript-$PID-$([System.IO.Path]::GetRandomFileName()).txt"
 
             try {
                 $result = Invoke-AssignmentScenario -Path $scriptPath -CsvPath $validCsvPath -Scenario SuccessfulDryRun -LogFilePath $logFilePath

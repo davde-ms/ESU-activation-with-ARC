@@ -1,5 +1,7 @@
 # CheckESUStatus.ps1
 
+Le délimiteur CSV d'entrée, virgule (`,`) ou point-virgule (`;`), est détecté automatiquement selon l'en-tête requis `ServerResourceGroupName`. Utilisez un seul délimiteur dans le fichier et placez entre guillemets les champs qui le contiennent. Chaque ligne doit toujours fournir un nom de serveur dans `Name` ou `ARCServerName` ; les substitutions d'abonnement et la validation des lignes restent inchangées. Les fichiers vides, les en-têtes requis manquants et les interprétations ambiguës du délimiteur sont rejetés ; les résultats exportés restent séparés par des virgules.
+
 Ce script vérifie l'état des licences ESU des serveurs avec Azure Arc. Il utilise des requêtes REST Azure en lecture seule et fournit des informations détaillées sur les attributions de licences ESU.
 
 > **Remarque :** Ce script est en lecture seule. Il ne modifie ni les licences ESU ni les serveurs.

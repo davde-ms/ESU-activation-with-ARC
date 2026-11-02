@@ -7,6 +7,7 @@ Performs a read-only assessment of an Arc-enabled Windows machine, the
 WindowsAgent.SqlServer extension, provider registration, and correlated Arc SQL
 inventory. All CSV input is validated before authentication. No Azure resource is
 created, updated, registered, or deleted.
+CSV input automatically detects comma or semicolon delimiters from the required headers.
 
 .EXAMPLE
 ./Scripts/sql/TestSQLServerArcESUPrerequisites.ps1 -subscriptionId '00000000-0000-0000-0000-000000000001' -serverResourceGroupName 'arc-rg' -ARCServerName 'sql-01' -userToken $token
@@ -71,6 +72,58 @@ $script:CONFIG = @{
     ProviderApiVersion = '2021-04-01'
     SqlExtensionName = 'WindowsAgent.SqlServer'
     MinimumExtensionVersion = '1.1.3518.465'
+}
+
+$script:CsvColumns = @('SubscriptionId', 'ServerResourceGroupName', 'ARCServerName')
+
+function Import-DelimitedCsv {
+    [CmdletBinding(DefaultParameterSetName = 'Path')]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'Path')][string]$Path,
+        [Parameter(Mandatory = $true, ParameterSetName = 'LiteralPath')][string]$LiteralPath,
+        [Parameter(Mandatory = $true)][string[]]$RequiredColumns
+    )
+
+    $importParameters = @{ ErrorAction = 'Stop' }
+    if ($PSCmdlet.ParameterSetName -eq 'LiteralPath') {
+        $importParameters.LiteralPath = $LiteralPath
+    } else {
+        $importParameters.Path = $Path
+    }
+
+    $candidates = [System.Collections.Generic.List[object]]::new()
+    $importErrors = [System.Collections.Generic.List[string]]::new()
+    foreach ($delimiter in @(',', ';')) {
+        try {
+            $rows = @(Import-Csv @importParameters -Delimiter $delimiter)
+            $columns = if ($rows.Count -gt 0) { @($rows[0].PSObject.Properties.Name) } else { @() }
+            $missing = @($RequiredColumns | Where-Object { $_ -notin $columns })
+            $candidates.Add([pscustomobject]@{
+                Rows = $rows
+                Missing = $missing
+            })
+        } catch {
+            # A failed interpretation must not hide a valid parse with the other delimiter.
+            $importErrors.Add("Delimiter '$delimiter': $($_.Exception.Message)")
+        }
+    }
+
+    $validCandidates = @($candidates | Where-Object { $_.Rows.Count -gt 0 -and $_.Missing.Count -eq 0 })
+    if ($validCandidates.Count -eq 1) {
+        return $validCandidates[0].Rows
+    }
+    if ($validCandidates.Count -gt 1) {
+        throw 'CSV validation failed: ambiguous delimiter; both comma and semicolon interpretations contain all required columns. Use one delimiter consistently.'
+    }
+    if ($candidates.Count -eq 0) {
+        throw "CSV import failed: $($importErrors -join ' ')"
+    }
+    $nonemptyCandidates = @($candidates | Where-Object { $_.Rows.Count -gt 0 } | Sort-Object { $_.Missing.Count })
+    if ($nonemptyCandidates.Count -eq 0) {
+        throw 'CSV validation failed: the file contains no data rows.'
+    }
+    $details = if ($importErrors.Count -gt 0) { " Import errors: $($importErrors -join ' ')" } else { '' }
+    throw "CSV validation failed: missing required column(s): $($nonemptyCandidates[0].Missing -join ', '). Expected comma- or semicolon-delimited CSV.$details"
 }
 
 function Get-AzureADBearerToken {
@@ -166,7 +219,7 @@ function ConvertTo-PrerequisitePlan {
     $errors = [System.Collections.Generic.List[string]]::new()
     $plans = [System.Collections.Generic.List[object]]::new()
     $seen = @{}
-    $requiredHeaders = @('SubscriptionId', 'ServerResourceGroupName', 'ARCServerName')
+    $requiredHeaders = $script:CsvColumns
 
     if ($Rows.Count -eq 0) { throw 'The CSV file contains no data rows.' }
     foreach ($header in $requiredHeaders) {
@@ -477,7 +530,7 @@ function Export-PrerequisiteResults {
 $exitCode = 0
 try {
     if ($PSCmdlet.ParameterSetName -eq 'Csv') {
-        $rows = @(Import-Csv -LiteralPath $csvFilePath -ErrorAction Stop)
+        $rows = @(Import-DelimitedCsv -LiteralPath $csvFilePath -RequiredColumns $script:CsvColumns -ErrorAction Stop)
         $plans = @(ConvertTo-PrerequisitePlan -Rows $rows -DefaultSubscriptionId $subscriptionId)
     }
     else {

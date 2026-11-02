@@ -13,8 +13,8 @@ function Invoke-InstallScenario {
         [switch]$ServicePrincipal
     )
 
-    $recordPath = Join-Path ([System.IO.Path]::GetTempPath()) "sql-extension-record-$PID-$([guid]::NewGuid().ToString('N')).jsonl"
-    $csvPath = Join-Path ([System.IO.Path]::GetTempPath()) "sql-extension-input-$PID-$([guid]::NewGuid().ToString('N')).csv"
+    $recordPath = Join-Path $PSScriptRoot "sql-extension-record-$PID-$([guid]::NewGuid().ToString('N')).jsonl"
+    $csvPath = Join-Path $PSScriptRoot "sql-extension-input-$PID-$([guid]::NewGuid().ToString('N')).csv"
     if (-not [string]::IsNullOrWhiteSpace($CsvContent)) {
         Set-Content -LiteralPath $csvPath -Value $CsvContent
     }
@@ -314,6 +314,31 @@ Describe 'InstallSQLServerArcExtension request and idempotency behavior' {
 }
 
 Describe 'InstallSQLServerArcExtension validation and preview safety' {
+    It 'imports quoted comma and semicolon batches with subscription fallback and overrides' {
+        foreach ($delimiter in @(',', ';')) {
+            $rows = @(
+                [pscustomobject]@{ SubscriptionId = ''; ServerResourceGroupName = 'server-rg'; ARCServerName = 'server-01'; LicenseType = 'Paid'; ConfirmExternalPrerequisites = 'TRUE'; Note = "change, tracked; `"quoted`"`nsecond line" },
+                [pscustomobject]@{ SubscriptionId = $overrideSubscriptionId; ServerResourceGroupName = 'server-rg'; ARCServerName = 'server-02'; LicenseType = 'LicenseOnly'; ConfirmExternalPrerequisites = 'TRUE'; Note = 'second row' }
+            )
+            $csv = ($rows | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation) -join "`n"
+            $result = Invoke-InstallScenario -CsvContent $csv -AdditionalArguments '-DryRun'
+            $result.ExitCode | Should Be 0
+            @($result.Calls | Where-Object { $_.Method -eq 'GET' -and $_.Uri -match "/subscriptions/$subscriptionId/.*/machines/server-01\?" }).Count | Should Be 1
+            @($result.Calls | Where-Object { $_.Method -eq 'GET' -and $_.Uri -match "/subscriptions/$overrideSubscriptionId/.*/machines/server-02\?" }).Count | Should Be 1
+            @($result.Calls | Where-Object Method -eq 'PUT').Count | Should Be 0
+        }
+    }
+
+    It 'rejects incomplete comma and semicolon schemas before authentication' {
+        foreach ($delimiter in @(',', ';')) {
+            $csv = (@('SubscriptionId', 'ServerResourceGroupName', 'ARCServerName', 'LicenseType') -join $delimiter) + "`n" + (@($subscriptionId, 'server-rg', 'server-01', 'Paid') -join $delimiter)
+            $result = Invoke-InstallScenario -CsvContent $csv
+            $result.ExitCode | Should Be 1
+            $result.Output | Should Match 'missing required column.*ConfirmExternalPrerequisites'
+            $result.Calls.Count | Should Be 0
+        }
+    }
+
     It 'rejects a missing external-prerequisite acknowledgement before authentication or ARM' {
         $result = Invoke-InstallScenario -AdditionalArguments '-ConfirmExternalPrerequisites:$false'
 

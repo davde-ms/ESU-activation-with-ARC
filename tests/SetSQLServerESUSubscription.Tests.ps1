@@ -13,8 +13,8 @@ function Invoke-SetScenario {
         [switch]$ServicePrincipal
     )
 
-    $recordPath = Join-Path ([System.IO.Path]::GetTempPath()) "sql-esu-record-$PID-$([guid]::NewGuid().ToString('N')).jsonl"
-    $csvPath = Join-Path ([System.IO.Path]::GetTempPath()) "sql-esu-input-$PID-$([guid]::NewGuid().ToString('N')).csv"
+    $recordPath = Join-Path $PSScriptRoot "sql-esu-record-$PID-$([guid]::NewGuid().ToString('N')).jsonl"
+    $csvPath = Join-Path $PSScriptRoot "sql-esu-input-$PID-$([guid]::NewGuid().ToString('N')).csv"
     if (-not [string]::IsNullOrWhiteSpace($CsvContent)) { Set-Content -LiteralPath $csvPath -Value $CsvContent }
 
     $escapedScriptPath = $scriptPath.Replace("'", "''")
@@ -99,10 +99,10 @@ function global:New-MockInstance {
     param([string]`$MachineName, [string]`$Name = 'MSSQLSERVER', [string]`$Version = '13.0.7000.0', [string]`$Edition = 'Enterprise Edition', [string]`$HostType = 'VirtualMachine', [int]`$Cores = 8)
     `$timestamp = if (`$global:mockScenario -eq 'Stale') { '2026-08-01T00:00:00Z' } else { [datetime]::UtcNow.ToString('o') }
     return [ordered]@{
-        id = "/subscriptions/$subscriptionId/resourceGroups/server-rg/providers/Microsoft.AzureArcData/sqlServerInstances/`$Name"
+        id = "/subscriptions/`$inventorySubscription/resourceGroups/server-rg/providers/Microsoft.AzureArcData/sqlServerInstances/`$Name"
         name = `$Name
         properties = [ordered]@{
-            containerResourceId = "/subscriptions/$subscriptionId/resourceGroups/server-rg/providers/Microsoft.HybridCompute/machines/`$MachineName"
+            containerResourceId = "/subscriptions/`$inventorySubscription/resourceGroups/server-rg/providers/Microsoft.HybridCompute/machines/`$MachineName"
             version = `$Version
             edition = `$Edition
             serviceType = if (`$Name -eq 'MSSQLSERVER') { 'DatabaseEngine' } else { 'AnalysisServices' }
@@ -140,7 +140,8 @@ function global:Invoke-WebRequest {
         if (`$global:mockScenario -eq 'EvidenceUnavailable') { return New-MockWebResponse 503 @{ error = @{ code = 'Unavailable' } } }
         return New-MockWebResponse 200 @{ registrationState = 'Registered'; resourceTypes = @(@{ resourceType = 'sqlServerInstances'; locations = @('West US 2') }) }
     }
-    if ([string]`$Uri -match '/providers/Microsoft\.AzureArcData/sqlServerInstances\?api-version=2026-01-01$') {
+    if ([string]`$Uri -match '/subscriptions/([^/]+)/providers/Microsoft\.AzureArcData/sqlServerInstances\?api-version=2026-01-01$') {
+        `$inventorySubscription = `$Matches[1]
         if (`$global:mockScenario -eq 'EvidenceUnavailable') { return New-MockWebResponse 503 @{ error = @{ code = 'Unavailable' } } }
         `$machines = @('server-01', 'server-02')
         `$instances = @()
@@ -210,6 +211,32 @@ exit `$LASTEXITCODE
 }
 
 Describe 'SetSQLServerESUSubscription command and local validation' {
+    It 'imports quoted comma and semicolon batches with subscription fallback and overrides' {
+        foreach ($delimiter in @(',', ';')) {
+            $rows = @(
+                [pscustomobject]@{ SubscriptionId = ''; ServerResourceGroupName = 'server-rg'; ARCServerName = 'server-01'; Action = 'Enable'; LicenseType = ''; Environment = 'Production'; AcceptBackBilling = 'TRUE'; AcceptLicenseTypeChange = ''; ConfirmNonProductionCoverage = ''; ConfirmExternalPrerequisites = 'TRUE'; Note = "change, tracked; `"quoted`"`nsecond line" },
+                [pscustomobject]@{ SubscriptionId = $overrideSubscriptionId; ServerResourceGroupName = 'server-rg'; ARCServerName = 'server-02'; Action = 'Enable'; LicenseType = 'Paid'; Environment = 'Production'; AcceptBackBilling = 'TRUE'; AcceptLicenseTypeChange = 'FALSE'; ConfirmNonProductionCoverage = 'FALSE'; ConfirmExternalPrerequisites = 'TRUE'; Note = 'second row' }
+            )
+            $csv = ($rows | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation) -join "`n"
+            $result = Invoke-SetScenario -CsvContent $csv -AdditionalArguments '-DryRun'
+            $result.ExitCode | Should Be 0
+            @($result.Calls | Where-Object { $_.Method -eq 'GET' -and $_.Uri -match "/subscriptions/$subscriptionId/.*/machines/server-01\?" }).Count | Should Be 1
+            @($result.Calls | Where-Object { $_.Method -eq 'GET' -and $_.Uri -match "/subscriptions/$overrideSubscriptionId/.*/machines/server-02\?" }).Count | Should Be 1
+            @($result.Calls | Where-Object Method -eq 'PUT').Count | Should Be 0
+        }
+    }
+
+    It 'requires acknowledgement headers even when their row values are optional for either delimiter' {
+        foreach ($delimiter in @(',', ';')) {
+            $row = [pscustomobject]@{ SubscriptionId = $subscriptionId; ServerResourceGroupName = 'server-rg'; ARCServerName = 'server-01'; Action = 'Enable'; LicenseType = ''; Environment = 'Production'; AcceptBackBilling = 'TRUE'; ConfirmNonProductionCoverage = ''; ConfirmExternalPrerequisites = 'TRUE' }
+            $csv = ($row | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation) -join "`n"
+            $result = Invoke-SetScenario -CsvContent $csv
+            $result.ExitCode | Should Be 1
+            $result.Output | Should Match 'missing required column.*AcceptLicenseTypeChange'
+            $result.Calls.Count | Should Be 0
+        }
+    }
+
     It 'exposes mutually exclusive single and CSV parameter sets with confirmation controls' {
         $command = Get-Command $scriptPath
         (@($command.ParameterSets | Where-Object Name -eq 'Single').Count -eq 1) | Should Be $true

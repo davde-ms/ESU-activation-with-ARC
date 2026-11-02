@@ -59,6 +59,8 @@ For service-principal authentication, replace `-userToken` with fictitious or se
 
 ## CSV input
 
+Comma (`,`) and semicolon (`;`) delimiters are detected automatically from the required headers; no delimiter option is needed. Use one delimiter consistently, keep the exact column names below, and quote fields containing that delimiter, quotes, or line breaks (double embedded quotes). Files without data rows, missing required headers, or ambiguous delimiter interpretations are rejected before authentication. The comma-separated sample remains valid.
+
 Run [CheckSQLServerESUStatus.kql](../../../samples/CheckSQLServerESUStatus.kql) in Azure Resource Graph Explorer and download the result as CSV, or use the same structure as the status sample.
 
 ```csv

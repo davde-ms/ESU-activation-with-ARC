@@ -63,6 +63,8 @@ After review, remove `-DryRun` and use `-Confirm` for the live installation.
 
 ## CSV input
 
+Comma (`,`) and semicolon (`;`) delimiters are detected automatically from the required headers; no delimiter option is needed. Use one delimiter consistently, keep the exact column names below, and quote fields containing that delimiter, quotes, or line breaks (double embedded quotes). Files without data rows, missing required headers, or ambiguous delimiter interpretations are rejected before authentication. The comma-separated sample remains valid.
+
 Start with [InstallSQLServerArcExtension.csv](../../../samples/InstallSQLServerArcExtension.csv).
 To build the file from current Azure inventory, set the two reviewed constants in [InstallSQLServerArcExtension.kql](../../../samples/InstallSQLServerArcExtension.kql), run it in Azure Resource Graph Explorer, and download the result as CSV. The query returns no rows until `SelectedLicenseType` is valid and `ConfirmExternalPrerequisites` is `TRUE`.
 

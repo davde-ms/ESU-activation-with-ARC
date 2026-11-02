@@ -69,6 +69,14 @@ SQL Server propose également un modèle distinct de virtualisation illimitée p
 
 Les scripts n'exigent pas le module Az PowerShell lorsque l'authentification par principal de service est utilisée. L'authentification par jeton utilisateur exige un objet de jeton tel que celui renvoyé par `Get-AzAccessToken`.
 
+### Format des fichiers CSV en entrée
+
+Tous les scripts acceptant un fichier CSV en entrée prennent en charge les virgules (`,`) ou les points-virgules (`;`), détectés automatiquement à partir des en-têtes obligatoires du script. Aucun paramètre de séparateur ni fichier auxiliaire partagé n'est nécessaire : les scripts restent autonomes.
+
+Utilisez un seul séparateur dans tout le fichier. Placez entre guillemets les champs contenant ce séparateur, des guillemets ou des sauts de ligne, selon les règles CSV habituelles. Les noms de colonnes, les valeurs obligatoires et la validation des licences restent inchangés; consultez le modèle CSV et le guide du script choisi. Les exports CSV restent séparés par des virgules.
+
+Si aucun séparateur ne produit tous les en-têtes obligatoires, l'erreur indique les colonnes manquantes de la correspondance la plus proche. Les fichiers dont les deux interprétations contiennent tous les en-têtes obligatoires sont rejetés comme ambigus. Les fichiers vides ou ne contenant que les en-têtes sont rejetés. Les lignes préliminaires Excel `sep=` ne sont pas prises en charge : commencez le fichier par les véritables en-têtes de colonnes.
+
 <a id="prise-en-charge-des-environnements-azure"></a>
 ### Prise en charge des environnements Azure
 

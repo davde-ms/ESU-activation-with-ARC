@@ -1,5 +1,7 @@
 # CheckESUStatus.ps1
 
+CSV input automatically detects comma (`,`) or semicolon (`;`) delimiters using the required `ServerResourceGroupName` header. Keep one delimiter throughout the file and quote fields containing that delimiter. Each row still requires a server name in `Name` or `ARCServerName`; subscription overrides and row validation remain unchanged. Empty files, missing required headers, and ambiguous delimiter interpretations are rejected; exported results remain comma-delimited.
+
 This script checks whether Azure ARC servers have an ESU license resource assigned by making REST API calls to Azure and provides detailed status information about that assignment.
 
 > **Note:** This script is read-only and does not make any changes to your ESU licenses or servers. It only retrieves and displays license status information.
@@ -172,4 +174,3 @@ The script includes comprehensive error handling for common scenarios:
 - **CSV File Issues**: Missing files or invalid format
 - **Network Issues**: Connection problems with Azure APIs
 - **CSV Export Failures**: The export error is reported and the script exits with a nonzero code
-

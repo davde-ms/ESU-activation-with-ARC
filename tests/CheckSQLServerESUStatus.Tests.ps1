@@ -28,9 +28,9 @@ function Invoke-StatusScenario {
         [switch]$ServicePrincipal
     )
 
-    $recordPath = Join-Path ([System.IO.Path]::GetTempPath()) "sql-status-record-$PID-$([guid]::NewGuid().ToString('N')).jsonl"
-    $csvPath = Join-Path ([System.IO.Path]::GetTempPath()) "sql-status-input-$PID-$([guid]::NewGuid().ToString('N')).csv"
-    $exportPath = Join-Path ([System.IO.Path]::GetTempPath()) "sql-status-export-$PID-$([guid]::NewGuid().ToString('N')).csv"
+    $recordPath = Join-Path $PSScriptRoot "sql-status-record-$PID-$([guid]::NewGuid().ToString('N')).jsonl"
+    $csvPath = Join-Path $PSScriptRoot "sql-status-input-$PID-$([guid]::NewGuid().ToString('N')).csv"
+    $exportPath = Join-Path $PSScriptRoot "sql-status-export-$PID-$([guid]::NewGuid().ToString('N')).csv"
     if ($CsvContent) { Set-Content -LiteralPath $csvPath -Value $CsvContent }
     $targetArguments = if ($CsvContent) {
         "-subscriptionId '$subscriptionId' -csvFilePath '$($csvPath.Replace("'", "''"))'"
@@ -52,7 +52,7 @@ function Invoke-StatusScenario {
 
     $command = @"
 `$global:scenario = '$Scenario'
-`$global:sqlPage = 0
+`$global:inventorySubscription = '$subscriptionId'
 `$global:transientAttempts = 0
 function global:Write-Call(`$Uri, `$Method, `$IsAuthentication) {
     [pscustomobject]@{ Uri = [string]`$Uri; Method = [string]`$Method; IsAuthentication = `$IsAuthentication } | ConvertTo-Json -Compress | Add-Content -LiteralPath '$escapedRecord'
@@ -62,7 +62,7 @@ function global:Start-Sleep {
     Write-Call ([string]`$Seconds) 'SLEEP' `$false
 }
 function global:New-Instance(`$machine, `$name, `$version, `$edition, `$inventory, `$usage, `$hostType = 'VirtualMachine', `$cores = 8, `$environment = 'Production', `$isDisasterRecovery = `$null) {
-    [pscustomobject]@{ id = "/subscriptions/$subscriptionId/resourceGroups/arc-rg/providers/Microsoft.AzureArcData/sqlServerInstances/`$name"; name = `$name; properties = [pscustomobject]@{ containerResourceId = "/subscriptions/$subscriptionId/resourceGroups/arc-rg/providers/Microsoft.HybridCompute/machines/`$machine/"; version = `$version; edition = `$edition; serviceType = 'Engine'; status = 'Connected'; hostType = `$hostType; cores = `$cores; lastInventoryUploadTime = `$inventory; lastUsageUploadTime = `$usage; licenseType = `$(if (`$isDisasterRecovery) { 'HADR' } else { 'Paid' }); billingType = 'PAYG'; automaticPatching = `$false } }
+    [pscustomobject]@{ id = "/subscriptions/`$global:inventorySubscription/resourceGroups/arc-rg/providers/Microsoft.AzureArcData/sqlServerInstances/`$name"; name = `$name; properties = [pscustomobject]@{ containerResourceId = "/subscriptions/`$global:inventorySubscription/resourceGroups/arc-rg/providers/Microsoft.HybridCompute/machines/`$machine/"; version = `$version; edition = `$edition; serviceType = 'Engine'; status = 'Connected'; hostType = `$hostType; cores = `$cores; lastInventoryUploadTime = `$inventory; lastUsageUploadTime = `$usage; licenseType = `$(if (`$isDisasterRecovery) { 'HADR' } else { 'Paid' }); billingType = 'PAYG'; automaticPatching = `$false } }
 }
 function global:Invoke-WebRequest {
     param(`$Uri, `$Method, `$ContentType, `$Body, `$ErrorAction)
@@ -76,21 +76,19 @@ function global:Invoke-RestMethod {
     if (`$Uri -match '/providers/Microsoft\.HybridCompute\?') { return [pscustomobject]@{ registrationState = 'Registered' } }
     if (`$Uri -match '/providers/Microsoft\.AzureArcData\?') { return [pscustomobject]@{ registrationState = 'Registered' } }
     if (`$Uri -match 'sqlServerInstances') {
+        `$global:inventorySubscription = ([string]`$Uri -split '/')[4]
         if (`$global:scenario -eq 'TransientRetry' -and `$global:transientAttempts -eq 0) {
             `$global:transientAttempts++
             `$exception = [System.Exception]::new('429 response included Authorization: Bearer fictitious-access-token')
             `$exception | Add-Member -MemberType NoteProperty -Name Response -Value ([pscustomobject]@{ StatusCode = 429; Headers = @{ 'x-ms-retry-after-ms' = '0' } })
             throw `$exception
         }
-        `$global:sqlPage++
-        if (`$global:sqlPage -eq 1) {
-            `$next = switch (`$global:scenario) {
-                'HostileNextLink' { 'https://attacker.example/steal?page=2' }
-                'HostilePort' { 'https://management.azure.com:444/mock?page=2' }
-                default { 'https://management.azure.com/mock?page=2' }
-            }
-            return [pscustomobject]@{ value = @((New-Instance 'other' 'other-instance' '13.0' 'Enterprise' '$fresh' '$fresh')); nextLink = `$next }
+        `$next = switch (`$global:scenario) {
+            'HostileNextLink' { 'https://attacker.example/steal?page=2' }
+            'HostilePort' { 'https://management.azure.com:444/mock?page=2' }
+            default { 'https://management.azure.com/mock?page=2' }
         }
+        return [pscustomobject]@{ value = @((New-Instance 'other' 'other-instance' '13.0' 'Enterprise' '$fresh' '$fresh')); nextLink = `$next }
     }
     if (`$Uri -eq 'https://management.azure.com/mock?page=2') {
         `$values = switch (`$global:scenario) {
@@ -100,7 +98,7 @@ function global:Invoke-RestMethod {
             'AllIneligible' { @((New-Instance 'sql-01' 'sql-2019' 'SQL Server 2019' 'Enterprise' '$fresh' '$fresh'), (New-Instance 'sql-01' 'sql-express' 'SQL Server 2016' 'Express' '$fresh' '$fresh')) }
             'Developer' { @((New-Instance 'sql-01' 'sql-dev' 'SQL Server 2016' 'Developer' '$fresh' '$fresh' 'VirtualMachine' 8 'NonProduction')) }
             'ConflictingMetering' { @((New-Instance 'sql-01' 'sql-a' 'SQL Server 2016' 'Standard' '$fresh' '$fresh' 'VirtualMachine' 8), (New-Instance 'sql-01' 'sql-b' 'SQL Server 2016' 'Enterprise' '$fresh' '$fresh' 'Physical Server' 16)) }
-            default { @((New-Instance 'sql-01' 'sql-2016' '13.0.1' 'Standard' '$fresh' '$fresh')) }
+            default { @((New-Instance 'sql-01' 'sql-2016' '13.0.1' 'Standard' '$fresh' '$fresh'), (New-Instance 'sql-02' 'sql-2016-second' '13.0.1' 'Standard' '$fresh' '$fresh')) }
         }
         `$next = if (`$global:scenario -eq 'RepeatedNextLink') { 'https://management.azure.com/mock?page=2' } else { `$null }
         return [pscustomobject]@{ value = `$values; nextLink = `$next }
@@ -149,11 +147,12 @@ Describe 'CheckSQLServerESUStatus parsing and input' {
     }
 
     It 'aggregates invalid CSV rows, rejects duplicates, and applies subscription overrides' {
+        Import-StatusFunction Import-DelimitedCsv
         Import-StatusFunction Test-SubscriptionId
         Import-StatusFunction Test-ResourceGroupName
         Import-StatusFunction Test-MachineName
         Import-StatusFunction ConvertTo-StatusPlan
-        $path = Join-Path ([System.IO.Path]::GetTempPath()) "sql-status-validation-$PID.csv"
+        $path = Join-Path $PSScriptRoot "sql-status-validation-$PID.csv"
         @"
 SubscriptionId,ServerResourceGroupName,ARCServerName
 bad,arc-rg,sql-bad
@@ -175,6 +174,33 @@ bad,arc-rg,sql-01
         $result = Invoke-StatusScenario -CsvContent $csv
         $result.ExitCode | Should Be 1
         $result.Calls.Count | Should Be 0
+    }
+
+    It 'imports quoted comma and semicolon batches with subscription fallback and overrides' {
+        foreach ($delimiter in @(',', ';')) {
+            $rows = @(
+                [pscustomobject]@{ SubscriptionId = ''; ServerResourceGroupName = 'arc-rg'; ARCServerName = 'sql-01'; Note = "change, tracked; `"quoted`"`nsecond line" },
+                [pscustomobject]@{ SubscriptionId = $overrideSubscriptionId; ServerResourceGroupName = 'arc-rg'; ARCServerName = 'sql-02'; Note = 'second row' }
+            )
+            $csv = ($rows | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation) -join "`n"
+            $result = Invoke-StatusScenario -CsvContent $csv
+            $result.ExitCode | Should Be 0
+            $result.Exported.Count | Should Be 2
+            $result.Exported[0].SubscriptionId | Should Be $subscriptionId
+            $result.Exported[1].SubscriptionId | Should Be $overrideSubscriptionId
+            $result.Exported[1].MachineName | Should Be 'sql-02'
+            @($result.Calls | Where-Object { -not $_.IsAuthentication -and $_.Method -ne 'GET' }).Count | Should Be 0
+        }
+    }
+
+    It 'rejects incomplete comma and semicolon schemas before authentication' {
+        foreach ($delimiter in @(',', ';')) {
+            $csv = (@('SubscriptionId', 'ServerResourceGroupName') -join $delimiter) + "`n" + (@($subscriptionId, 'arc-rg') -join $delimiter)
+            $result = Invoke-StatusScenario -CsvContent $csv
+            $result.ExitCode | Should Be 1
+            ($result.Output | Out-String) | Should Match 'missing required column.*ARCServerName'
+            $result.Calls.Count | Should Be 0
+        }
     }
 }
 

@@ -49,6 +49,8 @@ $authenticationToken = Get-AzAccessToken -ResourceUrl 'https://management.azure.
 
 ## CSV input
 
+Comma (`,`) and semicolon (`;`) delimiters are detected automatically from the required headers; no delimiter option is needed. Use one delimiter consistently, keep the exact column names below, and quote fields containing that delimiter, quotes, or line breaks (double embedded quotes). Files without data rows, missing required headers, or ambiguous delimiter interpretations are rejected before authentication. The comma-separated sample remains valid.
+
 Start with [CheckSQLServerESUStatus.csv](../../../samples/CheckSQLServerESUStatus.csv).
 To build the file from current Azure inventory, run [CheckSQLServerESUStatus.kql](../../../samples/CheckSQLServerESUStatus.kql) in Azure Resource Graph Explorer and download the result as CSV.
 
